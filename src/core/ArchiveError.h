@@ -31,7 +31,7 @@ class ArchiveException : public std::runtime_error {
 public:
     ArchiveException(ArchiveErrorCode code, const QString &msg);
     ArchiveErrorCode code() const noexcept;
-    QString message() const noexcept;
+    const QString &message() const noexcept;
 private:
     ArchiveErrorCode m_code;
     QString m_message;

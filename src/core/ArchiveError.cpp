@@ -12,7 +12,7 @@ ArchiveErrorCode ArchiveException::code() const noexcept
     return m_code;
 }
 
-QString ArchiveException::message() const noexcept
+const QString &ArchiveException::message() const noexcept
 {
     return m_message;
 }

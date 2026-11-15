@@ -4,18 +4,39 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
-#include <QUuid>
-#include <QStorageInfo>
 #include <QRegularExpression>
+#include <QStorageInfo>
+#include <QUuid>
 
 #include "ArchiveEntry.h"
+
+namespace {
+
+bool copyMetadata(const QString &src, const QString &dest)
+{
+    const QFileInfo info(src);
+    if (info.isSymLink()) {
+        return true;
+    }
+
+    QFile destFile(dest);
+    if (!destFile.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    destFile.setFileTime(info.lastModified(), QFileDevice::FileModificationTime);
+    destFile.close();
+
+    return QFile::setPermissions(dest, info.permissions());
+}
+
+} // namespace
 
 QString FileUtils::canonicalPath(const QString &path)
 {
     QFileInfo fi(path);
-    QString canon = fi.canonicalFilePath();
+    const QString canon = fi.canonicalFilePath();
     if (canon.isEmpty()) {
-        // File doesn't exist yet; canonicalize the parent
+        // File doesn't exist yet; canonicalize the parent.
         return QDir::cleanPath(path);
     }
     return canon;
@@ -28,6 +49,16 @@ qint64 FileUtils::estimateFreeSpace(const QString &path)
     if (fi.isFile()) {
         dir = fi.absolutePath();
     }
+
+    // Walk up to the first existing directory.
+    while (!dir.isEmpty() && !QFileInfo::exists(dir)) {
+        const QString parent = QFileInfo(dir).absolutePath();
+        if (parent == dir) {
+            break;
+        }
+        dir = parent;
+    }
+
     QStorageInfo storage(dir);
     if (!storage.isValid() || !storage.isReady()) {
         return -1;
@@ -38,14 +69,16 @@ qint64 FileUtils::estimateFreeSpace(const QString &path)
 int FileUtils::countFiles(const QStringList &paths)
 {
     int count = 0;
-    for (const QString &p : paths) {
-        QFileInfo fi(p);
-        if (!fi.exists()) continue;
+    for (const QString &path : paths) {
+        QFileInfo fi(path);
+        if (!fi.exists()) {
+            continue;
+        }
         if (fi.isFile()) {
             ++count;
         } else if (fi.isDir()) {
-            QDir dir(p);
-            QDirIterator it(p, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+            QDirIterator it(path, QDir::Files | QDir::NoDotAndDotDot,
+                            QDirIterator::Subdirectories);
             while (it.hasNext()) {
                 it.next();
                 ++count;
@@ -58,8 +91,10 @@ int FileUtils::countFiles(const QStringList &paths)
 qint64 FileUtils::totalUnpackedSize(const QList<ArchiveEntry> &entries)
 {
     qint64 total = 0;
-    for (const auto &e : entries) {
-        total += e.size;
+    for (const ArchiveEntry &entry : entries) {
+        if (!entry.isDir) {
+            total += entry.size;
+        }
     }
     return total;
 }
@@ -73,99 +108,198 @@ bool FileUtils::removeDirectoryRecursively(const QString &path)
 bool FileUtils::moveFileAtomically(const QString &src, const QString &dest)
 {
     QFile srcFile(src);
-    // Try atomic rename first (same filesystem)
+
+    // Same-filesystem rename preserves permissions, timestamps and symlinks.
     if (srcFile.rename(dest)) {
         return true;
     }
-    // Fallback: copy then delete (cross-filesystem)
-    if (srcFile.copy(dest)) {
-        srcFile.remove();
-        return true;
+
+    const QFileInfo srcInfo(src);
+    if (srcInfo.isSymLink()) {
+        const QString target = srcInfo.symLinkTarget();
+        QFile::remove(dest);
+        if (QFile::link(target, dest)) {
+            return QFile::remove(src);
+        }
+        return false;
+    }
+
+    // Cross-filesystem fallback: copy then delete.
+    if (QFile::copy(src, dest)) {
+        copyMetadata(src, dest);
+        return QFile::remove(src);
     }
     return false;
 }
 
 int FileUtils::moveExtractedContents(const QString &srcDir, const QString &destDir,
-                                     OverwritePolicy overwrite)
+                                     OverwritePolicy overwrite, bool preservePaths)
 {
     QDir src(srcDir);
     QDir().mkpath(destDir);
 
-    QDirIterator it(srcDir,
-                    QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot,
-                    QDirIterator::Subdirectories);
+    // Snapshot first: moving files while QDirIterator walks the tree can skip
+    // entries on some filesystems.
+    struct Item {
+        QString source;
+        QString relative;
+        bool isDir = false;
+        bool isSymLink = false;
+    };
+    QList<Item> items;
 
-    int failed = 0;
+    QDirIterator it(srcDir, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot,
+                    QDirIterator::Subdirectories);
     while (it.hasNext()) {
         it.next();
         const QFileInfo info = it.fileInfo();
-        const QString relPath = src.relativeFilePath(it.filePath());
-        const QString destPath = QDir(destDir).filePath(relPath);
+        items.append({it.filePath(), src.relativeFilePath(it.filePath()),
+                      info.isDir(), info.isSymLink()});
+    }
 
-        // Recreate directories instead of renaming them. If we renamed a
-        // directory, the source paths of all of its children would disappear
-        // and every subsequent child move would fail.
-        if (info.isDir() && !info.isSymLink()) {
-            QDir().mkpath(destPath);
+    int failed = 0;
+    for (const Item &item : items) {
+        QString relative = preservePaths
+            ? item.relative
+            : QFileInfo(item.relative).fileName();
+        if (relative.isEmpty()) {
             continue;
         }
 
-        // Everything else (regular files, symlinks, special files) is moved.
-        QFileInfo destInfo(destPath);
-        QDir().mkpath(destInfo.absolutePath());
-        if (destInfo.exists()) {
-            if (overwrite == OverwritePolicy::Never) {
-                continue;
+        const QString destPath = QDir(destDir).filePath(relative);
+
+        if (item.isDir && !item.isSymLink) {
+            if (!QDir().mkpath(destPath)) {
+                ++failed;
             }
-            QFile::remove(destPath);
+            continue;
         }
 
-        if (!moveFileAtomically(it.filePath(), destPath)) {
+        QDir().mkpath(QFileInfo(destPath).absolutePath());
+
+        QFileInfo destInfo(destPath);
+        if (destInfo.exists() || destInfo.isSymLink()) {
+            switch (overwrite) {
+            case OverwritePolicy::Never:
+                continue;
+            case OverwritePolicy::Rename: {
+                const QString renamed = uniqueDestinationPath(destPath);
+                QDir().mkpath(QFileInfo(renamed).absolutePath());
+                if (!moveFileAtomically(item.source, renamed)) {
+                    ++failed;
+                }
+                continue;
+            }
+            case OverwritePolicy::Ask:
+            case OverwritePolicy::Always:
+                if (destInfo.isDir() && !destInfo.isSymLink()) {
+                    removeDirectoryRecursively(destPath);
+                } else {
+                    QFile::remove(destPath);
+                }
+                break;
+            }
+        }
+
+        if (!moveFileAtomically(item.source, destPath)) {
             ++failed;
         }
     }
 
-    removeDirectoryRecursively(srcDir);
+    // Keep the temporary directory when something failed so the caller can
+    // report/retry instead of silently deleting extracted data.
+    if (failed == 0) {
+        removeDirectoryRecursively(srcDir);
+    }
     return failed;
 }
 
 QString FileUtils::createTempExtractDir(const QString &destDir)
 {
     const QString uuid = QUuid::createUuid().toString(QUuid::Id128);
-    QString tempName = QStringLiteral(".tmp_extract_%1").arg(uuid);
-    QString tempPath = QDir(destDir).absoluteFilePath(tempName);
+    const QString tempName = QStringLiteral(".tmp_extract_%1").arg(uuid);
+    const QString tempPath = QDir(destDir).absoluteFilePath(tempName);
     QDir().mkpath(tempPath);
     return tempPath;
 }
 
 QString FileUtils::normalizeEntryPath(const QString &path)
 {
-    QString p = QDir::cleanPath(path);
-    // Strip leading '/'
-    while (p.startsWith('/')) {
-        p = p.mid(1);
+    QString normalized = path;
+    normalized.replace(QLatin1Char('\\'), QLatin1Char('/'));
+
+    // Strip a Windows drive prefix ("C:").
+    if (normalized.size() >= 2 && normalized.at(1) == QLatin1Char(':')) {
+        normalized = normalized.mid(2);
     }
-    return p;
+
+    normalized = QDir::cleanPath(normalized);
+    while (normalized.startsWith(QLatin1Char('/'))) {
+        normalized = normalized.mid(1);
+    }
+    return normalized;
 }
 
 bool FileUtils::isPathTraversal(const QString &entryPath, const QString &destDir)
 {
-    QString norm = normalizeEntryPath(entryPath);
-    // Reject if still contains '..' after cleanPath
-    if (norm.contains("..")) {
-        return true;
+    const QString normalized = normalizeEntryPath(entryPath);
+    if (normalized.isEmpty()) {
+        return false;
     }
-    // Check the resolved canonical path is within destDir
-    QString resolved = QDir(destDir).absoluteFilePath(norm);
-    QString canonDest = QFileInfo(destDir).canonicalFilePath();
-    QString canonResolved = QFileInfo(resolved).canonicalFilePath();
-    // If the file already exists, canonicalFilePath will resolve it
-    if (!canonResolved.isEmpty()) {
-        if (!canonResolved.startsWith(canonDest)) {
+
+    // Reject any ".." path component. Substring matching would incorrectly
+    // reject legitimate names such as "foo..bar".
+    const QStringList components = normalized.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    for (const QString &component : components) {
+        if (component == QStringLiteral("..")) {
             return true;
         }
     }
+
+    const QString cleanDest = QDir::cleanPath(QDir(destDir).absolutePath());
+    const QString cleanResolved = QDir::cleanPath(QDir(cleanDest).absoluteFilePath(normalized));
+
+    if (cleanResolved == cleanDest) {
+        return false;
+    }
+    if (!cleanResolved.startsWith(cleanDest + QLatin1Char('/'))) {
+        return true;
+    }
+
+    // If the target already exists, also compare canonical paths to catch
+    // symlinked parent directories that escape the destination.
+    const QFileInfo resolvedInfo(cleanResolved);
+    if (resolvedInfo.exists()) {
+        const QString canonicalDest = QFileInfo(cleanDest).canonicalFilePath();
+        const QString canonicalResolved = resolvedInfo.canonicalFilePath();
+        if (!canonicalDest.isEmpty() && !canonicalResolved.isEmpty()
+            && canonicalResolved != canonicalDest
+            && !canonicalResolved.startsWith(canonicalDest + QLatin1Char('/'))) {
+            return true;
+        }
+    }
+
     return false;
+}
+
+QString FileUtils::uniqueDestinationPath(const QString &path)
+{
+    const QFileInfo info(path);
+    const QString dir = info.absolutePath();
+    const QString name = info.fileName();
+
+    const int dot = name.lastIndexOf(QLatin1Char('.'));
+    const QString base = dot > 0 ? name.left(dot) : name;
+    const QString suffix = dot > 0 ? name.mid(dot) : QString();
+
+    for (int index = 1; index < 100000; ++index) {
+        const QString candidate = QDir(dir).filePath(
+            QStringLiteral("%1 (%2)%3").arg(base).arg(index).arg(suffix));
+        if (!QFileInfo::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return path;
 }
 
 QString FileUtils::maskPassword(const QString &args)

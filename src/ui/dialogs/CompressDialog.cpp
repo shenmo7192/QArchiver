@@ -12,9 +12,11 @@
 #include <QFileDialog>
 #include <QDialogButtonBox>
 #include <QFileInfo>
-#include <QGroupBox>
+#include <QDir>
+#include <QMessageBox>
 
 #include "core/AppSettings.h"
+#include "utils/IconUtils.h"
 
 CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     : QDialog(parent)
@@ -23,13 +25,17 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     setWindowTitle(tr("Create Archive"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
-    QFileInfo fi(sourceFiles.first());
-    QString defaultName = fi.completeBaseName();
+    const QFileInfo fi(sourceFiles.isEmpty() ? QString() : sourceFiles.first());
+    const QString defaultName = fi.completeBaseName().isEmpty()
+        ? QStringLiteral("archive")
+        : fi.completeBaseName();
+    const QString defaultPath = QDir(fi.absolutePath()).filePath(defaultName);
 
     // Target
     auto *targetLabel = new QLabel(tr("Archive name:"), this);
-    m_targetEdit = new QLineEdit(defaultName, this);
-    auto *browseBtn = new QPushButton(tr("Browse..."), this);
+    m_targetEdit = new QLineEdit(defaultPath, this);
+    auto *browseBtn = new QPushButton(qarchiverIcon(QStringLiteral("folder.png")),
+                                      tr("Browse..."), this);
     auto *targetLayout = new QHBoxLayout;
     targetLayout->addWidget(m_targetEdit);
     targetLayout->addWidget(browseBtn);
@@ -42,6 +48,9 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     m_formatCombo->addItem(tr("Gzip tar (.tar.gz)"), static_cast<int>(ArchiveFormat::TarGz));
     m_formatCombo->addItem(tr("Xz tar (.tar.xz)"), static_cast<int>(ArchiveFormat::TarXz));
     m_formatCombo->addItem(tr("Bzip2 tar (.tar.bz2)"), static_cast<int>(ArchiveFormat::TarBz2));
+    const int formatIndex = m_formatCombo->findData(
+        static_cast<int>(AppSettings::instance().defaultCompressFormat()));
+    m_formatCombo->setCurrentIndex(formatIndex >= 0 ? formatIndex : 0);
 
     // Compression level
     m_levelSpin = new QSpinBox(this);
@@ -62,9 +71,14 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     m_volumeUnit->addItem(tr("MB"), 1024 * 1024);
     m_volumeUnit->addItem(tr("KB"), 1024);
 
-    // Symlinks
+    // Additional options
     m_followSymlinksCheck = new QCheckBox(tr("Follow symlinks"), this);
     m_followSymlinksCheck->setChecked(AppSettings::instance().followSymlinks());
+    m_solidCheck = new QCheckBox(tr("Solid compression (7z only)"), this);
+    m_storeFullPathCheck = new QCheckBox(tr("Store full/absolute paths"), this);
+
+    m_excludeEdit = new QLineEdit(this);
+    m_excludeEdit->setPlaceholderText(tr("Patterns separated by ';' (e.g. *.tmp;build/*)"));
 
     auto *form = new QFormLayout;
     form->addRow(tr("&Format:"), m_formatCombo);
@@ -76,13 +90,25 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     volLayout->addWidget(m_volumeSpin);
     volLayout->addWidget(m_volumeUnit);
     form->addRow(tr("&Volume size (0=no split):"), volLayout);
+    form->addRow(tr("&Exclude patterns:"), m_excludeEdit);
     form->addRow(QString(), m_followSymlinksCheck);
+    form->addRow(QString(), m_solidCheck);
+    form->addRow(QString(), m_storeFullPathCheck);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
+        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+    }
+    if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
+        cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+    }
+    connect(buttons, &QDialogButtonBox::accepted, this, &CompressDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(browseBtn, &QPushButton::clicked, this, &CompressDialog::browseTarget);
-    connect(m_formatCombo, &QComboBox::currentIndexChanged, this, &CompressDialog::onFormatChanged);
+    connect(m_formatCombo, &QComboBox::currentIndexChanged,
+            this, &CompressDialog::onFormatChanged);
+    connect(m_passwordEdit, &QLineEdit::textChanged,
+            this, &CompressDialog::updateOptionAvailability);
 
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(targetLabel);
@@ -95,14 +121,20 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
 
 void CompressDialog::browseTarget()
 {
-    ArchiveFormat fmt = selectedFormat();
-    QString ext = defaultExtension(fmt);
+    const ArchiveFormat fmt = selectedFormat();
+    const QString ext = defaultExtension(fmt);
     QString suggested = m_targetEdit->text();
+    if (suggested.isEmpty()) {
+        suggested = QDir::homePath() + QStringLiteral("/archive");
+    }
     if (!suggested.endsWith(ext, Qt::CaseInsensitive)) {
         suggested += ext;
     }
-    QString path = QFileDialog::getSaveFileName(this, tr("Select Archive Name"),
-        suggested, tr("Archives (*%1)").arg(ext));
+
+    const QString path = QFileDialog::getSaveFileName(
+        this, tr("Select Archive Name"),
+        QFileInfo(suggested).absoluteFilePath(),
+        tr("Archives (*%1)").arg(ext));
     if (!path.isEmpty()) {
         m_targetEdit->setText(path);
     }
@@ -110,26 +142,75 @@ void CompressDialog::browseTarget()
 
 void CompressDialog::onFormatChanged()
 {
-    ArchiveFormat fmt = selectedFormat();
-    QString ext = defaultExtension(fmt);
+    const ArchiveFormat fmt = selectedFormat();
+    const QString ext = defaultExtension(fmt);
 
-    // Enable/disable encryption options
-    bool supportsEnc = (fmt == ArchiveFormat::Zip || fmt == ArchiveFormat::SevenZip);
-    m_passwordEdit->setEnabled(supportsEnc);
-    m_encryptHeadersCheck->setEnabled(fmt == ArchiveFormat::SevenZip);
-
-    // Update target extension if needed
+    // Strip any known archive extension and append the selected one.
     QString current = m_targetEdit->text();
-    // Remove existing known archive extension
-    for (const QString &e : {QStringLiteral(".7z"), QStringLiteral(".zip"),
-                            QStringLiteral(".tar.gz"), QStringLiteral(".tar.xz"),
-                            QStringLiteral(".tar.bz2"), QStringLiteral(".tar")}) {
-        if (current.endsWith(e, Qt::CaseInsensitive)) {
-            current.chop(e.size());
+    const QStringList knownExtensions = {
+        QStringLiteral(".7z"), QStringLiteral(".zip"),
+        QStringLiteral(".tar.gz"), QStringLiteral(".tar.xz"),
+        QStringLiteral(".tar.bz2"), QStringLiteral(".tar")
+    };
+    for (const QString &known : knownExtensions) {
+        if (current.endsWith(known, Qt::CaseInsensitive)) {
+            current.chop(known.size());
             break;
         }
     }
     m_targetEdit->setText(current + ext);
+
+    updateOptionAvailability();
+}
+
+void CompressDialog::updateOptionAvailability()
+{
+    const ArchiveFormat fmt = selectedFormat();
+
+    const bool supportsEncryption =
+        (fmt == ArchiveFormat::Zip || fmt == ArchiveFormat::SevenZip);
+    const bool supportsVolumes = supportsEncryption;
+
+    m_passwordEdit->setEnabled(supportsEncryption);
+    if (!supportsEncryption) {
+        m_passwordEdit->clear();
+    }
+
+    const bool hasPassword = !m_passwordEdit->text().isEmpty();
+    m_encryptHeadersCheck->setEnabled(
+        fmt == ArchiveFormat::SevenZip && hasPassword);
+    if (!m_encryptHeadersCheck->isEnabled()) {
+        m_encryptHeadersCheck->setChecked(false);
+    }
+
+    m_volumeSpin->setEnabled(supportsVolumes);
+    m_volumeUnit->setEnabled(supportsVolumes);
+    if (!supportsVolumes) {
+        m_volumeSpin->setValue(0);
+    }
+
+    m_solidCheck->setEnabled(fmt == ArchiveFormat::SevenZip);
+    if (fmt != ArchiveFormat::SevenZip) {
+        m_solidCheck->setChecked(false);
+    }
+
+    switch (fmt) {
+    case ArchiveFormat::Tar:
+        m_levelSpin->setEnabled(false);
+        break;
+    case ArchiveFormat::TarGz:
+    case ArchiveFormat::TarBz2:
+        m_levelSpin->setEnabled(true);
+        m_levelSpin->setRange(1, 9);
+        if (m_levelSpin->value() == 0) {
+            m_levelSpin->setValue(6);
+        }
+        break;
+    default:
+        m_levelSpin->setEnabled(true);
+        m_levelSpin->setRange(0, 9);
+        break;
+    }
 }
 
 ArchiveFormat CompressDialog::selectedFormat() const
@@ -142,12 +223,62 @@ CompressOptions CompressDialog::options() const
     CompressOptions opts;
     opts.archivePath = m_targetEdit->text();
     opts.sourceFiles = m_sourceFiles;
-    opts.compressionLevel = m_levelSpin->value();
-    opts.password = m_passwordEdit->text();
-    opts.encryptHeaders = m_encryptHeadersCheck->isChecked();
-    if (m_volumeSpin->value() > 0) {
-        opts.volumeSize = qint64(m_volumeSpin->value()) * m_volumeUnit->currentData().toLongLong();
+
+    const ArchiveFormat fmt = selectedFormat();
+    opts.compressionLevel = m_levelSpin->isEnabled() ? m_levelSpin->value() : 0;
+
+    if (m_passwordEdit->isEnabled()) {
+        opts.password = m_passwordEdit->text();
     }
+    opts.encryptHeaders = m_encryptHeadersCheck->isEnabled()
+        && m_encryptHeadersCheck->isChecked();
+
+    if (m_volumeSpin->isEnabled() && m_volumeSpin->value() > 0) {
+        opts.volumeSize = qint64(m_volumeSpin->value())
+            * m_volumeUnit->currentData().toLongLong();
+    }
+
     opts.followSymlinks = m_followSymlinksCheck->isChecked();
+    opts.solidMode = m_solidCheck->isEnabled() && m_solidCheck->isChecked();
+    opts.storeFullPath = m_storeFullPathCheck->isChecked();
+
+    const QStringList patterns = m_excludeEdit->text().split(
+        QLatin1Char(';'), Qt::SkipEmptyParts);
+    for (const QString &pattern : patterns) {
+        if (!pattern.trimmed().isEmpty()) {
+            opts.excludePatterns << pattern.trimmed();
+        }
+    }
+
+    Q_UNUSED(fmt);
     return opts;
+}
+
+void CompressDialog::accept()
+{
+    const QString target = m_targetEdit->text().trimmed();
+    if (target.isEmpty()) {
+        QMessageBox::warning(this, tr("Create Archive"),
+                             tr("Please specify an archive name."));
+        return;
+    }
+    if (m_sourceFiles.isEmpty()) {
+        QMessageBox::warning(this, tr("Create Archive"),
+                             tr("No source files were selected."));
+        return;
+    }
+
+    const QFileInfo info(target);
+    if (info.exists()) {
+        const auto answer = QMessageBox::question(
+            this, tr("Overwrite Archive"),
+            tr("The archive already exists:\n%1\n\nOverwrite it?")
+                .arg(info.absoluteFilePath()),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (answer != QMessageBox::Yes) {
+            return;
+        }
+    }
+
+    QDialog::accept();
 }

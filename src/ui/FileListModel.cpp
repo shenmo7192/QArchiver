@@ -1,18 +1,99 @@
 #include "FileListModel.h"
 
+#include "utils/FileUtils.h"
+
+#include <QFont>
 #include <QIcon>
-#include <QFileInfo>
 #include <QLocale>
 
+#include <algorithm>
+
 FileListModel::FileListModel(QObject *parent)
-    : QAbstractTableModel(parent)
+    : QAbstractItemModel(parent)
 {
+    m_root = new Node;
+    m_root->synthetic = true;
+}
+
+FileListModel::~FileListModel()
+{
+    clear();
+    delete m_root;
+    m_root = nullptr;
+}
+
+void FileListModel::deleteNode(Node *node)
+{
+    if (!node) {
+        return;
+    }
+    for (Node *child : node->children) {
+        deleteNode(child);
+    }
+    delete node;
+}
+
+void FileListModel::clear()
+{
+    for (Node *child : m_root->children) {
+        deleteNode(child);
+    }
+    m_root->children.clear();
+    m_nodes.clear();
+}
+
+QModelIndex FileListModel::index(int row, int column, const QModelIndex &parent) const
+{
+    if (column < 0 || column >= ColumnCount || row < 0) {
+        return QModelIndex();
+    }
+    if (m_flatMode && parent.isValid()) {
+        return QModelIndex();
+    }
+
+    const Node *parentNode = parent.isValid()
+        ? static_cast<const Node *>(parent.internalPointer())
+        : m_root;
+    if (!parentNode || row >= parentNode->children.size()) {
+        return QModelIndex();
+    }
+
+    return createIndex(row, column, parentNode->children.at(row));
+}
+
+QModelIndex FileListModel::parent(const QModelIndex &child) const
+{
+    if (!child.isValid() || m_flatMode) {
+        return QModelIndex();
+    }
+
+    const Node *node = static_cast<const Node *>(child.internalPointer());
+    if (!node || !node->parent || node->parent == m_root) {
+        return QModelIndex();
+    }
+
+    const Node *parentNode = node->parent;
+    const Node *grandParent = parentNode->parent;
+    if (!grandParent) {
+        return QModelIndex();
+    }
+
+    const int row = grandParent->children.indexOf(const_cast<Node *>(parentNode));
+    if (row < 0) {
+        return QModelIndex();
+    }
+    return createIndex(row, 0, const_cast<Node *>(parentNode));
 }
 
 int FileListModel::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
-    return m_entries.size();
+    if (parent.column() > 0 || (m_flatMode && parent.isValid())) {
+        return 0;
+    }
+    const Node *node = parent.isValid()
+        ? static_cast<const Node *>(parent.internalPointer())
+        : m_root;
+    return node ? node->children.size() : 0;
 }
 
 int FileListModel::columnCount(const QModelIndex &parent) const
@@ -21,39 +102,91 @@ int FileListModel::columnCount(const QModelIndex &parent) const
     return ColumnCount;
 }
 
+QString FileListModel::displayName(const Node *node) const
+{
+    if (!node) {
+        return QString();
+    }
+    if (node->isParent) {
+        return QStringLiteral("..");
+    }
+    if (node->entry.path.isEmpty()) {
+        return QString();
+    }
+    // The tree is keyed by the normalized path.  Use that form for the
+    // displayed basename as well; entry.path keeps the original archive
+    // member name (e.g. "./foo" or a Windows-style "dir\\file").
+    const QString normalized = FileUtils::normalizeEntryPath(node->entry.path);
+    const int slash = normalized.lastIndexOf(QLatin1Char('/'));
+    return slash >= 0 ? normalized.mid(slash + 1) : normalized;
+}
+
 QVariant FileListModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid() || index.row() < 0 || index.row() >= m_entries.size()) {
+    if (!index.isValid()) {
         return {};
     }
 
-    const ArchiveEntry &e = m_entries.at(index.row());
-
-    if (role == Qt::DisplayRole) {
-        switch (index.column()) {
-        case NameColumn: {
-            // Show only the filename portion for readability
-            QString name = e.path;
-            int slash = name.lastIndexOf('/');
-            return slash >= 0 ? name.mid(slash + 1) : name;
-        }
-        case SizeColumn:
-            return QLocale().formattedDataSize(e.size);
-        case PackedSizeColumn:
-            return QLocale().formattedDataSize(e.packedSize);
-        case ModifiedColumn:
-            return e.mtime.toString(Qt::ISODate);
-        case EncryptedColumn:
-            return e.isEncrypted ? tr("Yes") : QString();
-        }
-    } else if (role == Qt::DecorationRole && index.column() == NameColumn) {
-        return e.isDir ? QIcon(QStringLiteral(":/icons/folder.png"))
-                       : QIcon(QStringLiteral(":/icons/file.png"));
-    } else if (role == Qt::ToolTipRole) {
-        return e.path;
-    } else if (role == Qt::UserRole) {
-        return e.path;  // Full path for selection
+    const Node *node = static_cast<const Node *>(index.internalPointer());
+    if (!node) {
+        return {};
     }
+    const ArchiveEntry &entry = node->entry;
+
+    switch (role) {
+    case PathRole:
+        return entry.path;
+    case IsDirRole:
+        return entry.isDir;
+    case IsParentRole:
+        return node->isParent;
+    case Qt::ToolTipRole:
+        return node->isParent ? tr("Parent directory") : entry.path;
+    case Qt::TextAlignmentRole:
+        if (index.column() == SizeColumn || index.column() == PackedSizeColumn) {
+            return static_cast<int>(Qt::AlignRight | Qt::AlignVCenter);
+        }
+        return {};
+    case Qt::DecorationRole:
+        if (index.column() == NameColumn) {
+            static const QIcon folderIcon(QStringLiteral(":/icons/folder.png"));
+            static const QIcon fileIcon(QStringLiteral(":/icons/file.png"));
+            static const QIcon parentIcon(QStringLiteral(":/icons/up.ico"));
+            if (node->isParent) {
+                return parentIcon;
+            }
+            return entry.isDir ? folderIcon : fileIcon;
+        }
+        return {};
+    case Qt::FontRole:
+        if (entry.isDir) {
+            QFont font;
+            font.setBold(true);
+            return font;
+        }
+        return {};
+    case Qt::DisplayRole:
+        switch (index.column()) {
+        case NameColumn:
+            return displayName(node);
+        case SizeColumn:
+            return entry.isDir ? QString() : QLocale().formattedDataSize(entry.size);
+        case PackedSizeColumn:
+            return entry.isDir ? QString() : QLocale().formattedDataSize(entry.packedSize);
+        case ModifiedColumn:
+            return entry.mtime.isValid()
+                ? entry.mtime.toString(QStringLiteral("yyyy-MM-dd HH:mm"))
+                : QString();
+        case EncryptedColumn:
+            return entry.isEncrypted ? tr("Yes") : QString();
+        default:
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+
     return {};
 }
 
@@ -68,21 +201,377 @@ QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int
     case PackedSizeColumn: return tr("Packed");
     case ModifiedColumn:   return tr("Modified");
     case EncryptedColumn:  return tr("Encrypted");
+    default:               break;
     }
     return {};
+}
+
+Qt::ItemFlags FileListModel::flags(const QModelIndex &index) const
+{
+    if (!index.isValid()) {
+        return Qt::NoItemFlags;
+    }
+    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+}
+
+FileListModel::Node *FileListModel::ensureDirectory(Node *parent, const QString &path,
+                                                    const QString &name)
+{
+    auto it = m_nodes.constFind(path);
+    if (it != m_nodes.constEnd()) {
+        return it.value();
+    }
+
+    auto *node = new Node;
+    node->parent = parent;
+    node->entry.path = path;
+    node->entry.isDir = true;
+    node->synthetic = true;
+    node->entry.size = 0;
+    node->entry.packedSize = 0;
+    Q_UNUSED(name);
+    parent->children.append(node);
+    m_nodes.insert(path, node);
+    return node;
+}
+
+FileListModel::Node *FileListModel::findNode(const QString &path) const
+{
+    return m_nodes.value(path, nullptr);
 }
 
 void FileListModel::setEntries(const QList<ArchiveEntry> &entries)
 {
     beginResetModel();
-    m_entries = entries;
+    m_sourceEntries = entries;
+    if (!m_currentDir.isEmpty() && !directoryExists(m_currentDir)) {
+        m_currentDir.clear();
+    }
+    rebuild();
     endResetModel();
 }
 
-const ArchiveEntry *FileListModel::entryAt(int row) const
+void FileListModel::setFlatMode(bool flat)
 {
-    if (row < 0 || row >= m_entries.size()) {
+    if (m_flatMode == flat) {
+        return;
+    }
+    beginResetModel();
+    m_flatMode = flat;
+    // Starting list mode always begins at the archive root.  Returning to
+    // tree mode also resets the navigation cursor.
+    m_currentDir.clear();
+    rebuild();
+    endResetModel();
+}
+
+bool FileListModel::directoryExists(const QString &dir) const
+{
+    if (dir.isEmpty()) {
+        return true;
+    }
+    const QString prefix = dir + QLatin1Char('/');
+    for (ArchiveEntry entry : m_sourceEntries) {
+        while (entry.path.endsWith(QLatin1Char('/'))) {
+            entry.path.chop(1);
+        }
+        const QString path = FileUtils::normalizeEntryPath(entry.path);
+        if (path == dir) {
+            if (entry.isDir) {
+                return true;
+            }
+        } else if (path.startsWith(prefix)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool FileListModel::enterDirectory(const QString &path)
+{
+    if (!m_flatMode) {
+        return false;
+    }
+    QString dir = FileUtils::normalizeEntryPath(path);
+    if (!dir.isEmpty() && dir != QStringLiteral(".") && !directoryExists(dir)
+        && !m_currentDir.isEmpty()) {
+        // Also accept a child name relative to the currently displayed
+        // directory (handy for tests and future breadcrumb widgets).
+        const QString candidate =
+            FileUtils::normalizeEntryPath(m_currentDir + QLatin1Char('/') + dir);
+        if (directoryExists(candidate)) {
+            dir = candidate;
+        }
+    }
+    if (dir.isEmpty() || dir == QStringLiteral(".")) {
+        if (m_currentDir.isEmpty()) {
+            return true;
+        }
+        beginResetModel();
+        m_currentDir.clear();
+        rebuild();
+        endResetModel();
+        return true;
+    }
+    if (!directoryExists(dir) || m_currentDir == dir) {
+        return false;
+    }
+    beginResetModel();
+    m_currentDir = dir;
+    rebuild();
+    endResetModel();
+    return true;
+}
+
+bool FileListModel::goUp()
+{
+    if (!m_flatMode || m_currentDir.isEmpty()) {
+        return false;
+    }
+    const int slash = m_currentDir.lastIndexOf(QLatin1Char('/'));
+    beginResetModel();
+    m_currentDir = slash >= 0 ? m_currentDir.left(slash) : QString();
+    rebuild();
+    endResetModel();
+    return true;
+}
+
+void FileListModel::rebuild()
+{
+    clear();
+
+    if (m_flatMode) {
+        if (!m_currentDir.isEmpty()) {
+            auto *up = new Node;
+            up->parent = m_root;
+            up->entry.path = QStringLiteral("..");
+            up->entry.isDir = true;
+            up->synthetic = true;
+            up->isParent = true;
+            m_root->children.append(up);
+        }
+
+        QHash<QString, Node *> visible;
+        const QString prefix = m_currentDir.isEmpty()
+            ? QString()
+            : m_currentDir + QLatin1Char('/');
+
+        for (ArchiveEntry entry : m_sourceEntries) {
+            QString originalPath = entry.path;
+            while (originalPath.endsWith(QLatin1Char('/'))) {
+                originalPath.chop(1);
+            }
+            if (originalPath.isEmpty()) {
+                continue;
+            }
+            const QString path = FileUtils::normalizeEntryPath(originalPath);
+            if (path.isEmpty() || path == QStringLiteral(".")) {
+                continue;
+            }
+            if (!m_currentDir.isEmpty()) {
+                if (path == m_currentDir) {
+                    continue;
+                }
+                if (!path.startsWith(prefix)) {
+                    continue;
+                }
+            }
+
+            const QString relative = prefix.isEmpty() ? path : path.mid(prefix.size());
+            if (relative.isEmpty()) {
+                continue;
+            }
+            const int slash = relative.indexOf(QLatin1Char('/'));
+            const QString childName = slash >= 0 ? relative.left(slash) : relative;
+            const QString childPath = prefix.isEmpty()
+                ? childName
+                : prefix + childName;
+
+            auto it = visible.find(childPath);
+            if (slash >= 0) {
+                // Deeper entries imply this child is a directory even if the
+                // archive does not contain an explicit directory entry.
+                if (it == visible.end()) {
+                    auto *node = new Node;
+                    node->parent = m_root;
+                    node->entry.path = childPath;
+                    node->entry.isDir = true;
+                    node->synthetic = true;
+                    m_root->children.append(node);
+                    visible.insert(childPath, node);
+                    m_nodes.insert(childPath, node);
+                }
+                continue;
+            }
+
+            // Keep the original member name for extraction; the normalized
+            // path is only the navigation key.
+            entry.path = originalPath;
+            if (it != visible.end()) {
+                Node *node = it.value();
+                node->entry = entry;
+                node->synthetic = false;
+                m_nodes.insert(childPath, node);
+            } else {
+                auto *node = new Node;
+                node->parent = m_root;
+                node->entry = entry;
+                m_root->children.append(node);
+                visible.insert(childPath, node);
+                m_nodes.insert(childPath, node);
+            }
+        }
+        sortFlatNodes();
+        return;
+    }
+
+    for (ArchiveEntry entry : m_sourceEntries) {
+        QString originalPath = entry.path;
+        while (originalPath.endsWith(QLatin1Char('/'))) {
+            originalPath.chop(1);
+        }
+        if (originalPath.isEmpty()) {
+            continue;
+        }
+
+        const QString path = FileUtils::normalizeEntryPath(originalPath);
+        if (path.isEmpty() || path == QStringLiteral(".")) {
+            continue;
+        }
+
+        // Keep the archive's original member name (for example a leading
+        // "./" or a literal backslash); extraction tools match that name
+        // exactly.  The normalized path is only used as the tree key.
+        entry.path = originalPath;
+
+        const QStringList components = path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        if (components.isEmpty()) {
+            continue;
+        }
+
+        Node *parent = m_root;
+        QString currentPath;
+        for (int i = 0; i < components.size() - 1; ++i) {
+            currentPath = currentPath.isEmpty()
+                ? components.at(i)
+                : currentPath + QLatin1Char('/') + components.at(i);
+            parent = ensureDirectory(parent, currentPath, components.at(i));
+        }
+
+        Node *node = findNode(path);
+        if (!node) {
+            node = new Node;
+            node->parent = parent;
+            node->entry = entry;
+            parent->children.append(node);
+            m_nodes.insert(path, node);
+        } else {
+            node->entry = entry;
+            node->synthetic = false;
+        }
+    }
+}
+
+
+void FileListModel::sortFlat(int column, Qt::SortOrder order)
+{
+    if (column < 0 || column >= ColumnCount) {
+        column = NameColumn;
+    }
+    m_flatSortColumn = column;
+    m_flatSortOrder = order;
+    if (!m_flatMode) {
+        return;
+    }
+
+    beginResetModel();
+    sortFlatNodes();
+    endResetModel();
+}
+
+void FileListModel::sortFlatNodes()
+{
+    if (!m_flatMode || m_root->children.size() < 2) {
+        return;
+    }
+
+    int first = 0;
+    if (!m_root->children.isEmpty() && m_root->children.first()->isParent) {
+        first = 1;
+    }
+    if (first >= m_root->children.size()) {
+        return;
+    }
+
+    auto compare = [this](const Node *a, const Node *b) -> int {
+        switch (m_flatSortColumn) {
+        case NameColumn:
+            return QString::compare(displayName(a), displayName(b),
+                                    Qt::CaseInsensitive);
+        case SizeColumn:
+            if (a->entry.size == b->entry.size) {
+                return 0;
+            }
+            return a->entry.size < b->entry.size ? -1 : 1;
+        case PackedSizeColumn:
+            if (a->entry.packedSize == b->entry.packedSize) {
+                return 0;
+            }
+            return a->entry.packedSize < b->entry.packedSize ? -1 : 1;
+        case ModifiedColumn:
+            if (a->entry.mtime == b->entry.mtime) {
+                return 0;
+            }
+            return a->entry.mtime < b->entry.mtime ? -1 : 1;
+        case EncryptedColumn:
+            return int(a->entry.isEncrypted) - int(b->entry.isEncrypted);
+        default:
+            return 0;
+        }
+    };
+
+    std::stable_sort(m_root->children.begin() + first, m_root->children.end(),
+                     [this, &compare](const Node *a, const Node *b) {
+        int result = compare(a, b);
+        if (result == 0) {
+            // Stable, deterministic tie-breaker independent of sort order.
+            result = QString::compare(displayName(a), displayName(b),
+                                      Qt::CaseInsensitive);
+        }
+        return m_flatSortOrder == Qt::AscendingOrder ? result < 0 : result > 0;
+    });
+}
+
+QStringList FileListModel::allPaths() const
+{
+    QStringList paths;
+    paths.reserve(m_nodes.size());
+    for (auto it = m_nodes.constBegin(); it != m_nodes.constEnd(); ++it) {
+        paths << it.key();
+    }
+    paths.sort();
+    return paths;
+}
+
+const ArchiveEntry *FileListModel::entryAt(const QModelIndex &index) const
+{
+    if (!index.isValid()) {
         return nullptr;
     }
-    return &m_entries.at(row);
+    const Node *node = static_cast<const Node *>(index.internalPointer());
+    return node ? &node->entry : nullptr;
+}
+
+QModelIndex FileListModel::indexForPath(const QString &path) const
+{
+    const Node *node = findNode(FileUtils::normalizeEntryPath(path));
+    if (!node || !node->parent) {
+        return QModelIndex();
+    }
+    const Node *parentNode = node->parent;
+    const int row = parentNode->children.indexOf(const_cast<Node *>(node));
+    if (row < 0) {
+        return QModelIndex();
+    }
+    return createIndex(row, 0, const_cast<Node *>(node));
 }

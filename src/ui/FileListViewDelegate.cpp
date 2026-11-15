@@ -5,13 +5,6 @@ FileListViewDelegate::FileListViewDelegate(QObject *parent)
 {
 }
 
-void FileListViewDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
-                                  const QModelIndex &index) const
-{
-    // Delegate to the default painting; customization can be added later
-    QStyledItemDelegate::paint(painter, option, index);
-}
-
 QSize FileListViewDelegate::sizeHint(const QStyleOptionViewItem &option,
                                      const QModelIndex &index) const
 {

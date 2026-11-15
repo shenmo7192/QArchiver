@@ -12,6 +12,7 @@
 
 #include "core/AppSettings.h"
 #include "utils/ThemeManager.h"
+#include "utils/IconUtils.h"
 
 PreferencesDialog::PreferencesDialog(QWidget *parent)
     : QDialog(parent)
@@ -27,8 +28,9 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     m_defaultFormatCombo->addItem(tr("7z"), static_cast<int>(ArchiveFormat::SevenZip));
     m_defaultFormatCombo->addItem(tr("Tar"), static_cast<int>(ArchiveFormat::Tar));
     m_defaultFormatCombo->addItem(tr("Tar.gz"), static_cast<int>(ArchiveFormat::TarGz));
-    m_defaultFormatCombo->setCurrentIndex(m_defaultFormatCombo->findData(
-        static_cast<int>(settings.defaultCompressFormat())));
+    const int formatIndex = m_defaultFormatCombo->findData(
+        static_cast<int>(settings.defaultCompressFormat()));
+    m_defaultFormatCombo->setCurrentIndex(formatIndex >= 0 ? formatIndex : 0);
 
     // Default level
     m_defaultLevelSpin = new QSpinBox(this);
@@ -40,8 +42,9 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     m_overwriteCombo->addItem(tr("Ask"), static_cast<int>(OverwritePolicy::Ask));
     m_overwriteCombo->addItem(tr("Always overwrite"), static_cast<int>(OverwritePolicy::Always));
     m_overwriteCombo->addItem(tr("Never overwrite"), static_cast<int>(OverwritePolicy::Never));
-    m_overwriteCombo->setCurrentIndex(m_overwriteCombo->findData(
-        static_cast<int>(settings.overwritePolicy())));
+    const int overwriteIndex = m_overwriteCombo->findData(
+        static_cast<int>(settings.overwritePolicy()));
+    m_overwriteCombo->setCurrentIndex(overwriteIndex >= 0 ? overwriteIndex : 0);
 
     m_preservePathsCheck = new QCheckBox(tr("Preserve directory structure"), this);
     m_preservePathsCheck->setChecked(settings.preservePaths());
@@ -57,11 +60,35 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     m_followSymlinksCheck = new QCheckBox(tr("Follow symlinks when compressing"), this);
     m_followSymlinksCheck->setChecked(settings.followSymlinks());
 
+    m_rememberPasswordsCheck = new QCheckBox(tr("Remember passwords for the session"), this);
+    m_rememberPasswordsCheck->setChecked(settings.rememberPasswords());
+    m_rememberPasswordsCheck->setToolTip(
+        tr("Passwords are kept in memory only and are never written to disk."));
+
     m_themeCombo = new QComboBox(this);
     m_themeCombo->addItem(tr("System"), QStringLiteral("system"));
     m_themeCombo->addItem(tr("Light"), QStringLiteral("light"));
     m_themeCombo->addItem(tr("Dark"), QStringLiteral("dark"));
-    m_themeCombo->setCurrentIndex(m_themeCombo->findData(settings.theme()));
+    const int themeIndex = m_themeCombo->findData(settings.theme());
+    m_themeCombo->setCurrentIndex(themeIndex >= 0 ? themeIndex : 0);
+
+    m_viewModeCombo = new QComboBox(this);
+    m_viewModeCombo->addItem(tr("Tree view"), QStringLiteral("tree"));
+    m_viewModeCombo->addItem(tr("List view"), QStringLiteral("list"));
+    const int viewModeIndex = m_viewModeCombo->findData(settings.contentViewMode());
+    m_viewModeCombo->setCurrentIndex(viewModeIndex >= 0 ? viewModeIndex : 0);
+
+    m_toolbarStyleCombo = new QComboBox(this);
+    m_toolbarStyleCombo->addItem(tr("Icons above text"),
+                                 QStringLiteral("textUnderIcon"));
+    m_toolbarStyleCombo->addItem(tr("Icons beside text"),
+                                 QStringLiteral("textBesideIcon"));
+    m_toolbarStyleCombo->addItem(tr("Text only"),
+                                 QStringLiteral("textOnly"));
+    m_toolbarStyleCombo->addItem(tr("Icons only (tooltips)"),
+                                 QStringLiteral("iconOnly"));
+    const int toolbarStyleIndex = m_toolbarStyleCombo->findData(settings.toolButtonStyle());
+    m_toolbarStyleCombo->setCurrentIndex(toolbarStyleIndex >= 0 ? toolbarStyleIndex : 0);
 
     auto *form = new QFormLayout;
     form->addRow(tr("Default compression &format:"), m_defaultFormatCombo);
@@ -69,11 +96,20 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     form->addRow(tr("&Overwrite policy:"), m_overwriteCombo);
     form->addRow(tr("Max preview &size:"), m_maxPreviewSpin);
     form->addRow(tr("&Theme:"), m_themeCombo);
+    form->addRow(tr("Archive content &view:"), m_viewModeCombo);
+    form->addRow(tr("Toolbar button style:"), m_toolbarStyleCombo);
     form->addRow(QString(), m_preservePathsCheck);
     form->addRow(QString(), m_openAfterCheck);
     form->addRow(QString(), m_followSymlinksCheck);
+    form->addRow(QString(), m_rememberPasswordsCheck);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
+        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+    }
+    if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
+        cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+    }
     connect(buttons, &QDialogButtonBox::accepted, this, &PreferencesDialog::saveSettings);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -93,7 +129,10 @@ void PreferencesDialog::saveSettings()
     s.setOpenDestAfterFinish(m_openAfterCheck->isChecked());
     s.setMaxPreviewSize(qint64(m_maxPreviewSpin->value()) * 1024 * 1024);
     s.setFollowSymlinks(m_followSymlinksCheck->isChecked());
+    s.setRememberPasswords(m_rememberPasswordsCheck->isChecked());
     s.setTheme(m_themeCombo->currentData().toString());
+    s.setContentViewMode(m_viewModeCombo->currentData().toString());
+    s.setToolButtonStyle(m_toolbarStyleCombo->currentData().toString());
 
     // Apply the theme immediately so the change is visible without restarting.
     if (auto *app = qobject_cast<QApplication *>(QCoreApplication::instance())) {

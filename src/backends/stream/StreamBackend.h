@@ -2,13 +2,13 @@
 #define STREAMBACKEND_H
 
 #include "backends/ArchiveBackend.h"
-#include "utils/ProcessHelper.h"
 
 // Read-only backend for pure .gz/.bz2/.xz streams (design doc 5.6.3)
 class StreamBackend : public ArchiveBackend {
     Q_OBJECT
 public:
-    explicit StreamBackend(ArchiveFormat fmt = ArchiveFormat::Gzip, QObject *parent = nullptr);
+    explicit StreamBackend(ArchiveFormat fmt = ArchiveFormat::Gzip,
+                           QObject *parent = nullptr);
 
     void openArchive(const QString &filePath) override;
     void listContents(const ListOptions &options = {}) override;
@@ -27,12 +27,11 @@ public:
 
 private:
     QString sevenZipPath() const;
-    // Infer the internal filename from the archive path (strip last compression suffix)
     QString inferInternalName() const;
+    qint64 queryUncompressedSize() const;
 
     ArchiveFormat m_format;
-    ProcessHelper *m_process = nullptr;
-    ArchiveEntry m_entry; // single entry
+    ArchiveEntry m_entry;
 };
 
 #endif // STREAMBACKEND_H

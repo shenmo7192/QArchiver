@@ -5,6 +5,10 @@
         <file alias="Extract.png">icons/Extract.png</file>
         <file alias="file.png">icons/file.png</file>
         <file alias="folder.png">icons/folder.png</file>
+        <file alias="home.png">icons/home.png</file>
+        <file alias="yes.ico">icons/yes.ico</file>
+        <file alias="no.ico">icons/no.ico</file>
+        <file alias="up.ico">icons/up.ico</file>
         <file alias="Log.png">icons/Log.png</file>
         <file alias="New.png">icons/New.png</file>
         <file alias="Open.png">icons/Open.png</file>

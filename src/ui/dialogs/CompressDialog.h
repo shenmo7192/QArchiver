@@ -20,9 +20,13 @@ public:
     CompressOptions options() const;
     ArchiveFormat selectedFormat() const;
 
+public slots:
+    void accept() override;
+
 private slots:
     void browseTarget();
     void onFormatChanged();
+    void updateOptionAvailability();
 
 private:
     QStringList m_sourceFiles;
@@ -34,6 +38,9 @@ private:
     QSpinBox *m_volumeSpin = nullptr;
     QComboBox *m_volumeUnit = nullptr;
     QCheckBox *m_followSymlinksCheck = nullptr;
+    QCheckBox *m_solidCheck = nullptr;
+    QCheckBox *m_storeFullPathCheck = nullptr;
+    QLineEdit *m_excludeEdit = nullptr;
 };
 
 #endif // COMPRESSDIALOG_H

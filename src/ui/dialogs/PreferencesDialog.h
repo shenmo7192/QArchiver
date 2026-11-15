@@ -24,7 +24,10 @@ private:
     QCheckBox *m_openAfterCheck = nullptr;
     QSpinBox *m_maxPreviewSpin = nullptr;
     QCheckBox *m_followSymlinksCheck = nullptr;
+    QCheckBox *m_rememberPasswordsCheck = nullptr;
     QComboBox *m_themeCombo = nullptr;
+    QComboBox *m_viewModeCombo = nullptr;
+    QComboBox *m_toolbarStyleCombo = nullptr;
 };
 
 #endif // PREFERENCESDIALOG_H

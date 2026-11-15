@@ -15,6 +15,7 @@ class ExtractDialog : public QDialog {
 public:
     explicit ExtractDialog(const QString &archivePath, QWidget *parent = nullptr);
 
+    void setSelectedFiles(const QStringList &paths);
     ExtractOptions options() const;
 
 private slots:
@@ -22,9 +23,11 @@ private slots:
 
 private:
     QString m_archivePath;
+    QStringList m_selectedFiles;
     QLineEdit *m_destEdit = nullptr;
     QCheckBox *m_preservePathsCheck = nullptr;
     QCheckBox *m_openAfterCheck = nullptr;
+    QCheckBox *m_testBeforeCheck = nullptr;
     QComboBox *m_overwriteCombo = nullptr;
 };
 

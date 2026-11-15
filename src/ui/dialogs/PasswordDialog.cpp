@@ -1,9 +1,12 @@
 #include "PasswordDialog.h"
 
+#include "utils/IconUtils.h"
+
 #include <QLineEdit>
 #include <QCheckBox>
 #include <QLabel>
 #include <QDialogButtonBox>
+#include <QPushButton>
 #include <QFormLayout>
 #include <QVBoxLayout>
 
@@ -23,6 +26,12 @@ PasswordDialog::PasswordDialog(QWidget *parent)
     m_rememberCheck = new QCheckBox(tr("Remember password for this session"), this);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
+        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+    }
+    if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
+        cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+    }
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 

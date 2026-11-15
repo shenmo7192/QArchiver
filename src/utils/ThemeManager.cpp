@@ -2,10 +2,12 @@
 
 #include <QApplication>
 #include <QColor>
+#ifdef QARCHIVER_HAS_DBUS
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusVariant>
+#endif
 #include <QGuiApplication>
 #include <QPalette>
 #include <QStyleHints>
@@ -100,6 +102,7 @@ QPalette buildPalette(bool dark)
 
 QString ThemeManager::systemColorScheme()
 {
+#ifdef QARCHIVER_HAS_DBUS
     const QDBusConnection bus = QDBusConnection::sessionBus();
     if (!bus.isConnected()) {
         LOG_WARN_S("ThemeManager", "Session bus unavailable; defaulting to light theme");
@@ -144,6 +147,12 @@ QString ThemeManager::systemColorScheme()
     }
 
     return (value == 1) ? QStringLiteral("dark") : QStringLiteral("light");
+#else
+    const Qt::ColorScheme scheme = QGuiApplication::styleHints()->colorScheme();
+    return scheme == Qt::ColorScheme::Dark
+        ? QStringLiteral("dark")
+        : QStringLiteral("light");
+#endif
 }
 
 QString ThemeManager::effectiveTheme(const QString &configuredTheme)

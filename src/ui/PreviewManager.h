@@ -4,16 +4,19 @@
 #include <QObject>
 #include <QString>
 
-class ArchiveBackend;
+#include "core/ArchiveConstants.h"
 
-// Manages temporary extraction for file preview (design doc 5.6)
+// Manages temporary extraction for file preview (design doc 5.6).
+// Preview extraction never touches the main backend: it creates a private
+// backend inside a worker thread, extracts one entry, then destroys it.
 class PreviewManager : public QObject {
     Q_OBJECT
 public:
     static PreviewManager &instance();
 
-    // Preview a single entry from an archive
-    void preview(ArchiveBackend *backend, const QString &entryPath, qint64 entrySize);
+    void preview(const QString &archivePath, ArchiveFormat format,
+                 const QString &entryPath, qint64 entrySize,
+                 const QString &password);
 
     // Cleanup stale preview directories (called at startup)
     void cleanupStale();

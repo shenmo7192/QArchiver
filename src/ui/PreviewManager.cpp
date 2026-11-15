@@ -1,19 +1,25 @@
 #include "PreviewManager.h"
 
 #include "backends/ArchiveBackend.h"
+#include "core/ArchiveManager.h"
 #include "core/ArchiveOptions.h"
 #include "core/AppSettings.h"
 #include "core/ArchiveError.h"
 #include "utils/FileUtils.h"
 #include "utils/Logger.h"
 
-#include <QStandardPaths>
+#include <QCoreApplication>
+#include <QCryptographicHash>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
-#include <QDesktopServices>
+#include <QLocale>
+#include <QMessageBox>
+#include <QStandardPaths>
 #include <QUrl>
-#include <QCryptographicHash>
-#include <QCoreApplication>
+#include <QtConcurrent>
+
+#include <memory>
 
 PreviewManager::PreviewManager()
 {
@@ -21,77 +27,136 @@ PreviewManager::PreviewManager()
 
 PreviewManager &PreviewManager::instance()
 {
-    static PreviewManager s;
-    return s;
+    static PreviewManager manager;
+    return manager;
 }
 
 QString PreviewManager::previewRoot() const
 {
-    QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-    return QDir(cacheDir).filePath(QStringLiteral("SimpleArchiveManager/preview"));
+    const QString cacheDir =
+        QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    return QDir(cacheDir).filePath(QStringLiteral("preview"));
 }
 
 QString PreviewManager::ownPreviewDir() const
 {
-    return QDir(previewRoot()).filePath(QString::number(QCoreApplication::applicationPid()));
+    return QDir(previewRoot()).filePath(
+        QString::number(QCoreApplication::applicationPid()));
 }
 
-void PreviewManager::preview(ArchiveBackend *backend, const QString &entryPath, qint64 entrySize)
+void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
+                             const QString &entryPath, qint64 entrySize,
+                             const QString &password)
 {
-    if (!backend) return;
-
-    // Size check
+    if (archivePath.isEmpty() || entryPath.isEmpty()) {
+        return;
+    }
     if (entrySize > AppSettings::instance().maxPreviewSize()) {
-        LOG_WARN("PreviewManager", "File too large to preview: %lld bytes", entrySize);
+        QMessageBox::information(
+            nullptr, tr("Preview"),
+            tr("This file is too large to preview (%1).")
+                .arg(QLocale().formattedDataSize(entrySize)));
         return;
     }
 
-    // Create per-process, per-archive preview dir
-    QString archiveHash = QCryptographicHash::hash(
-        backend->archivePath().toUtf8(), QCryptographicHash::Md5).toHex();
-    QString previewDir = QDir(ownPreviewDir()).filePath(archiveHash);
-    QDir().mkpath(previewDir);
+    const QString archiveHash = QCryptographicHash::hash(
+        archivePath.toUtf8(), QCryptographicHash::Md5).toHex();
+    const QString previewDir = QDir(ownPreviewDir()).filePath(archiveHash);
+    const QString normalized = FileUtils::normalizeEntryPath(entryPath);
 
-    // Check if already extracted
-    QString tempPath = QDir(previewDir).filePath(QFileInfo(entryPath).fileName());
-    if (QFileInfo::exists(tempPath)) {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(tempPath));
+    if (FileUtils::isPathTraversal(normalized, previewDir)) {
+        LOG_WARN("PreviewManager", "Blocked unsafe preview path: %s",
+                 entryPath.toUtf8().constData());
         return;
     }
 
-    // Extract single entry to temp dir
-    ExtractOptions opts;
-    opts.destDir = previewDir;
-    opts.selectedFiles = QStringList{entryPath};
-    opts.overwrite = OverwritePolicy::Always;
+    const QString destPath = QDir(previewDir).filePath(normalized);
+    if (QFileInfo::exists(destPath)) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(destPath));
+        return;
+    }
 
-    // Connect to backend's operationFinished
-    QObject::connect(backend, &ArchiveBackend::operationFinished,
-        backend, [tempPath](bool success, const QString &) {
-            if (success && QFileInfo::exists(tempPath)) {
-                QDesktopServices::openUrl(QUrl::fromLocalFile(tempPath));
-            }
-        }, static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::UniqueConnection));
+    QDir().mkpath(QFileInfo(destPath).absolutePath());
 
-    backend->extract(opts);
+    // Do not call the main backend from the GUI thread.  A private backend is
+    // created, used and destroyed entirely inside the worker thread.
+    (void)QtConcurrent::run([archivePath, format, entryPath, normalized, previewDir,
+                              destPath, password]() {
+        std::unique_ptr<ArchiveBackend> backend(
+            ArchiveManager::createBackend(format));
+
+        bool success = false;
+        QString errorMessage;
+
+        if (backend) {
+            QObject::connect(
+                backend.get(), &ArchiveBackend::operationFinished,
+                backend.get(),
+                [&success, &errorMessage](bool ok, const QString &msg) {
+                    success = ok;
+                    errorMessage = msg;
+                },
+                Qt::DirectConnection);
+            QObject::connect(
+                backend.get(), &ArchiveBackend::errorOccurred,
+                backend.get(),
+                [&success, &errorMessage](ArchiveErrorCode, const QString &msg) {
+                    success = false;
+                    errorMessage = msg;
+                },
+                Qt::DirectConnection);
+
+            backend->openArchive(archivePath);
+
+            ExtractOptions options;
+            options.destDir = previewDir;
+            options.selectedFiles = QStringList{entryPath};
+            options.overwrite = OverwritePolicy::Always;
+            options.preservePaths = true;
+            options.password = password;
+
+            backend->extract(options);
+            backend->closeArchive();
+        } else {
+            errorMessage = QObject::tr("No backend available for preview");
+        }
+
+        const bool fileExists = QFileInfo::exists(destPath);
+
+        QMetaObject::invokeMethod(
+            &PreviewManager::instance(),
+            [destPath, success, fileExists, errorMessage]() {
+                if (success && fileExists) {
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(destPath));
+                    return;
+                }
+                LOG_WARN("PreviewManager", "Preview failed: %s",
+                         errorMessage.toUtf8().constData());
+                QMessageBox::warning(
+                    nullptr, QObject::tr("Preview"),
+                    errorMessage.isEmpty()
+                        ? QObject::tr("Unable to extract this file for preview.")
+                        : errorMessage);
+            },
+            Qt::QueuedConnection);
+    });
 }
 
 void PreviewManager::cleanupStale()
 {
     QDir root(previewRoot());
-    if (!root.exists()) return;
+    if (!root.exists()) {
+        return;
+    }
 
-    // Remove preview dirs for processes no longer running
-    for (const QString &entry : root.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+    const QStringList entries = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &entry : entries) {
         bool ok = false;
-        qint64 pid = entry.toLongLong(&ok);
-        if (ok && pid > 0) {
-            // Check if /proc/<pid> exists (process running)
-            if (!QFileInfo::exists(QStringLiteral("/proc/%1").arg(pid))) {
-                QDir dir(root.absoluteFilePath(entry));
-                dir.removeRecursively();
-                LOG_DEBUG("PreviewManager", "Cleaned stale preview dir for PID %lld", pid);
-            }
+        const qint64 pid = entry.toLongLong(&ok);
+        if (ok && pid > 0
+            && !QFileInfo::exists(QStringLiteral("/proc/%1").arg(pid))) {
+            QDir(root.absoluteFilePath(entry)).removeRecursively();
+            LOG_DEBUG("PreviewManager", "Removed stale preview dir for PID %lld", pid);
         }
     }
 }

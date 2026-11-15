@@ -38,7 +38,9 @@ void Logger::setLogFile(const QString &path)
 
     m_logPath = path;
     m_file.setFileName(path);
-    m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+    if (!m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        fputs("Logger: failed to open log file\n", stderr);
+    }
 }
 
 void Logger::log(Level lvl, const QString &tag, const QString &msg)
@@ -63,10 +65,10 @@ void Logger::log(Level lvl, const QString &tag, const QString &msg)
         .arg(msg);
 
     // Also output to stderr
-    fputs(line.toLocal8Bit().constData(), stderr);
+    fputs(line.toUtf8().constData(), stderr);
 
     if (m_file.isOpen()) {
-        m_file.write(line.toLocal8Bit());
+        m_file.write(line.toUtf8());
         m_file.flush();
         rotateIfNeeded();
     }
@@ -82,5 +84,7 @@ void Logger::rotateIfNeeded()
     m_file.close();
     QFile::remove(oldPath);
     QFile::rename(m_file.fileName(), oldPath);
-    m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+    if (!m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        fputs("Logger: failed to reopen rotated log file\n", stderr);
+    }
 }

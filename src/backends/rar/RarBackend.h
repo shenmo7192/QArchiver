@@ -2,14 +2,14 @@
 #define RARBACKEND_H
 
 #include "backends/ArchiveBackend.h"
-#include "utils/ProcessHelper.h"
 
 // Read-only backend for .rar (design doc 4.2/5.4)
 // Uses unrar (RARLAB official) for all operations.
 class RarBackend : public ArchiveBackend {
     Q_OBJECT
 public:
-    explicit RarBackend(ArchiveFormat fmt = ArchiveFormat::Rar5, QObject *parent = nullptr);
+    explicit RarBackend(ArchiveFormat fmt = ArchiveFormat::Rar5,
+                        QObject *parent = nullptr);
 
     void openArchive(const QString &filePath) override;
     void listContents(const ListOptions &options = {}) override;
@@ -28,13 +28,10 @@ public:
 
 private:
     QString unrarPath() const;
-    // Resolve first volume for split archives
     QString resolveFirstVolume() const;
-    // Parse unrar lt output
-    QList<ArchiveEntry> parseList(const QString &output) const;
+    QList<ArchiveEntry> parseList(const QString &output);
 
     ArchiveFormat m_format;
-    ProcessHelper *m_process = nullptr;
     QList<ArchiveEntry> m_entries;
     bool m_encrypted = false;
 };

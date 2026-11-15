@@ -3,11 +3,13 @@
 
 #include <QSortFilterProxyModel>
 
-// Filter + sort proxy model for large archive listings (design doc 5.7)
+// Recursive tree filter for archive entries (design doc 5.7).
 class FilterProxyModel : public QSortFilterProxyModel {
     Q_OBJECT
 public:
     explicit FilterProxyModel(QObject *parent = nullptr);
+
+    void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
 
     void setFilterWildcard(const QString &pattern);
     void setCaseSensitive(bool enabled);
@@ -19,7 +21,7 @@ protected:
 
 private:
     QString m_pattern;
-    bool m_caseSensitive = false;
+    bool m_caseSensitive = true;
     QString m_pathPrefix;
     bool m_hideEncrypted = false;
 };

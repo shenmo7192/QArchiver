@@ -1,5 +1,7 @@
 #include "ProgressDialog.h"
 
+#include "utils/IconUtils.h"
+
 #include <QProgressBar>
 #include <QLabel>
 #include <QPlainTextEdit>
@@ -11,6 +13,7 @@ ProgressDialog::ProgressDialog(QWidget *parent)
 {
     setWindowTitle(tr("Working..."));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    setAttribute(Qt::WA_DeleteOnClose);
     setModal(true);
 
     m_progressBar = new QProgressBar(this);
@@ -25,7 +28,8 @@ ProgressDialog::ProgressDialog(QWidget *parent)
     m_output->setReadOnly(true);
     m_output->setMaximumBlockCount(1000);
 
-    m_cancelBtn = new QPushButton(tr("Cancel"), this);
+    m_cancelBtn = new QPushButton(qarchiverIcon(QStringLiteral("no.ico")),
+                                  tr("Cancel"), this);
 
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(m_progressBar);
@@ -34,12 +38,24 @@ ProgressDialog::ProgressDialog(QWidget *parent)
     layout->addWidget(m_output);
     layout->addWidget(m_cancelBtn, 0, Qt::AlignRight);
 
-    connect(m_cancelBtn, &QPushButton::clicked, this, &ProgressDialog::cancelled);
+    connect(m_cancelBtn, &QPushButton::clicked, this, [this]() {
+        m_cancelBtn->setEnabled(false);
+        m_cancelBtn->setText(tr("Cancelling..."));
+        m_fileLabel->setText(tr("Cancelling operation..."));
+        emit cancelled();
+    });
 }
 
 void ProgressDialog::setOperation(const QString &title)
 {
     setWindowTitle(title);
+    m_progressBar->setRange(0, 100);
+    m_progressBar->setValue(0);
+    m_fileLabel->setText(tr("Processing..."));
+    m_statsLabel->clear();
+    m_output->clear();
+    m_cancelBtn->setEnabled(true);
+    m_cancelBtn->setText(tr("Cancel"));
 }
 
 void ProgressDialog::updateProgress(int percent, int total, int current, int etaSec)

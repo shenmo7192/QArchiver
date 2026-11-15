@@ -4,6 +4,9 @@
 #include <QObject>
 #include <QString>
 #include <QList>
+
+#include <atomic>
+
 #include "core/ArchiveConstants.h"
 #include "core/ArchiveOptions.h"
 #include "core/ArchiveEntry.h"
@@ -47,6 +50,12 @@ public:
     // Current archive path
     QString archivePath() const { return m_archivePath; }
 
+    // Cooperative cancellation: the manager sets this flag from the GUI
+    // thread; long-running backends poll it between process I/O operations.
+    void requestCancel() noexcept { m_cancelRequested.store(true, std::memory_order_relaxed); }
+    void clearCancel() noexcept { m_cancelRequested.store(false, std::memory_order_relaxed); }
+    bool isCancelled() const noexcept { return m_cancelRequested.load(std::memory_order_relaxed); }
+
 signals:
     void archiveOpened(const QString &filePath);
     void fileListReady(const QList<ArchiveEntry> &entries);
@@ -59,6 +68,7 @@ signals:
 protected:
     QString m_archivePath;
     bool m_isOpen = false;
+    std::atomic_bool m_cancelRequested{false};
 };
 
 #endif // ARCHIVEBACKEND_H

@@ -5,10 +5,13 @@
 #include <QFormLayout>
 #include <QLabel>
 #include <QFileInfo>
+#include <QLocale>
 #include <QDialogButtonBox>
+#include <QPushButton>
 #include <QVBoxLayout>
 #include <QList>
 #include "core/ArchiveEntry.h"
+#include "utils/IconUtils.h"
 
 ArchivePropertiesDialog::ArchivePropertiesDialog(ArchiveBackend *backend, QWidget *parent)
     : QDialog(parent)
@@ -34,6 +37,9 @@ ArchivePropertiesDialog::ArchivePropertiesDialog(ArchiveBackend *backend, QWidge
     }
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok, this);
+    if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
+        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+    }
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
 
     auto *layout = new QVBoxLayout(this);

@@ -2,7 +2,6 @@
 #define TARBACKEND_H
 
 #include "backends/ArchiveBackend.h"
-#include "utils/ProcessHelper.h"
 
 // Backend for .tar, .tar.gz/.tgz, .tar.xz/.txz, .tar.bz2/.tbz2 (design doc 4.2/5.1/5.2)
 class TarBackend : public ArchiveBackend {
@@ -30,15 +29,13 @@ private:
     QString decompressFlag() const;
     // Determine the tar compress flag for compression target
     QString compressFlag(ArchiveFormat fmt) const;
-    // Validate and normalize compression level; return default if invalid
+    // Validate and normalize compression level; return -1 to omit
     int validateCompressionLevel(int level) const;
     // Build the exclude arguments
     QStringList excludeArgs(const QStringList &patterns) const;
 
     ArchiveFormat m_format;
-    ProcessHelper *m_process = nullptr;
     QList<ArchiveEntry> m_entries;   // Cached entry list for progress calculation
-    bool m_cancelled = false;
 };
 
 #endif // TARBACKEND_H

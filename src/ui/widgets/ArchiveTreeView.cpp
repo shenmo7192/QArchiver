@@ -1,4 +1,5 @@
 #include "ArchiveTreeView.h"
+#include "FileListModel.h"
 
 #include <QMouseEvent>
 #include <QDrag>
@@ -22,11 +23,34 @@ ArchiveTreeView::ArchiveTreeView(QWidget *parent)
     setExpandsOnDoubleClick(false);
 
     connect(this, &QTreeView::doubleClicked, this, [this](const QModelIndex &index) {
-        const QString path = index.data(Qt::UserRole).toString();
+        if (!index.isValid()) {
+            return;
+        }
+        const bool isDir = index.data(FileListModel::IsDirRole).toBool();
+        if (!m_flatMode) {
+            if (isDir || model()->rowCount(index) > 0) {
+                setExpanded(index, !isExpanded(index));
+                return;
+            }
+        }
+        // In list mode directories (including the synthetic ".." row) are
+        // emitted too; MainWindow performs the navigation.
+        const QString path = index.data(FileListModel::PathRole).toString();
         if (!path.isEmpty()) {
             emit entryDoubleClicked(path);
         }
     });
+}
+
+void ArchiveTreeView::setFlatMode(bool flat)
+{
+    m_flatMode = flat;
+    setRootIsDecorated(!flat);
+    setItemsExpandable(!flat);
+    setIndentation(flat ? 0 : 20);
+    if (flat) {
+        collapseAll();
+    }
 }
 
 QStringList ArchiveTreeView::selectedEntryPaths() const
@@ -34,7 +58,10 @@ QStringList ArchiveTreeView::selectedEntryPaths() const
     QStringList paths;
     const QModelIndexList rows = selectionModel()->selectedRows();
     for (const QModelIndex &idx : rows) {
-        const QString path = idx.data(Qt::UserRole).toString();
+        if (idx.data(FileListModel::IsParentRole).toBool()) {
+            continue;
+        }
+        const QString path = idx.data(FileListModel::PathRole).toString();
         if (!path.isEmpty()) {
             paths << path;
         }

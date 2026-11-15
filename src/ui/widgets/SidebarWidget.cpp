@@ -2,6 +2,7 @@
 
 #include "core/RecentFilesManager.h"
 #include "core/BookmarksManager.h"
+#include "utils/IconUtils.h"
 
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -15,11 +16,13 @@ SidebarWidget::SidebarWidget(QWidget *parent)
 {
     auto *recentLabel = new QLabel(tr("Recent Files"), this);
     m_recentList = new QListWidget(this);
+    m_recentList->setIconSize(QSize(18, 18));
     m_recentList->setContextMenuPolicy(Qt::CustomContextMenu);
     m_recentList->setToolTip(tr("Recently opened archives. Double-click to open."));
 
     auto *bookmarkLabel = new QLabel(tr("Bookmarks"), this);
     m_bookmarkList = new QListWidget(this);
+    m_bookmarkList->setIconSize(QSize(18, 18));
     m_bookmarkList->setContextMenuPolicy(Qt::CustomContextMenu);
     m_bookmarkList->setToolTip(tr("Bookmarked archives. Double-click to open."));
 
@@ -93,7 +96,8 @@ void SidebarWidget::refreshRecent()
     m_recentList->clear();
     const QStringList paths = RecentFilesManager::instance().validatedList();
     for (const QString &path : paths) {
-        auto *item = new QListWidgetItem(QFileInfo(path).fileName(), m_recentList);
+        auto *item = new QListWidgetItem(qarchiverIcon(QStringLiteral("Open.png")),
+                                         QFileInfo(path).fileName(), m_recentList);
         item->setData(Qt::UserRole, path);
         item->setToolTip(path);
         if (!QFileInfo::exists(path)) {
@@ -107,7 +111,8 @@ void SidebarWidget::refreshBookmarks()
     m_bookmarkList->clear();
     const QStringList paths = BookmarksManager::instance().list();
     for (const QString &path : paths) {
-        auto *item = new QListWidgetItem(QFileInfo(path).fileName(), m_bookmarkList);
+        auto *item = new QListWidgetItem(qarchiverIcon(QStringLiteral("Properties.png")),
+                                         QFileInfo(path).fileName(), m_bookmarkList);
         item->setData(Qt::UserRole, path);
         item->setToolTip(path);
     }

@@ -10,6 +10,9 @@ class ArchiveTreeView : public QTreeView {
 public:
     explicit ArchiveTreeView(QWidget *parent = nullptr);
 
+    // Switch between hierarchical tree and flat list presentation.
+    void setFlatMode(bool flat);
+
     // Selected archive entry paths (full internal paths, e.g. "dir/file.txt")
     QStringList selectedEntryPaths() const;
 
@@ -26,6 +29,7 @@ protected:
 
 private:
     QPoint m_dragStartPos;
+    bool m_flatMode = false;
 };
 
 #endif // ARCHIVETREEVIEW_H

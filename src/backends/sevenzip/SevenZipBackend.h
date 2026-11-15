@@ -2,13 +2,13 @@
 #define SEVENZIPBACKEND_H
 
 #include "backends/ArchiveBackend.h"
-#include "utils/ProcessHelper.h"
 
-// Backend for .7z (design doc 4.2/5.1/5.2)
+// Shared backend for .7z and .zip (both handled through the 7z CLI).
 class SevenZipBackend : public ArchiveBackend {
     Q_OBJECT
 public:
-    explicit SevenZipBackend(QObject *parent = nullptr);
+    explicit SevenZipBackend(ArchiveFormat fmt = ArchiveFormat::SevenZip,
+                             QObject *parent = nullptr);
 
     void openArchive(const QString &filePath) override;
     void listContents(const ListOptions &options = {}) override;
@@ -19,19 +19,22 @@ public:
     void testArchive(const TestOptions &options = {}) override;
     void closeArchive() override;
 
-    ArchiveFormat format() const override { return ArchiveFormat::SevenZip; }
+    ArchiveFormat format() const override { return m_format; }
     bool isReadOnly() const override { return false; }
     bool supportsEncryption() const override { return true; }
     bool supportsVolume() const override { return true; }
     bool supportsAppend() const override;
 
-private:
+protected:
     QString sevenZipPath() const;
+    QString formatSwitch() const;
     bool isSplitArchive() const;
+    QString targetPath() const;
     QList<ArchiveEntry> parseList(const QString &output) const;
     int validateLevel(int level) const;
+    void appendPassword(QStringList &args, const QString &password) const;
 
-    ProcessHelper *m_process = nullptr;
+    ArchiveFormat m_format;
     QList<ArchiveEntry> m_entries;
     bool m_encrypted = false;
 };

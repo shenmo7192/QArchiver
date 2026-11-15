@@ -13,6 +13,7 @@
 #include <QFileInfo>
 
 #include "core/AppSettings.h"
+#include "utils/IconUtils.h"
 
 ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     : QDialog(parent)
@@ -26,7 +27,8 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     // Default destination: the directory containing the opened archive.
     auto *destLabel = new QLabel(tr("Destination:"), this);
     m_destEdit = new QLineEdit(fi.absolutePath(), this);
-    auto *browseBtn = new QPushButton(tr("Browse..."), this);
+    auto *browseBtn = new QPushButton(qarchiverIcon(QStringLiteral("folder.png")),
+                                      tr("Browse..."), this);
 
     auto *destLayout = new QHBoxLayout;
     destLayout->addWidget(m_destEdit);
@@ -38,17 +40,28 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     m_openAfterCheck = new QCheckBox(tr("Open destination folder after extraction"), this);
     m_openAfterCheck->setChecked(AppSettings::instance().openDestAfterFinish());
 
+    m_testBeforeCheck = new QCheckBox(tr("Test archive integrity before extraction"), this);
+    m_testBeforeCheck->setChecked(false);
+
     m_overwriteCombo = new QComboBox(this);
     m_overwriteCombo->addItem(tr("Ask"), static_cast<int>(OverwritePolicy::Ask));
     m_overwriteCombo->addItem(tr("Overwrite"), static_cast<int>(OverwritePolicy::Always));
     m_overwriteCombo->addItem(tr("Skip existing"), static_cast<int>(OverwritePolicy::Never));
     m_overwriteCombo->addItem(tr("Auto-rename"), static_cast<int>(OverwritePolicy::Rename));
-    m_overwriteCombo->setCurrentIndex(0);
+    const int overwriteIndex = m_overwriteCombo->findData(
+        static_cast<int>(AppSettings::instance().overwritePolicy()));
+    m_overwriteCombo->setCurrentIndex(overwriteIndex >= 0 ? overwriteIndex : 0);
 
     auto *form = new QFormLayout;
     form->addRow(tr("&Overwrite policy:"), m_overwriteCombo);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
+        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+    }
+    if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
+        cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+    }
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(browseBtn, &QPushButton::clicked, this, &ExtractDialog::browseDestDir);
@@ -57,6 +70,7 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     layout->addWidget(destLabel);
     layout->addLayout(destLayout);
     layout->addWidget(m_preservePathsCheck);
+    layout->addWidget(m_testBeforeCheck);
     layout->addWidget(m_openAfterCheck);
     layout->addLayout(form);
     layout->addWidget(buttons);
@@ -71,12 +85,22 @@ void ExtractDialog::browseDestDir()
     }
 }
 
+void ExtractDialog::setSelectedFiles(const QStringList &paths)
+{
+    m_selectedFiles = paths;
+    if (!paths.isEmpty()) {
+        setWindowTitle(tr("Extract Selected Entries (%1)").arg(paths.size()));
+    }
+}
+
 ExtractOptions ExtractDialog::options() const
 {
     ExtractOptions opts;
     opts.destDir = m_destEdit->text();
+    opts.selectedFiles = m_selectedFiles;
     opts.preservePaths = m_preservePathsCheck->isChecked();
     opts.openDestAfterFinish = m_openAfterCheck->isChecked();
+    opts.testBeforeExtract = m_testBeforeCheck->isChecked();
     opts.overwrite = static_cast<OverwritePolicy>(m_overwriteCombo->currentData().toInt());
     return opts;
 }

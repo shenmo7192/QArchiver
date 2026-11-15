@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=QArchiver
+Name[zh_CN]=小Q解压
+GenericName=Archive Manager
+GenericName[zh_CN]=归档管理器
+Comment=Create and extract tar, zip, 7z, rar, gz, bz2 and xz archives
+Comment[zh_CN]=创建和解压 tar、zip、7z、rar、gz、bz2、xz 归档
+Exec=QArchiver %F
+Icon=qarchiver
+Terminal=false
+Categories=Utility;Archiver;
+MimeType=application/x-7z-compressed;application/zip;application/x-tar;application/gzip;application/x-rar-compressed;application/x-xz;application/x-bzip2;
