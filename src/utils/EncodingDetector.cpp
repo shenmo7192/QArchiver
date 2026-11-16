@@ -8,6 +8,31 @@
 
 namespace {
 
+// RAII wrapper for the libc iconv handle so every early return closes it.
+class IconvHandle {
+public:
+    explicit IconvHandle(const char *to, const char *from)
+        : m_cd(iconv_open(to, from))
+    {
+    }
+
+    ~IconvHandle()
+    {
+        if (valid()) {
+            iconv_close(m_cd);
+        }
+    }
+
+    IconvHandle(const IconvHandle &) = delete;
+    IconvHandle &operator=(const IconvHandle &) = delete;
+
+    bool valid() const { return m_cd != reinterpret_cast<iconv_t>(-1); }
+    iconv_t get() const { return m_cd; }
+
+private:
+    iconv_t m_cd;
+};
+
 // Qt 6 only ships UTF-8/UTF-16/UTF-32/Latin-1 converters unless it was built
 // with ICU.  GBK/Big5/Shift-JIS are therefore handled through the libc iconv
 // implementation, which is available on all supported Linux platforms.
@@ -17,8 +42,8 @@ QString fromIconv(const QByteArray &data, const char *fromEncoding)
         return QString();
     }
 
-    iconv_t cd = iconv_open("UTF-8", fromEncoding);
-    if (cd == reinterpret_cast<iconv_t>(-1)) {
+    IconvHandle cd("UTF-8", fromEncoding);
+    if (!cd.valid()) {
         return QString();
     }
 
@@ -31,7 +56,7 @@ QString fromIconv(const QByteArray &data, const char *fromEncoding)
     size_t outLeft = static_cast<size_t>(output.size());
 
     while (inputLeft > 0) {
-        const size_t rc = iconv(cd, &input, &inputLeft, &out, &outLeft);
+        const size_t rc = iconv(cd.get(), &input, &inputLeft, &out, &outLeft);
         if (rc == static_cast<size_t>(-1)) {
             if (errno == E2BIG) {
                 const int used = static_cast<int>(output.size() - outLeft);
@@ -40,12 +65,10 @@ QString fromIconv(const QByteArray &data, const char *fromEncoding)
                 outLeft = static_cast<size_t>(output.size() - used);
                 continue;
             }
-            iconv_close(cd);
             return QString();
         }
     }
 
-    iconv_close(cd);
     const int used = static_cast<int>(output.size() - outLeft);
     return QString::fromUtf8(output.constData(), used);
 }

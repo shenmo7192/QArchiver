@@ -134,7 +134,7 @@ void ArchiveManager::connectBackend(ArchiveBackend *backend, quint64 generation)
                 if (isCurrent()) {
                     m_entries = entries;
                     m_busy = false;
-                    m_pendingOp = PendingOp::None;
+                    m_pending = std::monostate{};
                     m_retryCount = 0;
                     emit fileListReady(entries);
                 }
@@ -304,9 +304,8 @@ void ArchiveManager::listContents(const ListOptions &options)
         return;
     }
 
-    m_pendingOp = PendingOp::List;
+    m_pending = options;
     m_retryCount = 0;
-    m_pendingListOptions = options;
 
     startOperation(m_backend, [options](ArchiveBackend *backend) {
         backend->listContents(options);
@@ -373,9 +372,8 @@ void ArchiveManager::extract(const ExtractOptions &options)
         return;
     }
 
-    m_pendingOp = PendingOp::Extract;
+    m_pending = options;
     m_retryCount = 0;
-    m_pendingExtractOptions = options;
 
     if (options.testBeforeExtract) {
         m_preTestPending = true;
@@ -394,8 +392,7 @@ void ArchiveManager::extract(const ExtractOptions &options)
 
 void ArchiveManager::startExtractOperation(const ExtractOptions &options)
 {
-    m_pendingOp = PendingOp::Extract;
-    m_pendingExtractOptions = options;
+    m_pending = options;
 
     startOperation(m_backend, [options](ArchiveBackend *backend) {
         backend->extract(options);
@@ -448,7 +445,7 @@ void ArchiveManager::compress(const CompressOptions &options, ArchiveFormat form
     effectiveOptions.archivePath = m_compressFinalPath;
 
     if (m_compressTargetExisted) {
-        m_compressTempDir = new QTemporaryDir(
+        m_compressTempDir = std::make_unique<QTemporaryDir>(
             QDir(finalInfo.absolutePath())
                 .filePath(QStringLiteral(".qarchiver_compress_XXXXXX")));
         if (!m_compressTempDir->isValid()) {
@@ -491,9 +488,8 @@ void ArchiveManager::addFiles(const AddFilesOptions &options)
         return;
     }
 
-    m_pendingOp = PendingOp::Add;
+    m_pending = options;
     m_retryCount = 0;
-    m_pendingAddOptions = options;
 
     startOperation(m_backend, [options](ArchiveBackend *backend) {
         backend->addFiles(options);
@@ -512,9 +508,8 @@ void ArchiveManager::deleteFiles(const DeleteFilesOptions &options)
         return;
     }
 
-    m_pendingOp = PendingOp::Delete;
+    m_pending = options;
     m_retryCount = 0;
-    m_pendingDeleteOptions = options;
 
     startOperation(m_backend, [options](ArchiveBackend *backend) {
         backend->deleteFiles(options);
@@ -528,9 +523,8 @@ void ArchiveManager::testArchive(const TestOptions &options)
         return;
     }
 
-    m_pendingOp = PendingOp::Test;
+    m_pending = options;
     m_retryCount = 0;
-    m_pendingTestOptions = options;
 
     startOperation(m_backend, [options](ArchiveBackend *backend) {
         backend->testArchive(options);
@@ -544,7 +538,7 @@ void ArchiveManager::retryWithPassword(const QString &password)
     }
 
     if (m_retryCount >= 3) {
-        m_pendingOp = PendingOp::None;
+        m_pending = std::monostate{};
         m_retryCount = 0;
         emit errorOccurred(ArchiveErrorCode::WrongPassword,
                            tr("Too many failed password attempts."));
@@ -553,46 +547,42 @@ void ArchiveManager::retryWithPassword(const QString &password)
 
     ++m_retryCount;
 
-    switch (m_pendingOp) {
-    case PendingOp::List: {
-        m_pendingListOptions.password = password;
-        const ListOptions options = m_pendingListOptions;
-        startOperation(m_backend, [options](ArchiveBackend *backend) {
-            backend->listContents(options);
+    if (auto *options = std::get_if<ListOptions>(&m_pending)) {
+        options->password = password;
+        const ListOptions opts = *options;
+        startOperation(m_backend, [opts](ArchiveBackend *backend) {
+            backend->listContents(opts);
         });
-        break;
+        return;
     }
-    case PendingOp::Extract: {
-        m_pendingExtractOptions.password = password;
-        extract(m_pendingExtractOptions);
-        break;
+    if (auto *options = std::get_if<ExtractOptions>(&m_pending)) {
+        options->password = password;
+        extract(*options);
+        return;
     }
-    case PendingOp::Test: {
-        m_pendingTestOptions.password = password;
-        const TestOptions options = m_pendingTestOptions;
-        startOperation(m_backend, [options](ArchiveBackend *backend) {
-            backend->testArchive(options);
+    if (auto *options = std::get_if<TestOptions>(&m_pending)) {
+        options->password = password;
+        const TestOptions opts = *options;
+        startOperation(m_backend, [opts](ArchiveBackend *backend) {
+            backend->testArchive(opts);
         });
-        break;
+        return;
     }
-    case PendingOp::Add: {
-        m_pendingAddOptions.password = password;
-        const AddFilesOptions options = m_pendingAddOptions;
-        startOperation(m_backend, [options](ArchiveBackend *backend) {
-            backend->addFiles(options);
+    if (auto *options = std::get_if<AddFilesOptions>(&m_pending)) {
+        options->password = password;
+        const AddFilesOptions opts = *options;
+        startOperation(m_backend, [opts](ArchiveBackend *backend) {
+            backend->addFiles(opts);
         });
-        break;
+        return;
     }
-    case PendingOp::Delete: {
-        m_pendingDeleteOptions.password = password;
-        const DeleteFilesOptions options = m_pendingDeleteOptions;
-        startOperation(m_backend, [options](ArchiveBackend *backend) {
-            backend->deleteFiles(options);
+    if (auto *options = std::get_if<DeleteFilesOptions>(&m_pending)) {
+        options->password = password;
+        const DeleteFilesOptions opts = *options;
+        startOperation(m_backend, [opts](ArchiveBackend *backend) {
+            backend->deleteFiles(opts);
         });
-        break;
-    }
-    case PendingOp::None:
-        break;
+        return;
     }
 }
 
@@ -608,7 +598,7 @@ void ArchiveManager::cancelCurrentOperation()
 
 void ArchiveManager::cancelPendingOperation()
 {
-    m_pendingOp = PendingOp::None;
+    m_pending = std::monostate{};
     m_retryCount = 0;
     m_busy = false;
     emit operationFinished(false, tr("Cancelled"));
@@ -639,7 +629,7 @@ void ArchiveManager::handleTerminal(ArchiveBackend *backend, bool success,
     if (m_preTestPending) {
         m_preTestPending = false;
         if (!success) {
-            m_pendingOp = PendingOp::None;
+            m_pending = std::monostate{};
             m_retryCount = 0;
             emit operationFinished(false, msg);
             return;
@@ -651,7 +641,7 @@ void ArchiveManager::handleTerminal(ArchiveBackend *backend, bool success,
         return;
     }
 
-    m_pendingOp = PendingOp::None;
+    m_pending = std::monostate{};
     m_retryCount = 0;
     emit operationFinished(success, msg);
 }
@@ -671,7 +661,7 @@ void ArchiveManager::handleError(ArchiveBackend *backend, ArchiveErrorCode code,
 
     if (m_preTestPending) {
         m_preTestPending = false;
-        m_pendingOp = PendingOp::None;
+        m_pending = std::monostate{};
         m_retryCount = 0;
     }
 
@@ -679,7 +669,7 @@ void ArchiveManager::handleError(ArchiveBackend *backend, ArchiveErrorCode code,
         m_opening = false;
         closeArchive();
     } else {
-        m_pendingOp = PendingOp::None;
+        m_pending = std::monostate{};
         m_retryCount = 0;
     }
 
@@ -691,7 +681,7 @@ void ArchiveManager::closeArchive()
     ++m_generation;
     m_busy = false;
     m_opening = false;
-    m_pendingOp = PendingOp::None;
+    m_pending = std::monostate{};
     m_retryCount = 0;
     m_preTestPending = false;
     m_archivePath.clear();
@@ -722,8 +712,7 @@ void ArchiveManager::closeArchive()
     m_entries.clear();
     destroyBackend(current);
 
-    QTemporaryDir *tempDir = m_compressTempDir;
-    m_compressTempDir = nullptr;
+    QTemporaryDir *tempDir = m_compressTempDir.release();
     ArchiveBackend *tempBackend = m_tempBackend;
     m_tempBackend = nullptr;
 
@@ -845,8 +834,7 @@ void ArchiveManager::removeFailedCompressOutput()
 
 void ArchiveManager::cleanupCompressSession()
 {
-    delete m_compressTempDir;
-    m_compressTempDir = nullptr;
+    m_compressTempDir.reset();
     m_compressFinalPath.clear();
     m_compressTargetExisted = false;
 }

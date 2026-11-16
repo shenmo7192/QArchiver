@@ -1,17 +1,37 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.20)
 
 project(QArchiver
     VERSION 0.1.0
     LANGUAGES CXX
 )
 
-# Qt search path: AGENTS.md requires Qt 6.11.2 at /opt/lib/qt6.11.
-list(PREPEND CMAKE_PREFIX_PATH "/opt/lib/qt6.11")
+# C++20 baseline for the non-GUI core/backends/utils layers.
+# Qt 6.8 itself requires at least C++17 and supports C++20 with g++ 12+.
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(Qt6 6.11 REQUIRED COMPONENTS Core Gui Widgets Concurrent)
-find_package(Qt6 6.11 QUIET COMPONENTS LinguistTools DBus Test)
+# Qt 6.8 from Debian 13's qt6-base-dev package. CMake finds it under /usr
+# automatically; for a custom Qt prefix pass -DCMAKE_PREFIX_PATH=<qt-prefix>.
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Concurrent)
 
-qt_standard_project_setup(REQUIRES 6.11)
+# Modules are probed one at a time: a missing optional module must not prevent
+# the others from being detected (Qt6's config package skips all remaining
+# components when one component in a list is absent).
+foreach(component IN ITEMS LinguistTools DBus Test)
+    find_package(Qt6 6.8 QUIET COMPONENTS ${component})
+endforeach()
+
+# Translations are built exclusively through qt_add_translations(), which needs
+# the Linguist tools (lupdate/lrelease) shipped by qt6-tools-dev.
+if(NOT Qt6LinguistTools_FOUND)
+    message(FATAL_ERROR
+        "Qt6LinguistTools not found: install qt6-tools-dev (or the equivalent "
+        "package providing lupdate/lrelease) so qt_add_translations() can build "
+        "and embed the .qm translations.")
+endif()
+
+qt_standard_project_setup(REQUIRES 6.8)
 # Compile src/resources/resources.qrc (the split target_sources(qrc) setup
 # does not enable AUTORCC by itself).
 set(CMAKE_AUTORCC ON)
@@ -21,9 +41,7 @@ include(cmake/QArchiverWarnings.cmake)
 
 add_subdirectory(src)
 
-if(Qt6LinguistTools_FOUND)
-    add_subdirectory(translations)
-endif()
+add_subdirectory(translations)
 
 include(CTest)
 if(BUILD_TESTING AND TARGET Qt6::Test)

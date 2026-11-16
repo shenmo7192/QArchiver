@@ -33,8 +33,7 @@ void FilterProxyModel::setFilterWildcard(const QString &pattern)
         return;
     }
     m_pattern = pattern;
-    beginFilterChange();
-    endFilterChange();
+    invalidateFilter();
 }
 
 void FilterProxyModel::setCaseSensitive(bool enabled)
@@ -44,22 +43,19 @@ void FilterProxyModel::setCaseSensitive(bool enabled)
     }
     m_caseSensitive = enabled;
     setFilterCaseSensitivity(enabled ? Qt::CaseSensitive : Qt::CaseInsensitive);
-    beginFilterChange();
-    endFilterChange();
+    invalidateFilter();
 }
 
 void FilterProxyModel::setPathFilter(const QString &prefix)
 {
     m_pathPrefix = prefix;
-    beginFilterChange();
-    endFilterChange();
+    invalidateFilter();
 }
 
 void FilterProxyModel::setHideEncrypted(bool hide)
 {
     m_hideEncrypted = hide;
-    beginFilterChange();
-    endFilterChange();
+    invalidateFilter();
 }
 
 bool FilterProxyModel::filterAcceptsRow(int sourceRow,

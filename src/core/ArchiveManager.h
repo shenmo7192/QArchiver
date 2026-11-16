@@ -5,6 +5,8 @@
 #include <QThread>
 
 #include <functional>
+#include <memory>
+#include <variant>
 
 #include "core/ArchiveConstants.h"
 #include "core/ArchiveOptions.h"
@@ -105,17 +107,11 @@ private:
     bool m_opening = false;
     QList<ArchiveEntry> m_entries;
 
-    // Password retry state
-    enum class PendingOp { None, List, Extract, Test, Add, Delete };
-    PendingOp m_pendingOp = PendingOp::None;
+    // Password retry state. The variant holds the operation that needs a
+    // password; std::monostate means there is no pending retry.
+    std::variant<std::monostate, ListOptions, ExtractOptions, TestOptions,
+                 AddFilesOptions, DeleteFilesOptions> m_pending;
     int m_retryCount = 0;
-
-    // Cached options for retry with a password
-    ListOptions m_pendingListOptions;
-    ExtractOptions m_pendingExtractOptions;
-    TestOptions m_pendingTestOptions;
-    AddFilesOptions m_pendingAddOptions;
-    DeleteFilesOptions m_pendingDeleteOptions;
 
     // "Test before extract" chain
     bool m_preTestPending = false;
@@ -123,7 +119,7 @@ private:
 
     // Compression is written to a temporary location when the target already
     // exists, then promoted atomically on success.
-    QTemporaryDir *m_compressTempDir = nullptr;
+    std::unique_ptr<QTemporaryDir> m_compressTempDir;
     QString m_compressFinalPath;
     bool m_compressTargetExisted = false;
 };

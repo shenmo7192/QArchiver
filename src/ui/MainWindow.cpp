@@ -18,7 +18,6 @@
 #include "core/ArchiveOptions.h"
 #include "core/ArchiveConstants.h"
 #include "core/AppSettings.h"
-#include "core/BookmarksManager.h"
 
 #include "backends/ArchiveBackend.h"
 
@@ -152,10 +151,6 @@ void MainWindow::setupActions()
     m_newAct->setShortcut(QKeySequence::New);
     connect(m_newAct, &QAction::triggered, this, &MainWindow::onNewArchive);
 
-    m_bookmarkAct = new QAction(resourceIcon(QStringLiteral("Properties.png")),
-                                tr("Bookmark"), this);
-    connect(m_bookmarkAct, &QAction::triggered, this, &MainWindow::onBookmarkCurrent);
-
     // Toolbar Extract always extracts the whole archive
     m_extractAct = new QAction(resourceIcon(QStringLiteral("Extract.png")), tr("Extract"), this);
     connect(m_extractAct, &QAction::triggered, this, &MainWindow::onExtractAll);
@@ -187,7 +182,6 @@ void MainWindow::setupToolbar()
 
     tb->addAction(m_openAct);
     tb->addAction(m_newAct);
-    tb->addAction(m_bookmarkAct);
 
     tb->addSeparator();
     tb->addAction(m_extractAct);
@@ -314,8 +308,10 @@ void MainWindow::setupCentralWidget()
 
 void MainWindow::setupSidebar()
 {
-    m_sidebarDock = new QDockWidget(tr("Recent & Bookmarks"), this);
+    m_sidebarDock = new QDockWidget(tr("Recent Files"), this);
     m_sidebarDock->setObjectName(QStringLiteral("SidebarDock"));
+    // Title bar of the dock is the only heading of the sidebar.
+    m_sidebarDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     auto *sidebar = new SidebarWidget(m_sidebarDock);
     m_sidebarDock->setWidget(sidebar);
     addDockWidget(Qt::LeftDockWidgetArea, m_sidebarDock);
@@ -372,7 +368,6 @@ void MainWindow::updateActionsState()
     m_deleteAct->setEnabled(canModify && hasSelection);
     m_propertiesAct->setEnabled(hasArchive);
     m_closeAct->setEnabled(hasArchive);
-    m_bookmarkAct->setEnabled(hasArchive);
 }
 
 void MainWindow::showPlaceholder(const QString &message)
@@ -620,15 +615,6 @@ void MainWindow::onAbout()
            "<p>Supports: tar, tar.gz, tar.xz, tar.bz2, zip, 7z, rar, gz, bz2, xz</p>"
            "<p>Version: %1</p>")
             .arg(QCoreApplication::applicationVersion()));
-}
-
-void MainWindow::onBookmarkCurrent()
-{
-    if (!ArchiveManager::instance().backend()) {
-        return;
-    }
-    BookmarksManager::instance().add(ArchiveManager::instance().currentPath());
-    statusBar()->showMessage(tr("Bookmark added"), 3000);
 }
 
 void MainWindow::onArchiveOpening(const QString &filePath)

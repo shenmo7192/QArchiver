@@ -5,7 +5,6 @@
 #include <QDir>
 #include <QRegularExpression>
 #include <QStandardPaths>
-#include <QLibraryInfo>
 
 #include "ui/MainWindow.h"
 #include "utils/Logger.h"
@@ -38,37 +37,25 @@ int main(int argc, char *argv[])
     parser.addVersionOption();
     const QCommandLineOption langOption(
         QStringLiteral("lang"),
-        QStringLiteral("Use <lang>.qm (e.g. --lang en or --lang zh_CN)."),
+        QStringLiteral("Use <lang> (e.g. --lang en or --lang zh_CN)."),
         QStringLiteral("lang"));
     parser.addOption(langOption);
     parser.process(app);
 
     const QString appDir = QCoreApplication::applicationDirPath();
-    const QString installTranslations =
-        QDir(appDir).filePath(QStringLiteral("../share/qarchiver/translations"));
 
-    auto loadTranslator = [&app](const QString &name,
-                                 const QString &directory) -> bool {
-        if (name.isEmpty() || directory.isEmpty()) {
+    auto loadTranslator = [&app](const QString &name) -> bool {
+        if (name.isEmpty()) {
             return false;
         }
         auto *translator = new QTranslator(&app);
-        if (translator->load(name, directory)) {
+        if (translator->load(name, QStringLiteral(":/translations"))) {
             if (app.installTranslator(translator)) {
                 return true;
             }
         }
         delete translator;
         return false;
-    };
-
-    auto loadFromKnownPaths = [&](const QString &name) -> bool {
-        return loadTranslator(name, QStringLiteral(":/translations"))
-            || loadTranslator(name, QDir(appDir).filePath(QStringLiteral("translations")))
-            || loadTranslator(name, QDir(appDir).filePath(QStringLiteral("../translations")))
-            || loadTranslator(name, appDir)
-            || loadTranslator(name, installTranslations)
-            || loadTranslator(name, QLibraryInfo::path(QLibraryInfo::TranslationsPath));
     };
 
     bool translationLoaded = false;
@@ -79,14 +66,14 @@ int main(int argc, char *argv[])
         static const QRegularExpression langNameRe(
             QStringLiteral("^[A-Za-z][A-Za-z0-9_.-]*$"));
         if (langNameRe.match(lang).hasMatch()) {
-            translationLoaded = loadFromKnownPaths(lang);
+            translationLoaded = loadTranslator(lang);
         }
     }
 
-    // Default: follow the system locale.  The resource copy is embedded by
-    // qt_add_translations(); the other paths are fallbacks for packaged builds.
+    // Default: follow the system locale.  The catalogs are embedded into the
+    // executable by qt_add_translations() under :/translations/<lang>.qm.
     if (!translationLoaded) {
-        translationLoaded = loadFromKnownPaths(QLocale::system().name());
+        translationLoaded = loadTranslator(QLocale::system().name());
     }
     if (!translationLoaded) {
         // Some platforms report BCP-47 names (zh-CN); Qt catalogs use zh_CN.
@@ -98,7 +85,7 @@ int main(int argc, char *argv[])
                 || candidate == QLatin1String("POSIX")) {
                 continue;
             }
-            if (loadFromKnownPaths(candidate)) {
+            if (loadTranslator(candidate)) {
                 translationLoaded = true;
                 break;
             }

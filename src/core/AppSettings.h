@@ -29,7 +29,6 @@ public:
     qint64 maxPreviewSize() const;
     bool followSymlinks() const;
     QStringList recentFiles() const;
-    QStringList bookmarks() const;
     QString theme() const;
     QString contentViewMode() const;   // "tree" or "list"
     QString toolButtonStyle() const;  // textUnderIcon/textBesideIcon/textOnly/iconOnly
@@ -44,7 +43,6 @@ public:
     void setMaxPreviewSize(qint64 size);
     void setFollowSymlinks(bool follow);
     void setRecentFiles(const QStringList &files);
-    void setBookmarks(const QStringList &bms);
     void setTheme(const QString &theme);
     void setContentViewMode(const QString &mode);
     void setToolButtonStyle(const QString &style);

@@ -6,7 +6,9 @@
 class QListWidget;
 class QListWidgetItem;
 
-// Sidebar with Recent Files and Bookmarks (design doc 5.9)
+// Sidebar with the recently-opened archives list (design doc 5.9).
+// The visible title is the QDockWidget title bar created by MainWindow, so the
+// widget itself only hosts the list.
 class SidebarWidget : public QWidget {
     Q_OBJECT
 public:
@@ -14,17 +16,13 @@ public:
 
 signals:
     void fileOpened(const QString &filePath);
-    void bookmarkRemoved(const QString &filePath);
 
 private slots:
     void refreshRecent();
-    void refreshBookmarks();
     void onRecentClicked(QListWidgetItem *item);
-    void onBookmarkClicked(QListWidgetItem *item);
 
 private:
     QListWidget *m_recentList = nullptr;
-    QListWidget *m_bookmarkList = nullptr;
 };
 
 #endif // SIDEBARWIDGET_H

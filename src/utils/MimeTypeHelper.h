@@ -3,6 +3,10 @@
 
 #include <QString>
 #include <QByteArray>
+
+#include <cstdint>
+#include <span>
+
 #include "ArchiveConstants.h"
 
 // Format detection authority (design doc 4.3)
@@ -16,7 +20,7 @@ public:
     static QByteArray readMagic(const QString &filePath, int maxBytes = 512);
 
     // Match a signature at a given offset
-    static bool matchMagic(const QByteArray &head, const QByteArray &signature, int offset);
+    static bool matchMagic(const QByteArray &head, std::span<const std::uint8_t> signature, int offset);
 
     // Extract lowercase extension (normalizes .tgz/.txz/.tbz2)
     static QString extensionOf(const QString &filePath);

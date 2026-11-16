@@ -106,11 +106,6 @@ QStringList AppSettings::recentFiles() const
     return value(QStringLiteral("history/recentFiles")).toStringList();
 }
 
-QStringList AppSettings::bookmarks() const
-{
-    return value(QStringLiteral("history/bookmarks")).toStringList();
-}
-
 QString AppSettings::theme() const
 {
     return value(QStringLiteral("ui/theme"), QStringLiteral("system")).toString();
@@ -182,11 +177,6 @@ void AppSettings::setRecentFiles(const QStringList &files)
         capped.removeLast();
     }
     setValue(QStringLiteral("history/recentFiles"), capped);
-}
-
-void AppSettings::setBookmarks(const QStringList &bms)
-{
-    setValue(QStringLiteral("history/bookmarks"), bms);
 }
 
 void AppSettings::setTheme(const QString &theme)

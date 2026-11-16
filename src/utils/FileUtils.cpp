@@ -4,7 +4,6 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
-#include <QRegularExpression>
 #include <QStorageInfo>
 #include <QUuid>
 
@@ -300,12 +299,4 @@ QString FileUtils::uniqueDestinationPath(const QString &path)
         }
     }
     return path;
-}
-
-QString FileUtils::maskPassword(const QString &args)
-{
-    QRegularExpression re(QStringLiteral("-p[^ ]+"));
-    QString masked = args;
-    masked.replace(re, QStringLiteral("-p***"));
-    return masked;
 }

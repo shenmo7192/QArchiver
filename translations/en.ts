@@ -1,11 +1,11 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="en">
 <context>
     <name>ArchiveManager</name>
     <message>
         <location filename="../src/core/ArchiveManager.cpp" line="98"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="409"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="406"/>
         <source>Another operation is already in progress</source>
         <translation>Another operation is already in progress</translation>
     </message>
@@ -31,7 +31,7 @@
     </message>
     <message>
         <location filename="../src/core/ArchiveManager.cpp" line="277"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="426"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="423"/>
         <source>No backend available for format: %1</source>
         <translation>No backend available for format: %1</translation>
     </message>
@@ -41,83 +41,83 @@
         <translation>Failed to open archive: %1</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="320"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="319"/>
         <source>No destination directory selected</source>
         <translation>No destination directory selected</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="332"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="340"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="331"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="339"/>
         <source>Blocked unsafe path: %1</source>
         <translation>Blocked unsafe path: %1</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="350"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="349"/>
         <source>Insufficient disk space: %1 required, %2 available</source>
         <translation>Insufficient disk space: %1 required, %2 available</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="372"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="371"/>
         <source>Cannot create destination directory: %1</source>
         <translation>Cannot create destination directory: %1</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="413"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="410"/>
         <source>No archive name specified</source>
         <translation>No archive name specified</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="417"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="414"/>
         <source>No source files selected</source>
         <translation>No source files selected</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="439"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="436"/>
         <source>Cannot create target directory: %1</source>
         <translation>Cannot create target directory: %1</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="456"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="453"/>
         <source>Cannot create a temporary directory next to the target</source>
         <translation>Cannot create a temporary directory next to the target</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="476"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="473"/>
         <source>Failed to dispatch the compression operation</source>
         <translation>Failed to dispatch the compression operation</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="614"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="604"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="633"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="623"/>
         <source>Failed to finalize the compressed archive</source>
         <translation>Failed to finalize the compressed archive</translation>
     </message>
     <message>
         <location filename="../src/core/ArchiveManager.cpp" line="93"/>
         <location filename="../src/core/ArchiveManager.cpp" line="303"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="362"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="485"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="506"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="527"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="361"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="482"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="502"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="522"/>
         <source>No archive open</source>
         <translation>No archive open</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="490"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="487"/>
         <source>This archive does not support adding files</source>
         <translation>This archive does not support adding files</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="511"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="507"/>
         <source>This archive does not support deleting files</source>
         <translation>This archive does not support deleting files</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="550"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="544"/>
         <source>Too many failed password attempts.</source>
         <translation>Too many failed password attempts.</translation>
     </message>
@@ -272,8 +272,8 @@
     </message>
     <message>
         <location filename="../src/ui/dialogs/CompressDialog.cpp" line="81"/>
-        <source>Patterns separated by ';' (e.g. *.tmp;build/*)</source>
-        <translation>Patterns separated by ';' (e.g. *.tmp;build/*)</translation>
+        <source>Patterns separated by &apos;;&apos; (e.g. *.tmp;build/*)</source>
+        <translation>Patterns separated by &apos;;&apos; (e.g. *.tmp;build/*)</translation>
     </message>
     <message>
         <location filename="../src/ui/dialogs/CompressDialog.cpp" line="84"/>
@@ -446,186 +446,181 @@ Overwrite it?</translation>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="104"/>
-        <location filename="../src/ui/MainWindow.cpp" line="598"/>
+        <location filename="../src/ui/MainWindow.cpp" line="103"/>
+        <location filename="../src/ui/MainWindow.cpp" line="593"/>
         <source>QArchiver</source>
         <translation>QArchiver</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="147"/>
+        <location filename="../src/ui/MainWindow.cpp" line="146"/>
         <source>Open</source>
         <translation>Open</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="151"/>
+        <location filename="../src/ui/MainWindow.cpp" line="150"/>
         <source>New Archive</source>
         <translation>New Archive</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="156"/>
-        <source>Bookmark</source>
-        <translation>Bookmark</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/MainWindow.cpp" line="160"/>
+        <location filename="../src/ui/MainWindow.cpp" line="155"/>
         <source>Extract</source>
         <translation>Extract</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="163"/>
-        <location filename="../src/ui/MainWindow.cpp" line="840"/>
+        <location filename="../src/ui/MainWindow.cpp" line="158"/>
+        <location filename="../src/ui/MainWindow.cpp" line="828"/>
         <source>Add Files...</source>
         <translation>Add Files...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="167"/>
-        <location filename="../src/ui/MainWindow.cpp" line="844"/>
+        <location filename="../src/ui/MainWindow.cpp" line="162"/>
+        <location filename="../src/ui/MainWindow.cpp" line="833"/>
         <source>Delete Selected</source>
         <translation>Delete Selected</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="171"/>
-        <location filename="../src/ui/MainWindow.cpp" line="850"/>
+        <location filename="../src/ui/MainWindow.cpp" line="166"/>
+        <location filename="../src/ui/MainWindow.cpp" line="840"/>
         <source>Properties</source>
         <translation>Properties</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="174"/>
+        <location filename="../src/ui/MainWindow.cpp" line="169"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="181"/>
+        <location filename="../src/ui/MainWindow.cpp" line="176"/>
         <source>Main</source>
         <translation>Main</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="202"/>
+        <location filename="../src/ui/MainWindow.cpp" line="196"/>
         <source>Preferences</source>
         <translation>Preferences</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="207"/>
-        <location filename="../src/ui/MainWindow.cpp" line="608"/>
+        <location filename="../src/ui/MainWindow.cpp" line="201"/>
+        <location filename="../src/ui/MainWindow.cpp" line="603"/>
         <source>Log</source>
         <translation>Log</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="212"/>
+        <location filename="../src/ui/MainWindow.cpp" line="206"/>
         <source>About</source>
         <translation>About</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="220"/>
+        <location filename="../src/ui/MainWindow.cpp" line="214"/>
         <source>Quit</source>
         <translation>Quit</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="243"/>
-        <location filename="../src/ui/MainWindow.cpp" line="599"/>
+        <location filename="../src/ui/MainWindow.cpp" line="237"/>
+        <location filename="../src/ui/MainWindow.cpp" line="594"/>
         <source>No archive open.
 Use the Open button or drag a file here.</source>
         <translation>No archive open.
 Use the Open button or drag a file here.</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="249"/>
+        <location filename="../src/ui/MainWindow.cpp" line="243"/>
         <source>Choose Archive...</source>
         <translation>Choose Archive...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="262"/>
+        <location filename="../src/ui/MainWindow.cpp" line="256"/>
         <source>Filter by name or path (wildcards allowed)...</source>
         <translation>Filter by name or path (wildcards allowed)...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="312"/>
+        <location filename="../src/ui/MainWindow.cpp" line="306"/>
         <source>Ready</source>
         <translation>Ready</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="317"/>
-        <source>Recent &amp; Bookmarks</source>
-        <translation>Recent &amp; Bookmarks</translation>
+        <location filename="../src/ui/MainWindow.cpp" line="311"/>
+        <source>Recent Files</source>
+        <translation>Recent Files</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="325"/>
+        <location filename="../src/ui/MainWindow.cpp" line="321"/>
         <source>&amp;View</source>
         <translation>&amp;View</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="426"/>
+        <location filename="../src/ui/MainWindow.cpp" line="421"/>
         <source>Overwrite Files</source>
         <translation>Overwrite Files</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="427"/>
+        <location filename="../src/ui/MainWindow.cpp" line="422"/>
         <source>The destination directory is not empty. Overwrite existing files?</source>
         <translation>The destination directory is not empty. Overwrite existing files?</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="442"/>
+        <location filename="../src/ui/MainWindow.cpp" line="437"/>
         <source>Extracting...</source>
         <translation>Extracting...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="453"/>
+        <location filename="../src/ui/MainWindow.cpp" line="448"/>
         <source>Add Files</source>
         <translation>Add Files</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="454"/>
+        <location filename="../src/ui/MainWindow.cpp" line="449"/>
         <source>This archive does not support adding files.</source>
         <translation>This archive does not support adding files.</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="466"/>
+        <location filename="../src/ui/MainWindow.cpp" line="461"/>
         <source>Adding Files...</source>
         <translation>Adding Files...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="475"/>
+        <location filename="../src/ui/MainWindow.cpp" line="470"/>
         <source>Open Archive</source>
         <translation>Open Archive</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="476"/>
+        <location filename="../src/ui/MainWindow.cpp" line="471"/>
         <source>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.gz *.bz2 *.xz *.001);;All Files (*)</source>
         <translation>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.gz *.bz2 *.xz *.001);;All Files (*)</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="484"/>
+        <location filename="../src/ui/MainWindow.cpp" line="479"/>
         <source>Select Files to Compress</source>
         <translation>Select Files to Compress</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="492"/>
-        <location filename="../src/ui/MainWindow.cpp" line="908"/>
+        <location filename="../src/ui/MainWindow.cpp" line="487"/>
+        <location filename="../src/ui/MainWindow.cpp" line="898"/>
         <source>Creating Archive...</source>
         <translation>Creating Archive...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="530"/>
+        <location filename="../src/ui/MainWindow.cpp" line="525"/>
         <source>Select Files to Add</source>
         <translation>Select Files to Add</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="542"/>
+        <location filename="../src/ui/MainWindow.cpp" line="537"/>
         <source>Delete Files</source>
         <translation>Delete Files</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="543"/>
+        <location filename="../src/ui/MainWindow.cpp" line="538"/>
         <source>This archive does not support deleting files.</source>
         <translation>This archive does not support deleting files.</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="548"/>
+        <location filename="../src/ui/MainWindow.cpp" line="543"/>
         <source>Delete Selected Entries</source>
         <translation>Delete Selected Entries</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="549"/>
+        <location filename="../src/ui/MainWindow.cpp" line="544"/>
         <source>Delete %1 selected entr%2 from the archive?
 
 This cannot be undone.</source>
@@ -634,159 +629,154 @@ This cannot be undone.</source>
 This cannot be undone.</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="563"/>
+        <location filename="../src/ui/MainWindow.cpp" line="558"/>
         <source>Deleting Entries...</source>
         <translation>Deleting Entries...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="600"/>
+        <location filename="../src/ui/MainWindow.cpp" line="595"/>
         <source>Archive closed</source>
         <translation>Archive closed</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="609"/>
+        <location filename="../src/ui/MainWindow.cpp" line="604"/>
         <source>No log file has been created yet.</source>
         <translation>No log file has been created yet.</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="617"/>
+        <location filename="../src/ui/MainWindow.cpp" line="612"/>
         <source>About QArchiver</source>
         <translation>About QArchiver</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="834"/>
+        <location filename="../src/ui/MainWindow.cpp" line="821"/>
         <source>Extract Selected...</source>
         <translation>Extract Selected...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="643"/>
+        <location filename="../src/ui/MainWindow.cpp" line="629"/>
         <source>QArchiver - %1</source>
         <translation>QArchiver - %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="645"/>
+        <location filename="../src/ui/MainWindow.cpp" line="631"/>
         <source>Opened: %1</source>
         <translation>Opened: %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="647"/>
+        <location filename="../src/ui/MainWindow.cpp" line="633"/>
         <source>Reading archive %1</source>
         <translation>Reading archive %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="665"/>
+        <location filename="../src/ui/MainWindow.cpp" line="651"/>
         <source>%1 entries</source>
         <translation>%1 entries</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="698"/>
+        <location filename="../src/ui/MainWindow.cpp" line="684"/>
         <source>Processing...</source>
         <translation>Processing...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="720"/>
+        <location filename="../src/ui/MainWindow.cpp" line="706"/>
         <source>Error</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="722"/>
+        <location filename="../src/ui/MainWindow.cpp" line="708"/>
         <source>Unsupported Format</source>
         <translation>Unsupported Format</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="723"/>
+        <location filename="../src/ui/MainWindow.cpp" line="709"/>
         <source>Wrong Password</source>
         <translation>Wrong Password</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="724"/>
+        <location filename="../src/ui/MainWindow.cpp" line="710"/>
         <source>Corrupted Archive</source>
         <translation>Corrupted Archive</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="725"/>
+        <location filename="../src/ui/MainWindow.cpp" line="711"/>
         <source>Required Tool Not Found</source>
         <translation>Required Tool Not Found</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="726"/>
+        <location filename="../src/ui/MainWindow.cpp" line="712"/>
         <source>Operation Not Supported</source>
         <translation>Operation Not Supported</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="727"/>
+        <location filename="../src/ui/MainWindow.cpp" line="713"/>
         <source>Password Required</source>
         <translation>Password Required</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="728"/>
+        <location filename="../src/ui/MainWindow.cpp" line="714"/>
         <source>Insufficient Disk Space</source>
         <translation>Insufficient Disk Space</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="729"/>
+        <location filename="../src/ui/MainWindow.cpp" line="715"/>
         <source>Security: Path Traversal Blocked</source>
         <translation>Security: Path Traversal Blocked</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="730"/>
+        <location filename="../src/ui/MainWindow.cpp" line="716"/>
         <source>Volume Missing</source>
         <translation>Volume Missing</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="731"/>
+        <location filename="../src/ui/MainWindow.cpp" line="717"/>
         <source>File Not Found</source>
         <translation>File Not Found</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="732"/>
+        <location filename="../src/ui/MainWindow.cpp" line="718"/>
         <source>Permission Denied</source>
         <translation>Permission Denied</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="733"/>
+        <location filename="../src/ui/MainWindow.cpp" line="719"/>
         <source>Path Too Long</source>
         <translation>Path Too Long</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="734"/>
+        <location filename="../src/ui/MainWindow.cpp" line="720"/>
         <source>Encoding Error</source>
         <translation>Encoding Error</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="715"/>
+        <location filename="../src/ui/MainWindow.cpp" line="701"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="618"/>
+        <location filename="../src/ui/MainWindow.cpp" line="613"/>
         <source>&lt;h3&gt;QArchiver (小Q解压)&lt;/h3&gt;&lt;p&gt;A lightweight Qt-based archive manager for Linux.&lt;/p&gt;&lt;p&gt;Supports: tar, tar.gz, tar.xz, tar.bz2, zip, 7z, rar, gz, bz2, xz&lt;/p&gt;&lt;p&gt;Version: %1&lt;/p&gt;</source>
         <translation>&lt;h3&gt;QArchiver (小Q解压)&lt;/h3&gt;&lt;p&gt;A lightweight Qt-based archive manager for Linux.&lt;/p&gt;&lt;p&gt;Supports: tar, tar.gz, tar.xz, tar.bz2, zip, 7z, rar, gz, bz2, xz&lt;/p&gt;&lt;p&gt;Version: %1&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="631"/>
-        <source>Bookmark added</source>
-        <translation>Bookmark added</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/MainWindow.cpp" line="637"/>
+        <location filename="../src/ui/MainWindow.cpp" line="623"/>
         <source>Detecting format: %1</source>
         <translation>Detecting format: %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="638"/>
+        <location filename="../src/ui/MainWindow.cpp" line="624"/>
         <source>Detecting archive format...</source>
         <translation>Detecting archive format...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="742"/>
+        <location filename="../src/ui/MainWindow.cpp" line="728"/>
         <source>Unable to open archive.
 %1</source>
         <translation>Unable to open archive.
 %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="759"/>
+        <location filename="../src/ui/MainWindow.cpp" line="745"/>
         <source>Operation failed</source>
         <translation>Operation failed</translation>
     </message>
@@ -1279,45 +1269,24 @@ This cannot be undone.</translation>
 <context>
     <name>SidebarWidget</name>
     <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="17"/>
-        <source>Recent Files</source>
-        <translation>Recent Files</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="21"/>
+        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="20"/>
         <source>Recently opened archives. Double-click to open.</source>
         <translation>Recently opened archives. Double-click to open.</translation>
     </message>
     <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="23"/>
-        <source>Bookmarks</source>
-        <translation>Bookmarks</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="27"/>
-        <source>Bookmarked archives. Double-click to open.</source>
-        <translation>Bookmarked archives. Double-click to open.</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="52"/>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="80"/>
+        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="40"/>
         <source>Open</source>
         <translation>Open</translation>
     </message>
     <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="53"/>
+        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="41"/>
         <source>Remove from list</source>
         <translation>Remove from list</translation>
     </message>
     <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="58"/>
+        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="46"/>
         <source>Clear missing entries</source>
         <translation>Clear missing entries</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="82"/>
-        <source>Remove bookmark</source>
-        <translation>Remove bookmark</translation>
     </message>
 </context>
 <context>

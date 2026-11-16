@@ -7,8 +7,6 @@ target_sources(QArchiver PRIVATE
     AppSettings.h
     RecentFilesManager.cpp
     RecentFilesManager.h
-    BookmarksManager.cpp
-    BookmarksManager.h
     ArchiveConstants.h
     ArchiveEntry.h
     ArchiveOptions.h

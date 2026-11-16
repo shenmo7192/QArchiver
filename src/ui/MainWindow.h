@@ -46,7 +46,6 @@ private slots:
     void onCloseArchive();
     void onViewLog();
     void onAbout();
-    void onBookmarkCurrent();
 
     void onArchiveOpening(const QString &filePath);
     void onArchiveOpened(const QString &filePath);
@@ -99,7 +98,6 @@ private:
     QAction *m_deleteAct = nullptr;
     QAction *m_propertiesAct = nullptr;
     QAction *m_closeAct = nullptr;
-    QAction *m_bookmarkAct = nullptr;
 
     // Dialogs
     QPointer<ProgressDialog> m_progressDialog;

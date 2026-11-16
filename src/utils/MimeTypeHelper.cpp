@@ -7,23 +7,26 @@
 #include <QRegularExpression>
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 
 #include "Logger.h"
 #include "ProcessRunner.h"
 
-// Magic Number signatures (design doc 4.3.2)
-static const QByteArray kSig7z        = QByteArray::fromHex("377abcaf271c");       // 6 bytes
-static const QByteArray kSigRar5     = QByteArray::fromHex("526172211a070100");   // 8 bytes
-static const QByteArray kSigRar4     = QByteArray::fromHex("526172211a0700");     // 7 bytes
-static const QByteArray kSigZip      = QByteArray::fromHex("504b0304");           // local file header
-static const QByteArray kSigZipEmpty = QByteArray::fromHex("504b0506");           // empty archive
-static const QByteArray kSigZipSpan  = QByteArray::fromHex("504b0708");           // spanned archive
-static const QByteArray kSigGzip     = QByteArray::fromHex("1f8b");
-static const QByteArray kSigBzip2    = QByteArray::fromHex("425a68");
-static const QByteArray kSigXz       = QByteArray::fromHex("fd377a585a00");
-static const QByteArray kSigTar      = QByteArray::fromHex("7573746172");         // "ustar" at 257
-
+// Magic Number signatures (design doc 4.3.2).  Compile-time byte arrays
+// avoid runtime QByteArray::fromHex allocations.
 namespace {
+
+constexpr std::array<std::uint8_t, 6> kSig7z      = {0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c};
+constexpr std::array<std::uint8_t, 8> kSigRar5    = {0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00};
+constexpr std::array<std::uint8_t, 7> kSigRar4    = {0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00};
+constexpr std::array<std::uint8_t, 4> kSigZip     = {0x50, 0x4b, 0x03, 0x04}; // local file header
+constexpr std::array<std::uint8_t, 4> kSigZipEmpty = {0x50, 0x4b, 0x05, 0x06}; // empty archive
+constexpr std::array<std::uint8_t, 4> kSigZipSpan = {0x50, 0x4b, 0x07, 0x08}; // spanned archive
+constexpr std::array<std::uint8_t, 2> kSigGzip    = {0x1f, 0x8b};
+constexpr std::array<std::uint8_t, 3> kSigBzip2   = {0x42, 0x5a, 0x68};
+constexpr std::array<std::uint8_t, 6> kSigXz      = {0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00};
+constexpr std::array<std::uint8_t, 5> kSigTar     = {0x75, 0x73, 0x74, 0x61, 0x72}; // "ustar" at 257
 
 // List files in @p dir whose name matches @p regex, preserving the on-disk
 // spelling (never lower-cases paths).
@@ -95,12 +98,13 @@ QByteArray MimeTypeHelper::readMagic(const QString &filePath, int maxBytes)
     return file.read(maxBytes);
 }
 
-bool MimeTypeHelper::matchMagic(const QByteArray &head, const QByteArray &signature, int offset)
+bool MimeTypeHelper::matchMagic(const QByteArray &head, std::span<const std::uint8_t> signature, int offset)
 {
-    if (offset < 0 || head.size() < offset + signature.size()) {
+    if (offset < 0 || head.size() < offset + static_cast<int>(signature.size())) {
         return false;
     }
-    return head.mid(offset, signature.size()) == signature;
+    const auto *data = reinterpret_cast<const std::uint8_t *>(head.constData());
+    return std::equal(signature.begin(), signature.end(), data + offset);
 }
 
 QString MimeTypeHelper::extensionOf(const QString &filePath)

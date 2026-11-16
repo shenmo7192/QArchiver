@@ -53,9 +53,6 @@ public:
 
     // Generate a non-existing sibling path: "name (1).ext", "name (2).ext", ...
     static QString uniqueDestinationPath(const QString &path);
-
-    // Mask a password in command arguments (replace -p<pwd> with -p***)
-    static QString maskPassword(const QString &args);
 };
 
 #endif // FILEUTILS_H

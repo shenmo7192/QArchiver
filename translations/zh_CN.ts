@@ -1,11 +1,11 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_CN">
 <context>
     <name>ArchiveManager</name>
     <message>
         <location filename="../src/core/ArchiveManager.cpp" line="98"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="409"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="406"/>
         <source>Another operation is already in progress</source>
         <translation>另一个操作正在进行中</translation>
     </message>
@@ -31,7 +31,7 @@
     </message>
     <message>
         <location filename="../src/core/ArchiveManager.cpp" line="277"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="426"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="423"/>
         <source>No backend available for format: %1</source>
         <translation>没有可用于该格式的后端：%1</translation>
     </message>
@@ -41,83 +41,83 @@
         <translation>无法打开压缩包：%1</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="320"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="319"/>
         <source>No destination directory selected</source>
         <translation>未选择目标目录</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="332"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="340"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="331"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="339"/>
         <source>Blocked unsafe path: %1</source>
         <translation>已阻止不安全的路径：%1</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="350"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="349"/>
         <source>Insufficient disk space: %1 required, %2 available</source>
         <translation>磁盘空间不足：需要 %1，可用 %2</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="372"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="371"/>
         <source>Cannot create destination directory: %1</source>
         <translation>无法创建目标目录：%1</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="413"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="410"/>
         <source>No archive name specified</source>
         <translation>未指定压缩包名称</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="417"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="414"/>
         <source>No source files selected</source>
         <translation>未选择源文件</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="439"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="436"/>
         <source>Cannot create target directory: %1</source>
         <translation>无法创建目标目录：%1</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="456"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="453"/>
         <source>Cannot create a temporary directory next to the target</source>
         <translation>无法在目标位置旁创建临时目录</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="476"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="473"/>
         <source>Failed to dispatch the compression operation</source>
         <translation>无法派发压缩操作</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="614"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="604"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="633"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="623"/>
         <source>Failed to finalize the compressed archive</source>
         <translation>无法完成压缩包写入</translation>
     </message>
     <message>
         <location filename="../src/core/ArchiveManager.cpp" line="93"/>
         <location filename="../src/core/ArchiveManager.cpp" line="303"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="362"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="485"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="506"/>
-        <location filename="../src/core/ArchiveManager.cpp" line="527"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="361"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="482"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="502"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="522"/>
         <source>No archive open</source>
         <translation>未打开压缩包</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="490"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="487"/>
         <source>This archive does not support adding files</source>
         <translation>该压缩包不支持添加文件</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="511"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="507"/>
         <source>This archive does not support deleting files</source>
         <translation>该压缩包不支持删除文件</translation>
     </message>
     <message>
-        <location filename="../src/core/ArchiveManager.cpp" line="550"/>
+        <location filename="../src/core/ArchiveManager.cpp" line="544"/>
         <source>Too many failed password attempts.</source>
         <translation>密码错误次数过多。</translation>
     </message>
@@ -272,7 +272,7 @@
     </message>
     <message>
         <location filename="../src/ui/dialogs/CompressDialog.cpp" line="81"/>
-        <source>Patterns separated by ';' (e.g. *.tmp;build/*)</source>
+        <source>Patterns separated by &apos;;&apos; (e.g. *.tmp;build/*)</source>
         <translation>多个模式用“;”分隔（例如 *.tmp;build/*）</translation>
     </message>
     <message>
@@ -446,186 +446,181 @@ Overwrite it?</source>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="104"/>
-        <location filename="../src/ui/MainWindow.cpp" line="598"/>
+        <location filename="../src/ui/MainWindow.cpp" line="103"/>
+        <location filename="../src/ui/MainWindow.cpp" line="593"/>
         <source>QArchiver</source>
         <translation>QArchiver</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="147"/>
+        <location filename="../src/ui/MainWindow.cpp" line="146"/>
         <source>Open</source>
         <translation>打开</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="151"/>
+        <location filename="../src/ui/MainWindow.cpp" line="150"/>
         <source>New Archive</source>
         <translation>新建压缩包</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="156"/>
-        <source>Bookmark</source>
-        <translation>收藏</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/MainWindow.cpp" line="160"/>
+        <location filename="../src/ui/MainWindow.cpp" line="155"/>
         <source>Extract</source>
         <translation>解压</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="163"/>
-        <location filename="../src/ui/MainWindow.cpp" line="840"/>
+        <location filename="../src/ui/MainWindow.cpp" line="158"/>
+        <location filename="../src/ui/MainWindow.cpp" line="828"/>
         <source>Add Files...</source>
         <translation>添加文件...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="167"/>
-        <location filename="../src/ui/MainWindow.cpp" line="844"/>
+        <location filename="../src/ui/MainWindow.cpp" line="162"/>
+        <location filename="../src/ui/MainWindow.cpp" line="833"/>
         <source>Delete Selected</source>
         <translation>删除选中项</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="171"/>
-        <location filename="../src/ui/MainWindow.cpp" line="850"/>
+        <location filename="../src/ui/MainWindow.cpp" line="166"/>
+        <location filename="../src/ui/MainWindow.cpp" line="840"/>
         <source>Properties</source>
         <translation>属性</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="174"/>
+        <location filename="../src/ui/MainWindow.cpp" line="169"/>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="181"/>
+        <location filename="../src/ui/MainWindow.cpp" line="176"/>
         <source>Main</source>
         <translation>主工具栏</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="202"/>
+        <location filename="../src/ui/MainWindow.cpp" line="196"/>
         <source>Preferences</source>
         <translation>偏好设置</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="207"/>
-        <location filename="../src/ui/MainWindow.cpp" line="608"/>
+        <location filename="../src/ui/MainWindow.cpp" line="201"/>
+        <location filename="../src/ui/MainWindow.cpp" line="603"/>
         <source>Log</source>
         <translation>日志</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="212"/>
+        <location filename="../src/ui/MainWindow.cpp" line="206"/>
         <source>About</source>
         <translation>关于</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="220"/>
+        <location filename="../src/ui/MainWindow.cpp" line="214"/>
         <source>Quit</source>
         <translation>退出</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="243"/>
-        <location filename="../src/ui/MainWindow.cpp" line="599"/>
+        <location filename="../src/ui/MainWindow.cpp" line="237"/>
+        <location filename="../src/ui/MainWindow.cpp" line="594"/>
         <source>No archive open.
 Use the Open button or drag a file here.</source>
         <translation>未打开压缩包。
 请使用“打开”按钮或将文件拖到此处。</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="249"/>
+        <location filename="../src/ui/MainWindow.cpp" line="243"/>
         <source>Choose Archive...</source>
         <translation>选择压缩包...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="262"/>
+        <location filename="../src/ui/MainWindow.cpp" line="256"/>
         <source>Filter by name or path (wildcards allowed)...</source>
         <translation>按名称或路径筛选（支持通配符）...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="312"/>
+        <location filename="../src/ui/MainWindow.cpp" line="306"/>
         <source>Ready</source>
         <translation>就绪</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="317"/>
-        <source>Recent &amp; Bookmarks</source>
-        <translation>最近打开与收藏</translation>
+        <location filename="../src/ui/MainWindow.cpp" line="311"/>
+        <source>Recent Files</source>
+        <translation>最近文件</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="325"/>
+        <location filename="../src/ui/MainWindow.cpp" line="321"/>
         <source>&amp;View</source>
         <translation>视图(&amp;V)</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="426"/>
+        <location filename="../src/ui/MainWindow.cpp" line="421"/>
         <source>Overwrite Files</source>
         <translation>覆盖文件</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="427"/>
+        <location filename="../src/ui/MainWindow.cpp" line="422"/>
         <source>The destination directory is not empty. Overwrite existing files?</source>
         <translation>目标目录不为空。是否覆盖已有文件？</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="442"/>
+        <location filename="../src/ui/MainWindow.cpp" line="437"/>
         <source>Extracting...</source>
         <translation>正在解压...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="453"/>
+        <location filename="../src/ui/MainWindow.cpp" line="448"/>
         <source>Add Files</source>
         <translation>添加文件</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="454"/>
+        <location filename="../src/ui/MainWindow.cpp" line="449"/>
         <source>This archive does not support adding files.</source>
         <translation>此压缩包不支持添加文件。</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="466"/>
+        <location filename="../src/ui/MainWindow.cpp" line="461"/>
         <source>Adding Files...</source>
         <translation>正在添加文件...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="475"/>
+        <location filename="../src/ui/MainWindow.cpp" line="470"/>
         <source>Open Archive</source>
         <translation>打开压缩包</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="476"/>
+        <location filename="../src/ui/MainWindow.cpp" line="471"/>
         <source>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.gz *.bz2 *.xz *.001);;All Files (*)</source>
         <translation>压缩包 (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.gz *.bz2 *.xz *.001);;所有文件 (*)</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="484"/>
+        <location filename="../src/ui/MainWindow.cpp" line="479"/>
         <source>Select Files to Compress</source>
         <translation>选择要压缩的文件</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="492"/>
-        <location filename="../src/ui/MainWindow.cpp" line="908"/>
+        <location filename="../src/ui/MainWindow.cpp" line="487"/>
+        <location filename="../src/ui/MainWindow.cpp" line="898"/>
         <source>Creating Archive...</source>
         <translation>正在创建压缩包...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="530"/>
+        <location filename="../src/ui/MainWindow.cpp" line="525"/>
         <source>Select Files to Add</source>
         <translation>选择要添加的文件</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="542"/>
+        <location filename="../src/ui/MainWindow.cpp" line="537"/>
         <source>Delete Files</source>
         <translation>删除文件</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="543"/>
+        <location filename="../src/ui/MainWindow.cpp" line="538"/>
         <source>This archive does not support deleting files.</source>
         <translation>此压缩包不支持删除文件。</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="548"/>
+        <location filename="../src/ui/MainWindow.cpp" line="543"/>
         <source>Delete Selected Entries</source>
         <translation>删除选中条目</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="549"/>
+        <location filename="../src/ui/MainWindow.cpp" line="544"/>
         <source>Delete %1 selected entr%2 from the archive?
 
 This cannot be undone.</source>
@@ -634,159 +629,154 @@ This cannot be undone.</source>
 此操作无法撤销。</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="563"/>
+        <location filename="../src/ui/MainWindow.cpp" line="558"/>
         <source>Deleting Entries...</source>
         <translation>正在删除条目...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="600"/>
+        <location filename="../src/ui/MainWindow.cpp" line="595"/>
         <source>Archive closed</source>
         <translation>压缩包已关闭</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="609"/>
+        <location filename="../src/ui/MainWindow.cpp" line="604"/>
         <source>No log file has been created yet.</source>
         <translation>尚未创建日志文件。</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="617"/>
+        <location filename="../src/ui/MainWindow.cpp" line="612"/>
         <source>About QArchiver</source>
         <translation>关于 QArchiver</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="834"/>
+        <location filename="../src/ui/MainWindow.cpp" line="821"/>
         <source>Extract Selected...</source>
         <translation>解压选中项...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="643"/>
+        <location filename="../src/ui/MainWindow.cpp" line="629"/>
         <source>QArchiver - %1</source>
         <translation>QArchiver - %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="645"/>
+        <location filename="../src/ui/MainWindow.cpp" line="631"/>
         <source>Opened: %1</source>
         <translation>已打开：%1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="647"/>
+        <location filename="../src/ui/MainWindow.cpp" line="633"/>
         <source>Reading archive %1</source>
         <translation>正在读取压缩包 %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="665"/>
+        <location filename="../src/ui/MainWindow.cpp" line="651"/>
         <source>%1 entries</source>
         <translation>%1 个条目</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="698"/>
+        <location filename="../src/ui/MainWindow.cpp" line="684"/>
         <source>Processing...</source>
         <translation>正在处理...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="720"/>
+        <location filename="../src/ui/MainWindow.cpp" line="706"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="722"/>
+        <location filename="../src/ui/MainWindow.cpp" line="708"/>
         <source>Unsupported Format</source>
         <translation>不支持的格式</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="723"/>
+        <location filename="../src/ui/MainWindow.cpp" line="709"/>
         <source>Wrong Password</source>
         <translation>密码错误</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="724"/>
+        <location filename="../src/ui/MainWindow.cpp" line="710"/>
         <source>Corrupted Archive</source>
         <translation>压缩包已损坏</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="725"/>
+        <location filename="../src/ui/MainWindow.cpp" line="711"/>
         <source>Required Tool Not Found</source>
         <translation>未找到所需工具</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="726"/>
+        <location filename="../src/ui/MainWindow.cpp" line="712"/>
         <source>Operation Not Supported</source>
         <translation>不支持该操作</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="727"/>
+        <location filename="../src/ui/MainWindow.cpp" line="713"/>
         <source>Password Required</source>
         <translation>需要密码</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="728"/>
+        <location filename="../src/ui/MainWindow.cpp" line="714"/>
         <source>Insufficient Disk Space</source>
         <translation>磁盘空间不足</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="729"/>
+        <location filename="../src/ui/MainWindow.cpp" line="715"/>
         <source>Security: Path Traversal Blocked</source>
         <translation>安全：已阻止路径穿越</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="730"/>
+        <location filename="../src/ui/MainWindow.cpp" line="716"/>
         <source>Volume Missing</source>
         <translation>分卷缺失</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="731"/>
+        <location filename="../src/ui/MainWindow.cpp" line="717"/>
         <source>File Not Found</source>
         <translation>文件未找到</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="732"/>
+        <location filename="../src/ui/MainWindow.cpp" line="718"/>
         <source>Permission Denied</source>
         <translation>权限不足</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="733"/>
+        <location filename="../src/ui/MainWindow.cpp" line="719"/>
         <source>Path Too Long</source>
         <translation>路径过长</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="734"/>
+        <location filename="../src/ui/MainWindow.cpp" line="720"/>
         <source>Encoding Error</source>
         <translation>编码错误</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="715"/>
+        <location filename="../src/ui/MainWindow.cpp" line="701"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="618"/>
+        <location filename="../src/ui/MainWindow.cpp" line="613"/>
         <source>&lt;h3&gt;QArchiver (小Q解压)&lt;/h3&gt;&lt;p&gt;A lightweight Qt-based archive manager for Linux.&lt;/p&gt;&lt;p&gt;Supports: tar, tar.gz, tar.xz, tar.bz2, zip, 7z, rar, gz, bz2, xz&lt;/p&gt;&lt;p&gt;Version: %1&lt;/p&gt;</source>
         <translation>&lt;h3&gt;QArchiver（小Q解压）&lt;/h3&gt;&lt;p&gt;轻量级 Qt 压缩包管理工具，适用于 Linux。&lt;/p&gt;&lt;p&gt;支持：tar、tar.gz、tar.xz、tar.bz2、zip、7z、rar、gz、bz2、xz&lt;/p&gt;&lt;p&gt;版本：%1&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="631"/>
-        <source>Bookmark added</source>
-        <translation>已添加收藏</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/MainWindow.cpp" line="637"/>
+        <location filename="../src/ui/MainWindow.cpp" line="623"/>
         <source>Detecting format: %1</source>
         <translation>正在检测格式：%1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="638"/>
+        <location filename="../src/ui/MainWindow.cpp" line="624"/>
         <source>Detecting archive format...</source>
         <translation>正在检测压缩包格式...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="742"/>
+        <location filename="../src/ui/MainWindow.cpp" line="728"/>
         <source>Unable to open archive.
 %1</source>
         <translation>无法打开压缩包。
 %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="759"/>
+        <location filename="../src/ui/MainWindow.cpp" line="745"/>
         <source>Operation failed</source>
         <translation>操作失败</translation>
     </message>
@@ -1279,45 +1269,24 @@ This cannot be undone.</source>
 <context>
     <name>SidebarWidget</name>
     <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="17"/>
-        <source>Recent Files</source>
-        <translation>最近文件</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="21"/>
+        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="20"/>
         <source>Recently opened archives. Double-click to open.</source>
         <translation>最近打开的压缩包。双击打开。</translation>
     </message>
     <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="23"/>
-        <source>Bookmarks</source>
-        <translation>书签</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="27"/>
-        <source>Bookmarked archives. Double-click to open.</source>
-        <translation>已加书签的压缩包。双击打开。</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="52"/>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="80"/>
+        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="40"/>
         <source>Open</source>
         <translation>打开</translation>
     </message>
     <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="53"/>
+        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="41"/>
         <source>Remove from list</source>
         <translation>从列表移除</translation>
     </message>
     <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="58"/>
+        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="46"/>
         <source>Clear missing entries</source>
         <translation>清除失效条目</translation>
-    </message>
-    <message>
-        <location filename="../src/ui/widgets/SidebarWidget.cpp" line="82"/>
-        <source>Remove bookmark</source>
-        <translation>移除书签</translation>
     </message>
 </context>
 <context>
