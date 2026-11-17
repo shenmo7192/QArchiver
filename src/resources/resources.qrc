@@ -9,11 +9,9 @@
         <file alias="yes.ico">icons/yes.ico</file>
         <file alias="no.ico">icons/no.ico</file>
         <file alias="up.ico">icons/up.ico</file>
-        <file alias="Log.png">icons/Log.png</file>
         <file alias="New.png">icons/New.png</file>
         <file alias="Open.png">icons/Open.png</file>
         <file alias="Preferences.png">icons/Preferences.png</file>
-        <file alias="Properties.png">icons/Properties.png</file>
         <file alias="QArchiver.png">icons/QArchiver.png</file>
         <file alias="Quit.png">icons/Quit.png</file>
     </qresource>

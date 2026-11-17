@@ -45,7 +45,6 @@ public:
     virtual bool supportsVolume() const = 0;
     // Runtime decision: uncompressed .tar / single-volume zip|7z -> true
     virtual bool supportsAppend() const = 0;
-    virtual QString archiveComment() const { return QString(); }
 
     // Current archive path
     QString archivePath() const { return m_archivePath; }

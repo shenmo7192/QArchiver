@@ -9,6 +9,8 @@ target_sources(QArchiver PRIVATE
     FileListViewDelegate.h
     PreviewManager.cpp
     PreviewManager.h
+    DragOutManager.cpp
+    DragOutManager.h
 
     dialogs/ExtractDialog.cpp
     dialogs/ExtractDialog.h
@@ -20,8 +22,6 @@ target_sources(QArchiver PRIVATE
     dialogs/ProgressDialog.h
     dialogs/PreferencesDialog.cpp
     dialogs/PreferencesDialog.h
-    dialogs/ArchivePropertiesDialog.cpp
-    dialogs/ArchivePropertiesDialog.h
 
     widgets/ArchiveTreeView.cpp
     widgets/ArchiveTreeView.h

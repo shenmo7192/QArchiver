@@ -4,14 +4,15 @@
 #include "FilterProxyModel.h"
 #include "FileListViewDelegate.h"
 #include "PreviewManager.h"
+#include "DragOutManager.h"
 #include "widgets/ArchiveTreeView.h"
 #include "widgets/SidebarWidget.h"
 #include "dialogs/ExtractDialog.h"
 #include "dialogs/CompressDialog.h"
 #include "dialogs/PasswordDialog.h"
+#include "utils/Logger.h"
 #include "dialogs/ProgressDialog.h"
 #include "dialogs/PreferencesDialog.h"
-#include "dialogs/ArchivePropertiesDialog.h"
 
 #include "core/ArchiveManager.h"
 #include "core/ArchiveError.h"
@@ -21,7 +22,6 @@
 
 #include "backends/ArchiveBackend.h"
 
-#include "utils/Logger.h"
 
 #include <QAction>
 #include <QToolBar>
@@ -35,8 +35,12 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QApplication>
+#include <QDrag>
 #include <QDragEnterEvent>
+#include <QElapsedTimer>
+#include <QKeyEvent>
 #include <QDropEvent>
+#include <QGuiApplication>
 #include <QMimeData>
 #include <QUrl>
 #include <QDesktopServices>
@@ -49,7 +53,6 @@
 #include <QDialog>
 #include <QProgressBar>
 #include <QMenu>
-#include <QMenuBar>
 #include <QDockWidget>
 #include <QDir>
 #include <QItemSelectionModel>
@@ -132,13 +135,18 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&manager, &ArchiveManager::operationFinished,
             this, &MainWindow::onOperationFinished);
 
+    connect(m_treeView, &ArchiveTreeView::dragOutRequested,
+            this, &MainWindow::onEntriesDragOut);
+
     PreviewManager::instance().cleanupStale();
+    DragOutManager::instance().cleanupStale();
     updateActionsState();
 }
 
 MainWindow::~MainWindow()
 {
     PreviewManager::instance().cleanupOwn();
+    DragOutManager::instance().cleanupOwn();
 }
 
 void MainWindow::setupActions()
@@ -161,10 +169,6 @@ void MainWindow::setupActions()
     m_deleteAct = new QAction(resourceIcon(QStringLiteral("Close.png")),
                               tr("Delete Selected"), this);
     connect(m_deleteAct, &QAction::triggered, this, &MainWindow::onDeleteSelected);
-
-    m_propertiesAct = new QAction(resourceIcon(QStringLiteral("Properties.png")),
-                                  tr("Properties"), this);
-    connect(m_propertiesAct, &QAction::triggered, this, &MainWindow::onProperties);
 
     m_closeAct = new QAction(resourceIcon(QStringLiteral("Close.png")), tr("Close"), this);
     m_closeAct->setShortcut(QKeySequence::Close);
@@ -189,18 +193,12 @@ void MainWindow::setupToolbar()
     tb->addAction(m_deleteAct);
 
     tb->addSeparator();
-    tb->addAction(m_propertiesAct);
     tb->addAction(m_closeAct);
 
     QAction *prefsAct = new QAction(resourceIcon(QStringLiteral("Preferences.png")),
                                     tr("Preferences"), this);
     connect(prefsAct, &QAction::triggered, this, &MainWindow::onPreferences);
     tb->addAction(prefsAct);
-
-    QAction *logAct = new QAction(resourceIcon(QStringLiteral("Log.png")),
-                                  tr("Log"), this);
-    connect(logAct, &QAction::triggered, this, &MainWindow::onViewLog);
-    tb->addAction(logAct);
 
     QAction *aboutAct = new QAction(resourceIcon(QStringLiteral("About.png")),
                                     tr("About"), this);
@@ -318,8 +316,7 @@ void MainWindow::setupSidebar()
     connect(sidebar, &SidebarWidget::fileOpened,
             this, &MainWindow::onSidebarFileOpened);
 
-    auto *viewMenu = menuBar()->addMenu(tr("&View"));
-    viewMenu->addAction(m_sidebarDock->toggleViewAction());
+    applySidebarVisibility();
 }
 
 void MainWindow::applyContentViewMode()
@@ -356,6 +353,13 @@ void MainWindow::applyToolButtonStyle()
     m_mainToolBar->setToolButtonStyle(buttonStyle);
 }
 
+void MainWindow::applySidebarVisibility()
+{
+    if (m_sidebarDock) {
+        m_sidebarDock->setVisible(AppSettings::instance().showRecentFiles());
+    }
+}
+
 void MainWindow::updateActionsState()
 {
     ArchiveBackend *backend = ArchiveManager::instance().backend();
@@ -366,7 +370,6 @@ void MainWindow::updateActionsState()
     m_extractAct->setEnabled(hasArchive);
     m_addAct->setEnabled(canModify);
     m_deleteAct->setEnabled(canModify && hasSelection);
-    m_propertiesAct->setEnabled(hasArchive);
     m_closeAct->setEnabled(hasArchive);
 }
 
@@ -565,22 +568,15 @@ void MainWindow::onPreferences()
     if (dlg.exec() == QDialog::Accepted) {
         applyContentViewMode();
         applyToolButtonStyle();
+        applySidebarVisibility();
     }
-}
-
-void MainWindow::onProperties()
-{
-    ArchiveBackend *backend = ArchiveManager::instance().backend();
-    if (!backend) {
-        return;
-    }
-    ArchivePropertiesDialog dlg(backend, this);
-    dlg.exec();
 }
 
 void MainWindow::onCloseArchive()
 {
     ArchiveManager::instance().closeArchive();
+    // Staged drag data belongs to the archive that is being closed.
+    DragOutManager::instance().clearCache();
     m_model->setEntries({});
     m_searchEdit->clear();
 
@@ -594,17 +590,6 @@ void MainWindow::onCloseArchive()
     showPlaceholder(tr("No archive open.\nUse the Open button or drag a file here."));
     statusBar()->showMessage(tr("Archive closed"), 3000);
     updateActionsState();
-}
-
-void MainWindow::onViewLog()
-{
-    const QString logPath = Logger::instance().logFilePath();
-    if (logPath.isEmpty() || !QFileInfo::exists(logPath)) {
-        QMessageBox::information(this, tr("Log"),
-                                 tr("No log file has been created yet."));
-        return;
-    }
-    QDesktopServices::openUrl(QUrl::fromLocalFile(logPath));
 }
 
 void MainWindow::onAbout()
@@ -626,6 +611,9 @@ void MainWindow::onArchiveOpening(const QString &filePath)
 
 void MainWindow::onArchiveOpened(const QString &filePath)
 {
+    // A new archive means new content: drop staging prepared for the previous
+    // one.  (The staging directories themselves are removed on exit.)
+    DragOutManager::instance().clearCache();
     setWindowTitle(tr("QArchiver - %1").arg(QFileInfo(filePath).fileName()));
     m_centralStack->setCurrentIndex(1);
     statusBar()->showMessage(tr("Opened: %1").arg(filePath), 3000);
@@ -834,13 +822,6 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
     deleteSelected->setEnabled(backend && backend->supportsAppend() && !selected.isEmpty());
     connect(deleteSelected, &QAction::triggered, this, &MainWindow::onDeleteSelected);
 
-    menu.addSeparator();
-
-    QAction *properties = menu.addAction(
-        resourceIcon(QStringLiteral("Properties.png")), tr("Properties"));
-    properties->setEnabled(backend != nullptr);
-    connect(properties, &QAction::triggered, this, &MainWindow::onProperties);
-
     menu.exec(m_treeView->viewport()->mapToGlobal(pos));
     updateActionsState();
 }
@@ -857,10 +838,293 @@ void MainWindow::onSidebarFileOpened(const QString &path)
     }
 }
 
+// Drag out: stage the selected entries as real files, then start a standard
+// file URL drag.  The drop target (usually a file manager) performs the copy.
+namespace {
+
+// Drag payload that reports who reads it: this is the only way to tell a
+// rejected drop (the target never asks for data) from a broken URL list.
+class LoggingMimeData : public QMimeData {
+public:
+    explicit LoggingMimeData(const QStringList &entryPaths)
+        : m_entryPaths(entryPaths) {}
+
+protected:
+    QVariant retrieveData(const QString &mimeType, QMetaType type) const override
+    {
+        // QMimeData::urls() is implemented on top of data(), which dispatches
+        // back into retrieveData().  Calling urls()/hasUrls()/data() from this
+        // override therefore recurses until the stack overflows - that was the
+        // SIGSEGV right after the drag started.  Report only the payload we set
+        // ourselves and guard re-entrancy as well.
+        if (m_reporting) {
+            return QMimeData::retrieveData(mimeType, type);
+        }
+        m_reporting = true;
+        const QVariant value = QMimeData::retrieveData(mimeType, type);
+        m_reporting = false;
+        LOG_INFO("DragOut", "drop target requested mime '%s' (entries=%lld, %s)",
+                 mimeType.toUtf8().constData(),
+                 static_cast<long long>(m_entryPaths.size()),
+                 value.isValid() ? "served" : "empty");
+        return value;
+    }
+
+private:
+    QStringList m_entryPaths;
+    mutable bool m_reporting = false;
+};
+
+} // namespace
+
+void MainWindow::onEntriesDragOut(const QStringList &paths)
+{
+    auto &manager = ArchiveManager::instance();
+    if (m_dragPrepareInProgress) {
+        LOG_WARN("DragOut", "another drag preparation is still running, ignored");
+        return;
+    }
+    if (paths.isEmpty()) {
+        LOG_WARN("DragOut", "drag requested without selected entries");
+        return;
+    }
+    if (!manager.backend()) {
+        LOG_WARN("DragOut", "drag requested without an open archive");
+        return;
+    }
+    if (manager.isBusy()) {
+        LOG_WARN("DragOut", "drag requested while the archive manager is busy");
+        return;
+    }
+
+    const QString archivePath = manager.currentPath();
+    const ArchiveFormat format = manager.currentFormat();
+    auto &dragOut = DragOutManager::instance();
+
+    LOG_INFO("DragOut", "drag out: %lld entr%s from %s",
+             static_cast<long long>(paths.size()),
+             paths.size() == 1 ? "y" : "ies",
+             archivePath.toUtf8().constData());
+
+    DragOutPayload payload;
+    if (dragOut.hasPreparedFor(archivePath, format, paths, m_currentPassword)) {
+        LOG_INFO("DragOut", "reusing cached staging for this selection");
+        // A previous preparation finished (possibly after the user released
+        // the button): reuse it so this drag starts with no delay at all.
+        payload = dragOut.takePreparedFor(archivePath, format, paths,
+                                          m_currentPassword);
+    } else {
+        // The extraction has to happen while the mouse button is still down, so
+        // no dialog window is shown here: that would break the drag gesture and
+        // the drop target would never receive any URLs.  A busy cursor plus the
+        // status bar keeps the gesture (and Esc) working.
+        m_dragPrepareInProgress = true;
+
+        const QList<ArchiveEntry> entries = m_model->sourceEntries();
+        QString password = m_currentPassword;
+
+        QApplication::setOverrideCursor(Qt::BusyCursor);
+        setBusyIndicatorVisible(true, tr("Preparing files for drag..."));
+        const QMetaObject::Connection progressConnection = connect(
+            &dragOut, &DragOutManager::progressChanged, this,
+            [this](int percent, int total, int, int) {
+                if (total > 0) {
+                    setBusyIndicatorVisible(
+                        true, tr("Preparing files for drag... %1%").arg(percent));
+                }
+            });
+        const QMetaObject::Connection messageConnection = connect(
+            &dragOut, &DragOutManager::stageMessage, this,
+            [this](const QString &message) {
+                setBusyIndicatorVisible(true, message);
+            });
+
+        for (int attempt = 0;; ++attempt) {
+            payload = dragOut.extractForDrag(archivePath, format, entries, paths,
+                                             password);
+            if (payload.success || payload.cancelled) {
+                break;
+            }
+            const bool passwordIssue =
+                payload.errorCode == ArchiveErrorCode::PasswordRequired
+                || payload.errorCode == ArchiveErrorCode::WrongPassword;
+            if (!passwordIssue) {
+                break;
+            }
+            if (attempt >= 2) {
+                // Three prompts are enough; stop instead of looping forever.
+                payload.errorMessage = tr("Too many failed password attempts.");
+                break;
+            }
+
+            QApplication::restoreOverrideCursor();
+            PasswordDialog pw(this);
+            const bool accepted = pw.exec() == QDialog::Accepted;
+            QApplication::setOverrideCursor(Qt::BusyCursor);
+            if (!accepted) {
+                dragOut.cancel();
+                payload.cancelled = true;
+                payload.success = false;
+                break;
+            }
+            password = pw.password();
+            m_currentPassword = password;
+            if (pw.rememberPassword()
+                || AppSettings::instance().rememberPasswords()) {
+                m_sessionPassword = password;
+            }
+        }
+
+        disconnect(progressConnection);
+        disconnect(messageConnection);
+        QApplication::restoreOverrideCursor();
+        setBusyIndicatorVisible(false);
+        m_dragPrepareInProgress = false;
+    }
+
+    LOG_INFO("DragOut", "preparation finished: success=%d cancelled=%d staging=%s files=%lld",
+             payload.success ? 1 : 0, payload.cancelled ? 1 : 0,
+             payload.stagingRoot.toUtf8().constData(),
+             static_cast<long long>(payload.localPaths.size()));
+
+    if (!payload.success) {
+        LOG_WARN("DragOut", "preparation failed: %s",
+                 payload.errorMessage.toUtf8().constData());
+        if (!payload.cancelled && !payload.errorMessage.isEmpty()) {
+            QMessageBox::warning(this, tr("Drag Out"), payload.errorMessage);
+        }
+        updateActionsState();
+        return;
+    }
+
+    // A file drag can only start while the button is still held down.  If the
+    // user already released it the staging is cached, so the next drag of the
+    // same selection starts instantly - say so instead of doing nothing.
+    const Qt::MouseButtons buttons = QGuiApplication::mouseButtons();
+    LOG_INFO("DragOut", "mouse buttons at drag start: 0x%x",
+             static_cast<unsigned>(buttons));
+    if (!(buttons & Qt::LeftButton)) {
+        LOG_WARN("DragOut", "left button already released, drag not started");
+        dragOut.retire(payload);
+        statusBar()->showMessage(
+            tr("Files are ready. Drag the selection again to copy them out."),
+            8000);
+        updateActionsState();
+        return;
+    }
+
+    QList<QUrl> urls;
+    for (const QString &local : payload.localPaths) {
+        urls << QUrl::fromLocalFile(local);
+    }
+
+    // setUrls() provides the standard text/uri-list.  The custom MIME type only
+    // marks the drag as ours so a drop back onto QArchiver is rejected instead
+    // of being treated as "add these files".
+    auto *mimeData = new LoggingMimeData(paths);
+    mimeData->setUrls(urls);
+    mimeData->setData(QStringLiteral("application/x-qarchiver-entries"),
+                      paths.join(QLatin1Char('\n')).toUtf8());
+
+    for (const QString &local : payload.localPaths) {
+        if (!QFileInfo::exists(local)) {
+            LOG_WARN("DragOut", "staged file is missing: %s",
+                     local.toUtf8().constData());
+        }
+    }
+
+    m_selfDropAttempted = false;
+    // The QDrag has to live on the heap (Qt deletes it later via
+    // deleteLater()).  QDrag::exec() returns as soon as the button is
+    // released, but the drop target fetches the URL list from this very
+    // QMimeData *afterwards* (the X11 selection request arrives later), so a
+    // stack-allocated QDrag would destroy the payload together with the drag:
+    // the target then receives an empty uri-list and silently copies nothing.
+    auto *drag = new QDrag(this);
+    drag->setMimeData(mimeData);
+    QElapsedTimer dragTimer;
+    dragTimer.start();
+    // Self check: what the drop target will actually read from the payload.
+    LOG_INFO("DragOut",
+             "payload: hasUrls=%d formats=[%s] uri-list=%lld bytes",
+             mimeData->hasUrls() ? 1 : 0,
+             mimeData->formats().join(QStringLiteral(", ")).toUtf8().constData(),
+             static_cast<long long>(
+                 mimeData->data(QStringLiteral("text/uri-list")).size()));
+
+    QObject::connect(drag, &QDrag::targetChanged, this,
+                     [](QObject *target) {
+                         LOG_INFO("DragOut", "drag target changed: %s",
+                                  target ? target->metaObject()->className()
+                                         : "none");
+                     });
+    LOG_INFO("DragOut", "starting QDrag with %lld urls, first=%s",
+             static_cast<long long>(urls.size()),
+             urls.isEmpty() ? "-" : urls.first().toLocalFile().toUtf8().constData());
+    // Debug aid: QARCHIVER_DRAG_DEBUG_NO_EXEC=1 stages the selection and logs
+    // the URLs without entering the (native, blocking) drag loop, so the
+    // staging can be inspected when a real drag is not available.
+    const bool skipNativeDrag =
+        qEnvironmentVariableIsSet("QARCHIVER_DRAG_DEBUG_NO_EXEC");
+    Qt::DropAction action = Qt::IgnoreAction;
+    if (skipNativeDrag) {
+        // Debug path: exec() is never entered, so nothing will delete the drag.
+        delete drag;
+    } else {
+        action = drag->exec(Qt::CopyAction, Qt::CopyAction);
+    }
+    const qint64 dragMillis = dragTimer.elapsed();
+    LOG_INFO("DragOut", "QDrag finished: action=%d elapsed=%lldms selfDrop=%d",
+             static_cast<int>(action), static_cast<long long>(dragMillis),
+             m_selfDropAttempted ? 1 : 0);
+
+    // The drop target may still be copying, so the staging stays until exit.
+    dragOut.retire(payload);
+    updateActionsState();
+
+    if (m_selfDropAttempted) {
+        m_selfDropAttempted = false;
+        QMessageBox::warning(
+            this, tr("Drag Out"),
+            tr("Cannot drop entries onto QArchiver itself.\n"
+               "Please drop them onto a file manager, the desktop, or another "
+               "application."));
+    } else if (action == Qt::IgnoreAction) {
+        // A drag that is cancelled instantly usually means the platform refused
+        // to start it (e.g. the button state changed while preparing); the
+        // staged files are cached, so asking for a second attempt is cheap.
+        statusBar()->showMessage(
+            dragMillis < 150
+                ? tr("Files are ready. Drag the selection again to copy them out.")
+                : tr("The target application does not accept file drops."),
+            6000);
+    }
+}
+
 // Drag and drop
+
+void MainWindow::keyPressEvent(QKeyEvent *event)
+{
+    // Esc aborts a drag preparation that is still running (the mouse button is
+    // held down at that point, so a dialog button cannot be used).
+    if (event->key() == Qt::Key_Escape && m_dragPrepareInProgress) {
+        DragOutManager::instance().cancel();
+        event->accept();
+        return;
+    }
+    QMainWindow::keyPressEvent(event);
+}
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *event)
 {
+    // Entries dragged out of our own view must never be treated as files to
+    // add: the URLs point at drag staging, not at real user files.
+    if (event->mimeData()->hasFormat(
+            QStringLiteral("application/x-qarchiver-entries"))) {
+        event->setDropAction(Qt::IgnoreAction);
+        event->accept();
+        return;
+    }
     if (event->mimeData()->hasUrls()) {
         event->acceptProposedAction();
     }
@@ -868,6 +1132,15 @@ void MainWindow::dragEnterEvent(QDragEnterEvent *event)
 
 void MainWindow::dropEvent(QDropEvent *event)
 {
+    if (event->mimeData()->hasFormat(
+            QStringLiteral("application/x-qarchiver-entries"))) {
+        // Dropped back onto QArchiver itself: remember it so the warning can be
+        // shown once QDrag::exec() returns, and do nothing here.
+        m_selfDropAttempted = true;
+        event->setDropAction(Qt::IgnoreAction);
+        event->accept();
+        return;
+    }
     if (!event->mimeData()->hasUrls()) {
         return;
     }
@@ -910,6 +1183,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
     ArchiveManager::instance().closeArchive();
     PreviewManager::instance().cleanupOwn();
+    DragOutManager::instance().cleanupOwn();
     event->accept();
 }
 

@@ -6,6 +6,7 @@
 class QComboBox;
 class QSpinBox;
 class QCheckBox;
+class QLabel;
 
 // Preferences dialog (design doc 4.6)
 class PreferencesDialog : public QDialog {
@@ -25,9 +26,12 @@ private:
     QSpinBox *m_maxPreviewSpin = nullptr;
     QCheckBox *m_followSymlinksCheck = nullptr;
     QCheckBox *m_rememberPasswordsCheck = nullptr;
+    QCheckBox *m_libArchiveCheck = nullptr;
+    QLabel *m_libArchiveHint = nullptr;
     QComboBox *m_themeCombo = nullptr;
     QComboBox *m_viewModeCombo = nullptr;
     QComboBox *m_toolbarStyleCombo = nullptr;
+    QCheckBox *m_showRecentFilesCheck = nullptr;
 };
 
 #endif // PREFERENCESDIALOG_H

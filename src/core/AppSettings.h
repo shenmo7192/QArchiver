@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QVariant>
 
+#include <atomic>
 #include <memory>
 
 #include "ArchiveConstants.h"
@@ -32,6 +33,10 @@ public:
     QString theme() const;
     QString contentViewMode() const;   // "tree" or "list"
     QString toolButtonStyle() const;  // textUnderIcon/textBesideIcon/textOnly/iconOnly
+    bool showRecentFiles() const;      // Show the recent-files sidebar
+    // Read archives with the libarchive backend instead of the command line.
+    // Cached in an atomic so worker threads (PreviewManager) can read it too.
+    bool useLibArchiveBackend() const;
 
     // Setters (persist immediately)
     void setDefaultCompressFormat(ArchiveFormat fmt);
@@ -46,6 +51,8 @@ public:
     void setTheme(const QString &theme);
     void setContentViewMode(const QString &mode);
     void setToolButtonStyle(const QString &style);
+    void setShowRecentFiles(bool show);
+    void setUseLibArchiveBackend(bool use);
 
 private:
     AppSettings();
@@ -55,6 +62,7 @@ private:
     void setValue(const QString &key, const QVariant &value);
 
     std::unique_ptr<QSettings> m_settings;
+    std::atomic_bool m_useLibArchive{true};
 };
 
 #endif // APPSETTINGS_H

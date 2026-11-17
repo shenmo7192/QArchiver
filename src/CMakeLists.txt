@@ -21,6 +21,11 @@ target_link_libraries(QArchiver PRIVATE
     Qt6::Concurrent
 )
 
+if(QARCHIVER_HAS_LIBARCHIVE)
+    target_link_libraries(QArchiver PRIVATE ${QARCHIVER_LIBARCHIVE_TARGET})
+    target_compile_definitions(QArchiver PRIVATE QARCHIVER_HAS_LIBARCHIVE)
+endif()
+
 if(TARGET Qt6::DBus)
     target_link_libraries(QArchiver PRIVATE Qt6::DBus)
     target_compile_definitions(QArchiver PRIVATE QARCHIVER_HAS_DBUS)

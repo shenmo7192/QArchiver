@@ -59,8 +59,20 @@ public:
     // Last listed entries (empty before listing)
     QList<ArchiveEntry> entries() const { return m_entries; }
 
-    // Create a backend for a given format (factory)
+    // Create a backend for a given format (factory). Always uses the command
+    // line tools; this is the factory for write operations.
     static ArchiveBackend *createBackend(ArchiveFormat fmt);
+    // Create a backend for reading an existing archive: libarchive when it is
+    // available and the archive is not a split volume, otherwise the CLI.
+    static ArchiveBackend *createReadBackend(ArchiveFormat fmt,
+                                             const QString &path = QString());
+    // Whether this build links libarchive (compile-time capability).
+    static bool isLibArchiveAvailable();
+    // Troubleshooting escape hatch: QARCHIVER_NO_LIBARCHIVE forces the CLI.
+    static bool isLibArchiveDisabledByEnvironment();
+    // Whether createReadBackend() would pick the in-process backend for this
+    // archive (preference, environment, format whitelist, split volumes).
+    static bool usesLibArchiveForRead(ArchiveFormat fmt, const QString &path);
 
 signals:
     // Emitted before asynchronous format detection starts.
@@ -90,6 +102,10 @@ private:
 
     void handleTerminal(ArchiveBackend *backend, bool success, const QString &msg);
     void handleError(ArchiveBackend *backend, ArchiveErrorCode code, const QString &msg);
+    // Retries the pending read operation on the CLI backend when the libarchive
+    // backend could not handle the archive. Returns true when a retry started.
+    bool tryLibArchiveFallback(ArchiveBackend *backend, ArchiveErrorCode code,
+                              const QString &msg);
 
     void cleanupTempBackend();
     void cleanupCompressSession();
@@ -106,6 +122,12 @@ private:
     bool m_busy = false;
     bool m_opening = false;
     QList<ArchiveEntry> m_entries;
+
+    // libarchive dispatch state: which backend serves the current archive and
+    // whether the one-time fallback to the CLI backend has already happened.
+    bool m_usingLibArchive = false;
+    bool m_fallbackDone = false;
+    bool m_fallbackInProgress = false;
 
     // Password retry state. The variant holds the operation that needs a
     // password; std::monostate means there is no pending retry.

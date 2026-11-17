@@ -56,6 +56,9 @@ public:
 
     QStringList allPaths() const;
 
+    // Flat entry list as delivered by the backend (drag-out needs sizes).
+    const QList<ArchiveEntry> &sourceEntries() const { return m_sourceEntries; }
+
     const ArchiveEntry *entryAt(const QModelIndex &index) const;
     QModelIndex indexForPath(const QString &path) const;
 

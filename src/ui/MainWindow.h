@@ -31,6 +31,7 @@ public:
 
 protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
     void dropEvent(QDropEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
@@ -42,9 +43,7 @@ private slots:
     void onAddFiles();
     void onDeleteSelected();
     void onPreferences();
-    void onProperties();
     void onCloseArchive();
-    void onViewLog();
     void onAbout();
 
     void onArchiveOpening(const QString &filePath);
@@ -60,6 +59,7 @@ private slots:
     void onTreeContextMenu(const QPoint &pos);
     void onSearchChanged(const QString &text);
     void onSidebarFileOpened(const QString &path);
+    void onEntriesDragOut(const QStringList &paths);
 
 private:
     void setupActions();
@@ -68,6 +68,7 @@ private:
     void setupSidebar();
     void applyContentViewMode();
     void applyToolButtonStyle();
+    void applySidebarVisibility();
     void updateActionsState();
     void showPlaceholder(const QString &message);
     void showProgressDialog(const QString &title);
@@ -96,7 +97,6 @@ private:
     QAction *m_extractAct = nullptr;
     QAction *m_addAct = nullptr;
     QAction *m_deleteAct = nullptr;
-    QAction *m_propertiesAct = nullptr;
     QAction *m_closeAct = nullptr;
 
     // Dialogs
@@ -109,6 +109,8 @@ private:
 
     // State
     QString m_currentPassword;   // Password for the current archive
+    bool m_dragPrepareInProgress = false;  // Guard against re-entrant drags
+    bool m_selfDropAttempted = false;      // Entry dropped back onto ourselves
     QString m_sessionPassword;   // Optional session-wide remembered password
     bool m_openDestAfterExtract = false;
     QString m_lastExtractDest;

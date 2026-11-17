@@ -18,6 +18,8 @@ AppSettings::AppSettings()
 
     m_settings = std::make_unique<QSettings>(
         QSettings::IniFormat, QSettings::UserScope, organization, application);
+    m_useLibArchive.store(
+        m_settings->value(QStringLiteral("backends/useLibArchive"), true).toBool());
 }
 
 AppSettings::~AppSettings() = default;
@@ -130,6 +132,16 @@ QString AppSettings::toolButtonStyle() const
     return QStringLiteral("textUnderIcon");
 }
 
+bool AppSettings::showRecentFiles() const
+{
+    return value(QStringLiteral("ui/showRecentFiles"), false).toBool();
+}
+
+bool AppSettings::useLibArchiveBackend() const
+{
+    return m_useLibArchive.load();
+}
+
 void AppSettings::setDefaultCompressFormat(ArchiveFormat fmt)
 {
     setValue(QStringLiteral("compress/defaultFormat"), toInt(fmt));
@@ -199,4 +211,16 @@ void AppSettings::setToolButtonStyle(const QString &style)
     } else {
         setValue(QStringLiteral("ui/toolButtonStyle"), QStringLiteral("textUnderIcon"));
     }
+}
+
+void AppSettings::setShowRecentFiles(bool show)
+{
+    setValue(QStringLiteral("ui/showRecentFiles"), show);
+}
+
+void AppSettings::setUseLibArchiveBackend(bool use)
+{
+    setValue(QStringLiteral("backends/useLibArchive"), use);
+    // Keep the cached copy in sync for the worker-thread readers.
+    m_useLibArchive.store(use);
 }

@@ -18,3 +18,11 @@ target_sources(QArchiver PRIVATE
     stream/StreamBackend.cpp
     stream/StreamBackend.h
 )
+
+# Read-only libarchive backend (zip/tar/7z/streams without an external process).
+if(QARCHIVER_HAS_LIBARCHIVE)
+    target_sources(QArchiver PRIVATE
+        archive/LibArchiveBackend.cpp
+        archive/LibArchiveBackend.h
+    )
+endif()

@@ -19,8 +19,9 @@ public:
 signals:
     void entryDoubleClicked(const QString &path);
     // Emitted when the user starts dragging entries out of the view.
-    // The receiver is responsible for providing real file URLs if needed.
-    void entriesDroppedOut(const QStringList &paths);
+    // The receiver is responsible for staging real files and starting the
+    // actual QDrag; the view does not know about ArchiveManager at all.
+    void dragOutRequested(const QStringList &paths);
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -29,6 +30,7 @@ protected:
 
 private:
     QPoint m_dragStartPos;
+    bool m_dragActive = false;   // inside startDrag(): ignore re-entrant moves
     bool m_flatMode = false;
 };
 

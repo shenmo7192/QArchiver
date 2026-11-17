@@ -211,7 +211,13 @@ Qt::ItemFlags FileListModel::flags(const QModelIndex &index) const
     if (!index.isValid()) {
         return Qt::NoItemFlags;
     }
-    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    Qt::ItemFlags flags = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    // Real entries can be dragged out of the view; the synthetic ".." row in
+    // list mode cannot (it is navigation only).
+    if (!index.data(IsParentRole).toBool()) {
+        flags |= Qt::ItemIsDragEnabled;
+    }
+    return flags;
 }
 
 FileListModel::Node *FileListModel::ensureDirectory(Node *parent, const QString &path,

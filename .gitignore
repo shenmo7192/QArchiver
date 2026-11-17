@@ -55,3 +55,6 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+
+# Local drag & drop investigation logs (user's own records, not part of the repo)
+/*.log

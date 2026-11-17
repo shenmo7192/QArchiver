@@ -11,6 +11,7 @@
 #include <QApplication>
 
 #include "core/AppSettings.h"
+#include "core/ArchiveManager.h"
 #include "utils/ThemeManager.h"
 #include "utils/IconUtils.h"
 
@@ -90,6 +91,35 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     const int toolbarStyleIndex = m_toolbarStyleCombo->findData(settings.toolButtonStyle());
     m_toolbarStyleCombo->setCurrentIndex(toolbarStyleIndex >= 0 ? toolbarStyleIndex : 0);
 
+    m_showRecentFilesCheck = new QCheckBox(tr("Show recent files sidebar"), this);
+    m_showRecentFilesCheck->setChecked(settings.showRecentFiles());
+
+    m_libArchiveCheck = new QCheckBox(
+        tr("Read archives with libarchive (no external process)"), this);
+    const bool libArchiveUsable = ArchiveManager::isLibArchiveAvailable()
+        && !ArchiveManager::isLibArchiveDisabledByEnvironment();
+    m_libArchiveCheck->setChecked(settings.useLibArchiveBackend()
+                                  && libArchiveUsable);
+    if (libArchiveUsable) {
+        m_libArchiveCheck->setToolTip(
+            tr("zip, tar, 7z and gz/bz2/xz archives are read inside the "
+               "application. Archives that libarchive cannot open (encrypted "
+               "7z, split volumes, rar) automatically switch to the command "
+               "line tools. The change applies to the next archive you open."));
+        m_libArchiveHint = new QLabel(
+            tr("Applies to the next archive you open; the currently open "
+               "archive keeps the backend it started with."), this);
+        m_libArchiveHint->setWordWrap(true);
+        m_libArchiveHint->setEnabled(false);
+    } else {
+        m_libArchiveCheck->setChecked(false);
+        m_libArchiveCheck->setEnabled(false);
+        m_libArchiveCheck->setToolTip(
+            ArchiveManager::isLibArchiveAvailable()
+                ? tr("Disabled by the QARCHIVER_NO_LIBARCHIVE environment variable.")
+                : tr("This build was compiled without libarchive."));
+    }
+
     auto *form = new QFormLayout;
     form->addRow(tr("Default compression &format:"), m_defaultFormatCombo);
     form->addRow(tr("Default compression &level:"), m_defaultLevelSpin);
@@ -102,6 +132,11 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     form->addRow(QString(), m_openAfterCheck);
     form->addRow(QString(), m_followSymlinksCheck);
     form->addRow(QString(), m_rememberPasswordsCheck);
+    form->addRow(QString(), m_libArchiveCheck);
+    if (m_libArchiveHint) {
+        form->addRow(QString(), m_libArchiveHint);
+    }
+    form->addRow(QString(), m_showRecentFilesCheck);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
@@ -130,9 +165,13 @@ void PreferencesDialog::saveSettings()
     s.setMaxPreviewSize(qint64(m_maxPreviewSpin->value()) * 1024 * 1024);
     s.setFollowSymlinks(m_followSymlinksCheck->isChecked());
     s.setRememberPasswords(m_rememberPasswordsCheck->isChecked());
+    if (m_libArchiveCheck->isEnabled()) {
+        s.setUseLibArchiveBackend(m_libArchiveCheck->isChecked());
+    }
     s.setTheme(m_themeCombo->currentData().toString());
     s.setContentViewMode(m_viewModeCombo->currentData().toString());
     s.setToolButtonStyle(m_toolbarStyleCombo->currentData().toString());
+    s.setShowRecentFiles(m_showRecentFilesCheck->isChecked());
 
     // Apply the theme immediately so the change is visible without restarting.
     if (auto *app = qobject_cast<QApplication *>(QCoreApplication::instance())) {

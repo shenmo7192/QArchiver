@@ -1,10 +1,8 @@
 #include "ArchiveTreeView.h"
 #include "FileListModel.h"
+#include "utils/Logger.h"
 
 #include <QMouseEvent>
-#include <QDrag>
-#include <QMimeData>
-#include <QUrl>
 #include <QApplication>
 #include <QItemSelectionModel>
 #include <QStringList>
@@ -79,6 +77,13 @@ void ArchiveTreeView::mousePressEvent(QMouseEvent *event)
 
 void ArchiveTreeView::mouseMoveEvent(QMouseEvent *event)
 {
+    // While the receiver prepares the payload and runs the native drag loop,
+    // further mouse-move events are still delivered (the preparation spins a
+    // nested event loop).  They must not start a second preparation.
+    if (m_dragActive) {
+        return;
+    }
+
     if (!(event->buttons() & Qt::LeftButton)) {
         return QTreeView::mouseMoveEvent(event);
     }
@@ -92,10 +97,14 @@ void ArchiveTreeView::mouseMoveEvent(QMouseEvent *event)
 
     const QModelIndex index = indexAt(m_dragStartPos);
     if (!index.isValid()) {
+        LOG_DEBUG("ArchiveTreeView", "drag threshold passed but no entry at press pos");
         return QTreeView::mouseMoveEvent(event);
     }
 
+    LOG_DEBUG("ArchiveTreeView", "drag threshold passed, starting drag");
+    m_dragActive = true;
     startDrag(Qt::CopyAction);
+    m_dragActive = false;
 }
 
 void ArchiveTreeView::startDrag(Qt::DropActions supportedActions)
@@ -103,22 +112,15 @@ void ArchiveTreeView::startDrag(Qt::DropActions supportedActions)
     Q_UNUSED(supportedActions);
 
     const QStringList paths = selectedEntryPaths();
+    LOG_INFO("ArchiveTreeView", "startDrag requested for %lld selected entr%s",
+             static_cast<long long>(paths.size()), paths.size() == 1 ? "y" : "ies");
     if (paths.isEmpty()) {
+        LOG_WARN("ArchiveTreeView", "no selected entries, drag not started");
         return;
     }
 
-    emit entriesDroppedOut(paths);
-
-    // Drag-out for archive entries is always a copy operation (design doc
-    // 5.8.2). We provide the entry list as text and as a custom mime type;
-    // MainWindow may extend this with real local file URLs after temporary
-    // extraction.
-    auto *mimeData = new QMimeData;
-    mimeData->setText(paths.join(QLatin1Char('\n')));
-    mimeData->setData(QStringLiteral("application/x-qarchiver-entries"),
-                      paths.join(QLatin1Char('\n')).toUtf8());
-
-    QDrag drag(this);
-    drag.setMimeData(mimeData);
-    drag.exec(Qt::CopyAction, Qt::CopyAction);
+    // Archive entries are not real files, so only the receiver can provide
+    // usable file URLs.  It stages the selected entries and starts the QDrag;
+    // this view stays independent of the archive backend and the UI shell.
+    emit dragOutRequested(paths);
 }

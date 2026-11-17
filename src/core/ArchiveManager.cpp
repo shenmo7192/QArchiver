@@ -6,7 +6,11 @@
 #include "backends/stream/StreamBackend.h"
 #include "backends/tar/TarBackend.h"
 #include "backends/zip/ZipBackend.h"
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+#include "backends/archive/LibArchiveBackend.h"
+#endif
 
+#include "core/AppSettings.h"
 #include "core/RecentFilesManager.h"
 #include "utils/FileUtils.h"
 #include "utils/Logger.h"
@@ -26,6 +30,44 @@ ArchiveManager::ArchiveManager()
     m_workerThread.setObjectName(QStringLiteral("ArchiveWorker"));
     m_workerThread.start();
 }
+
+namespace {
+
+// Variant visitor helper for the pending-operation dispatch.
+template <typename... Ts>
+struct Overloaded : Ts... {
+    using Ts::operator()...;
+};
+template <typename... Ts>
+Overloaded(Ts...) -> Overloaded<Ts...>;
+
+// Formats the libarchive backend can read. RAR keeps using unrar/rar through
+// RarBackend, and volumes are always left to the CLI (libarchive has no volume
+// support at all).
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+bool supportsLibArchiveRead(ArchiveFormat fmt)
+{
+    switch (fmt) {
+    case ArchiveFormat::Zip:
+    case ArchiveFormat::SevenZip:
+    case ArchiveFormat::Tar:
+    case ArchiveFormat::TarGz:
+    case ArchiveFormat::TarXz:
+    case ArchiveFormat::TarBz2:
+    case ArchiveFormat::Gzip:
+    case ArchiveFormat::Bzip2:
+    case ArchiveFormat::Xz:
+        return true;
+    case ArchiveFormat::Rar4:
+    case ArchiveFormat::Rar5:
+    case ArchiveFormat::Unknown:
+        return false;
+    }
+    return false;
+}
+#endif // QARCHIVER_HAS_LIBARCHIVE
+
+} // namespace
 
 ArchiveManager::~ArchiveManager()
 {
@@ -86,6 +128,47 @@ ArchiveBackend *ArchiveManager::createBackend(ArchiveFormat fmt)
     return nullptr;
 }
 
+bool ArchiveManager::usesLibArchiveForRead(ArchiveFormat fmt, const QString &path)
+{
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+    return !isLibArchiveDisabledByEnvironment()
+        && AppSettings::instance().useLibArchiveBackend()
+        && !path.isEmpty() && supportsLibArchiveRead(fmt)
+        && !MimeTypeHelper::isSplitVolume(path);
+#else
+    Q_UNUSED(fmt);
+    Q_UNUSED(path);
+    return false;
+#endif
+}
+
+ArchiveBackend *ArchiveManager::createReadBackend(ArchiveFormat fmt,
+                                                  const QString &path)
+{
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+    if (usesLibArchiveForRead(fmt, path)) {
+        return new LibArchiveBackend(fmt);
+    }
+#else
+    Q_UNUSED(path);
+#endif
+    return createBackend(fmt);
+}
+
+bool ArchiveManager::isLibArchiveAvailable()
+{
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool ArchiveManager::isLibArchiveDisabledByEnvironment()
+{
+    return qEnvironmentVariableIsSet("QARCHIVER_NO_LIBARCHIVE");
+}
+
 bool ArchiveManager::startOperation(ArchiveBackend *backend,
                                     std::function<void(ArchiveBackend *)> operation)
 {
@@ -125,6 +208,12 @@ void ArchiveManager::connectBackend(ArchiveBackend *backend, quint64 generation)
                     return;
                 }
                 m_opening = false;
+                if (m_fallbackInProgress) {
+                    // Re-opening on the CLI backend after a fallback: the UI
+                    // already knows this archive, do not re-announce it.
+                    m_fallbackInProgress = false;
+                    return;
+                }
                 RecentFilesManager::instance().add(filePath);
                 emit archiveOpened(filePath);
             });
@@ -232,6 +321,9 @@ void ArchiveManager::openArchive(const QString &filePath)
     m_format = ArchiveFormat::Unknown;
     m_opening = true;
     m_busy = true;
+    m_usingLibArchive = false;
+    m_fallbackDone = false;
+    m_fallbackInProgress = false;
 
     emit archiveOpening(filePath);
 
@@ -269,7 +361,7 @@ void ArchiveManager::finishOpen(const QString &filePath, ArchiveFormat format)
     }
 
     m_format = format;
-    ArchiveBackend *backend = createBackend(format);
+    ArchiveBackend *backend = createReadBackend(format, filePath);
     if (!backend) {
         m_opening = false;
         m_archivePath.clear();
@@ -282,6 +374,13 @@ void ArchiveManager::finishOpen(const QString &filePath, ArchiveFormat format)
     backend->moveToThread(&m_workerThread);
     m_backend = backend;
     m_opening = true;
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+    m_usingLibArchive = qobject_cast<LibArchiveBackend *>(backend) != nullptr;
+#else
+    m_usingLibArchive = false;
+#endif
+    m_fallbackDone = false;
+    m_fallbackInProgress = false;
     connectBackend(backend, m_generation);
 
     const bool invoked = QMetaObject::invokeMethod(
@@ -646,9 +745,110 @@ void ArchiveManager::handleTerminal(ArchiveBackend *backend, bool success,
     emit operationFinished(success, msg);
 }
 
+bool ArchiveManager::tryLibArchiveFallback(ArchiveBackend *backend,
+                                           ArchiveErrorCode code, const QString &msg)
+{
+    if (backend != m_backend || !m_usingLibArchive || m_fallbackDone) {
+        return false;
+    }
+
+    switch (code) {
+    case ArchiveErrorCode::Cancelled:
+    case ArchiveErrorCode::OperationNotSupported:
+    case ArchiveErrorCode::PathTraversalBlocked:
+    case ArchiveErrorCode::InsufficientDiskSpace:
+    case ArchiveErrorCode::ToolNotFound:
+    case ArchiveErrorCode::FileNotFound:
+    case ArchiveErrorCode::PermissionDenied:
+        return false;
+    default:
+        break;
+    }
+
+    const bool retryable = std::holds_alternative<ListOptions>(m_pending)
+        || std::holds_alternative<ExtractOptions>(m_pending)
+        || std::holds_alternative<TestOptions>(m_pending);
+    if (!retryable) {
+        return false;
+    }
+
+    m_fallbackDone = true;
+    m_usingLibArchive = false;
+
+    LOG_INFO("ArchiveManager",
+             "libarchive could not handle %s (%s); retrying with the CLI backend",
+             m_archivePath.toUtf8().constData(), msg.toUtf8().constData());
+    emit outputReady(
+        tr("libarchive cannot handle this archive, switching to the 7z command line."));
+
+    ArchiveBackend *old = m_backend;
+    m_backend = nullptr;
+    old->requestCancel();
+    disconnect(old, nullptr, this, nullptr);
+    QMetaObject::invokeMethod(
+        old, [old]() { old->closeArchive(); delete old; }, Qt::QueuedConnection);
+
+    ArchiveBackend *cli = createBackend(m_format);
+    if (!cli) {
+        emit errorOccurred(code, msg);
+        return true;
+    }
+
+    cli->moveToThread(&m_workerThread);
+    m_backend = cli;
+    m_fallbackInProgress = true;
+    m_busy = true;
+
+    const quint64 generation = m_generation;
+    connectBackend(cli, generation);
+
+    const QString path = m_archivePath;
+    const auto pending = m_pending;
+    // When the failing operation was the "test before extract" pre-test, that
+    // pre-test must be replayed, not the extraction itself.
+    const bool preTest = m_preTestPending;
+    const QString preTestPassword = m_preTestExtractOptions.password;
+
+    QMetaObject::invokeMethod(
+        cli,
+        [cli, path, pending, generation, preTest, preTestPassword, this]() {
+            if (generation != m_generation) {
+                return;
+            }
+            cli->openArchive(path);
+
+            if (preTest) {
+                TestOptions testOptions;
+                testOptions.password = preTestPassword;
+                cli->testArchive(testOptions);
+                return;
+            }
+
+            std::visit(Overloaded{
+                           [cli](const ListOptions &options) {
+                               cli->listContents(options);
+                           },
+                           [cli](const ExtractOptions &options) {
+                               cli->extract(options);
+                           },
+                           [cli](const TestOptions &options) {
+                               cli->testArchive(options);
+                           },
+                           [](const auto &) {},
+                       },
+                       pending);
+        },
+        Qt::QueuedConnection);
+    return true;
+}
+
 void ArchiveManager::handleError(ArchiveBackend *backend, ArchiveErrorCode code,
                                  const QString &msg)
 {
+    if (tryLibArchiveFallback(backend, code, msg)) {
+        return;
+    }
+
     m_busy = false;
 
     if (backend == m_tempBackend) {
@@ -686,6 +886,9 @@ void ArchiveManager::closeArchive()
     m_preTestPending = false;
     m_archivePath.clear();
     m_format = ArchiveFormat::Unknown;
+    m_usingLibArchive = false;
+    m_fallbackDone = false;
+    m_fallbackInProgress = false;
 
     auto destroyBackend = [this](ArchiveBackend *backend) {
         if (!backend) {

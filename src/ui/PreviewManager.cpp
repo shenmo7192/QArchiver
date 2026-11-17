@@ -83,7 +83,7 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
     (void)QtConcurrent::run([archivePath, format, entryPath, normalized, previewDir,
                               destPath, password]() {
         std::unique_ptr<ArchiveBackend> backend(
-            ArchiveManager::createBackend(format));
+            ArchiveManager::createReadBackend(format, archivePath));
 
         bool success = false;
         QString errorMessage;

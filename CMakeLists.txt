@@ -39,6 +39,41 @@ set(CMAKE_AUTORCC ON)
 include(GNUInstallDirs)
 include(cmake/QArchiverWarnings.cmake)
 
+# libarchive powers the read-only LibArchiveBackend (zip/tar/7z/streams without
+# spawning 7z). It is optional: when the headers are missing the build falls back
+# to the command-line backends only.
+option(QARCHIVER_USE_LIBARCHIVE
+    "Use the system libarchive for read-only archive access" ON)
+
+if(QARCHIVER_USE_LIBARCHIVE)
+    # Prefer the CMake config/FindLibArchive module, then pkg-config (some
+    # distributions ship the .pc file without FindLibArchive.cmake).
+    find_package(LibArchive 3.4)
+    if(NOT LibArchive_FOUND)
+        find_package(PkgConfig QUIET)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(LibArchivePC QUIET IMPORTED_TARGET libarchive>=3.4)
+            if(LibArchivePC_FOUND)
+                set(QARCHIVER_LIBARCHIVE_TARGET PkgConfig::LibArchivePC)
+                set(LibArchive_VERSION ${LibArchivePC_VERSION})
+                set(LibArchive_FOUND TRUE)
+            endif()
+        endif()
+    else()
+        set(QARCHIVER_LIBARCHIVE_TARGET LibArchive::LibArchive)
+    endif()
+endif()
+
+if(QARCHIVER_USE_LIBARCHIVE AND LibArchive_FOUND)
+    set(QARCHIVER_HAS_LIBARCHIVE ON)
+    message(STATUS "libarchive found (${LibArchive_VERSION}): read-only backend enabled")
+    message(STATUS "  target: ${QARCHIVER_LIBARCHIVE_TARGET}")
+elseif(QARCHIVER_USE_LIBARCHIVE)
+    message(WARNING
+        "libarchive not found: building without the libarchive backend. "
+        "Install libarchive-dev (Debian/Ubuntu) or use -DQARCHIVER_USE_LIBARCHIVE=OFF.")
+endif()
+
 add_subdirectory(src)
 
 add_subdirectory(translations)
