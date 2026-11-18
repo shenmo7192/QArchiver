@@ -33,6 +33,8 @@ target_sources(QArchiver PRIVATE
     # 可复用自定义控件。
     widgets/ArchiveTreeView.cpp
     widgets/ArchiveTreeView.h
+    widgets/BackgroundWidget.cpp
+    widgets/BackgroundWidget.h
     widgets/SidebarWidget.cpp
     widgets/SidebarWidget.h
 )

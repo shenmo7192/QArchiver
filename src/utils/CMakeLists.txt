@@ -25,6 +25,8 @@ target_sources(QArchiver PRIVATE
     # 应用主题与日志支持。
     ThemeManager.cpp
     ThemeManager.h
+    BackgroundImage.cpp
+    BackgroundImage.h
     Logger.cpp
     Logger.h
     IconUtils.h

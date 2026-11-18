@@ -11,6 +11,9 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QFont>
+#include <QFontDatabase>
+#include <QSize>
 
 // Build the progress UI; cancellation is delegated through a signal.
 // 构建进度界面；取消操作通过信号转发。
@@ -23,6 +26,7 @@ ProgressDialog::ProgressDialog(QWidget *parent)
     setModal(true);
 
     m_progressBar = new QProgressBar(this);
+    m_progressBar->setObjectName(QStringLiteral("ProgressBar"));
     m_progressBar->setRange(0, 100);
 
     m_fileLabel = new QLabel(tr("Processing..."), this);
@@ -31,18 +35,29 @@ ProgressDialog::ProgressDialog(QWidget *parent)
     m_statsLabel = new QLabel(this);
 
     m_output = new QPlainTextEdit(this);
+    m_output->setObjectName(QStringLiteral("ProgressOutput"));
     m_output->setReadOnly(true);
     m_output->setMaximumBlockCount(1000);
+    QFont outputFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    outputFont.setPointSizeF(8.5);
+    m_output->setFont(outputFont);
 
     m_cancelBtn = new QPushButton(qarchiverIcon(QStringLiteral("no.ico")),
                                   tr("Cancel"), this);
+    m_cancelBtn->setObjectName(QStringLiteral("ProgressCancelButton"));
+    m_cancelBtn->setIconSize(QSize(16, 16));
+    m_cancelBtn->setMinimumWidth(90);
 
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(10);
     layout->addWidget(m_progressBar);
     layout->addWidget(m_fileLabel);
     layout->addWidget(m_statsLabel);
     layout->addWidget(m_output);
     layout->addWidget(m_cancelBtn, 0, Qt::AlignRight);
+
+    resize(560, 380);
 
     connect(m_cancelBtn, &QPushButton::clicked, this, [this]() {
         m_cancelBtn->setEnabled(false);

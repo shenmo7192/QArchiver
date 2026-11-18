@@ -10,6 +10,7 @@
 #include "PreviewManager.h"
 #include "DragOutManager.h"
 #include "widgets/ArchiveTreeView.h"
+#include "widgets/BackgroundWidget.h"
 #include "widgets/SidebarWidget.h"
 #include "dialogs/ExtractDialog.h"
 #include "dialogs/CompressDialog.h"
@@ -51,6 +52,7 @@
 #include <QCloseEvent>
 #include <QPushButton>
 #include <QListView>
+#include <QEvent>
 #include <QTreeView>
 #include <QAbstractItemView>
 #include <QDialog>
@@ -58,6 +60,8 @@
 #include <QMenu>
 #include <QDockWidget>
 #include <QDir>
+#include <QFrame>
+#include <QIcon>
 #include <QItemSelectionModel>
 #include <QCoreApplication>
 
@@ -120,6 +124,28 @@ MainWindow::MainWindow(QWidget *parent)
     setupCentralWidget();
     setupSidebar();
     applyContentViewMode();
+
+    // The background image is a presentation option, independent of the
+    // archive data. It is painted inside the archive tree's viewport, so the
+    // header and scroll bars are never covered. Reload it on startup and when
+    // the settings change.
+    // 背景图片属于展示选项，与压缩包数据无关。它绘制在归档树 viewport 内，
+    // 因此不会覆盖表头和滚动条。启动时加载，并在设置变化时重新加载。
+    m_treeView->reloadBackgroundFromSettings();
+    connect(&AppSettings::instance(), &AppSettings::backgroundImageChanged,
+            m_treeView, &ArchiveTreeView::reloadBackgroundFromSettings);
+
+    // The placeholder uses the central background widget, while the archive
+    // page uses the tree viewport layer. Show the central image only while the
+    // placeholder page is current, so the two images never overlap and the
+    // archive viewport remains the sole owner of the logo there.
+    // 占位页使用中央背景控件，归档页使用树 viewport 图片层。仅在占位页当前
+    // 显示时启用中央图片，避免两张图重叠，并让归档视图独占其 logo。
+    connect(m_centralStack, &QStackedWidget::currentChanged,
+            this, &MainWindow::updatePlaceholderBackground);
+    connect(&AppSettings::instance(), &AppSettings::backgroundImageChanged,
+            this, &MainWindow::updatePlaceholderBackground);
+    updatePlaceholderBackground();
 
     auto &manager = ArchiveManager::instance();
     connect(&manager, &ArchiveManager::archiveOpening,
@@ -210,6 +236,8 @@ void MainWindow::setupToolbar()
     tb->addAction(aboutAct);
 
     auto *spacer = new QWidget(this);
+    spacer->setObjectName(QStringLiteral("ToolbarSpacer"));
+    spacer->setAttribute(Qt::WA_TranslucentBackground);
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     tb->addWidget(spacer);
 
@@ -230,44 +258,68 @@ void MainWindow::setupToolbar()
 
 void MainWindow::setupCentralWidget()
 {
-    m_centralStack = new QStackedWidget(this);
+    // The background widget hosts the central stack and paints the Aero
+    // content background. The optional logo is drawn by ArchiveTreeView inside
+    // its viewport, so it is clipped to the visible archive content area.
+    // 背景控件承载中央堆栈并绘制 Aero 内容背景。可选 logo 由 ArchiveTreeView
+    // 在其 viewport 内绘制，因此会被裁剪到压缩包内容的可视区域。
+    m_backgroundWidget = new BackgroundWidget(this);
+    m_centralStack = new QStackedWidget(m_backgroundWidget);
+    m_centralStack->setObjectName(QStringLiteral("CentralStack"));
+    m_centralStack->setFrameShape(QFrame::NoFrame);
+    m_centralStack->setAutoFillBackground(false);
 
     // Placeholder page (shown when no archive is open)
     auto *placeholder = new QWidget(m_centralStack);
+    placeholder->setObjectName(QStringLiteral("PlaceholderPage"));
+    placeholder->setAutoFillBackground(false);
     auto *placeholderLayout = new QVBoxLayout(placeholder);
     placeholderLayout->addStretch(1);
     m_placeholderLabel = new QLabel(
         tr("No archive open.\nUse the Open button or drag a file here."),
         placeholder);
+    m_placeholderLabel->setObjectName(QStringLiteral("PlaceholderLabel"));
     m_placeholderLabel->setAlignment(Qt::AlignCenter);
-    m_placeholderLabel->setStyleSheet(QStringLiteral("color: gray; font-size: 14px;"));
     placeholderLayout->addWidget(m_placeholderLabel);
     auto *openBtn = new QPushButton(resourceIcon(QStringLiteral("Open.png")),
                                     tr("Choose Archive..."), placeholder);
-    openBtn->setIconSize(QSize(20, 20));
+    openBtn->setObjectName(QStringLiteral("PlaceholderOpenButton"));
+    openBtn->setIconSize(QSize(16, 16));
     connect(openBtn, &QPushButton::clicked, this, &MainWindow::onOpen);
     placeholderLayout->addWidget(openBtn, 0, Qt::AlignHCenter);
     placeholderLayout->addStretch(1);
 
     // Archive page: search field + tree
     auto *archivePage = new QWidget(m_centralStack);
+    archivePage->setObjectName(QStringLiteral("ArchivePage"));
+    archivePage->setAutoFillBackground(false);
     auto *archiveLayout = new QVBoxLayout(archivePage);
     archiveLayout->setContentsMargins(0, 0, 0, 0);
     archiveLayout->setSpacing(2);
 
     m_searchEdit = new QLineEdit(archivePage);
+    m_searchEdit->setObjectName(QStringLiteral("SearchEdit"));
     m_searchEdit->setPlaceholderText(tr("Filter by name or path (wildcards allowed)..."));
     m_searchEdit->setClearButtonEnabled(true);
+    m_searchAction = new QAction(QString(), m_searchEdit);
+    m_searchAction->setEnabled(false);
+    m_searchEdit->addAction(m_searchAction, QLineEdit::LeadingPosition);
+    updateSearchIcon();
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &MainWindow::onSearchChanged);
     archiveLayout->addWidget(m_searchEdit);
 
     m_treeView = new ArchiveTreeView(archivePage);
+    m_treeView->setObjectName(QStringLiteral("ArchiveTree"));
     m_treeView->setModel(m_proxyModel);
     m_treeView->setItemDelegate(new FileListViewDelegate(m_treeView));
+    m_treeView->setFrameShape(QFrame::NoFrame);
+    m_treeView->viewport()->setAutoFillBackground(false);
     connect(m_treeView->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, [this]() { updateActionsState(); });
     auto *header = m_treeView->header();
+    header->setFixedHeight(24);
+    header->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     header->setStretchLastSection(false);
     header->setSectionsClickable(true);
     header->setSectionResizeMode(QHeaderView::Interactive);
@@ -289,16 +341,25 @@ void MainWindow::setupCentralWidget()
     m_centralStack->addWidget(placeholder);   // index 0
     m_centralStack->addWidget(archivePage);   // index 1
     m_centralStack->setCurrentIndex(0);
-    setCentralWidget(m_centralStack);
+
+    auto *backgroundLayout = new QVBoxLayout(m_backgroundWidget);
+    backgroundLayout->setContentsMargins(0, 0, 0, 0);
+    backgroundLayout->setSpacing(0);
+    backgroundLayout->addWidget(m_centralStack);
+    setCentralWidget(m_backgroundWidget);
 
     // Busy indicator on the right side of the status bar
     // 状态栏右侧的忙碌指示器
+    statusBar()->setObjectName(QStringLiteral("MainStatusBar"));
     m_busyLabel = new QLabel(this);
+    m_busyLabel->setObjectName(QStringLiteral("BusyLabel"));
     m_busyBar = new QProgressBar(this);
+    m_busyBar->setObjectName(QStringLiteral("BusyProgress"));
     m_busyBar->setRange(0, 0);
     m_busyBar->setFixedWidth(120);
     m_busyBar->setTextVisible(false);
     m_busyWidget = new QWidget(this);
+    m_busyWidget->setObjectName(QStringLiteral("BusyWidget"));
     auto *busyLayout = new QHBoxLayout(m_busyWidget);
     busyLayout->setContentsMargins(0, 0, 0, 0);
     busyLayout->setSpacing(6);
@@ -368,6 +429,17 @@ void MainWindow::applySidebarVisibility()
     }
 }
 
+void MainWindow::updateSearchIcon()
+{
+    if (!m_searchAction) {
+        return;
+    }
+    const bool dark = qApp->property("aeroDark").toBool();
+    m_searchAction->setIcon(QIcon(dark
+        ? QStringLiteral(":/styles/search-dark.png")
+        : QStringLiteral(":/styles/search.png")));
+}
+
 void MainWindow::updateActionsState()
 {
     ArchiveBackend *backend = ArchiveManager::instance().backend();
@@ -385,6 +457,25 @@ void MainWindow::showPlaceholder(const QString &message)
 {
     m_placeholderLabel->setText(message);
     m_centralStack->setCurrentIndex(0);
+    // currentChanged() normally handles this; keep the explicit call so a
+    // repeated showPlaceholder() while already on page 0 also refreshes.
+    // 通常由 currentChanged() 处理；重复停留在第 0 页时也显式刷新一次。
+    updatePlaceholderBackground();
+}
+
+void MainWindow::updatePlaceholderBackground()
+{
+    if (!m_backgroundWidget || !m_centralStack) {
+        return;
+    }
+
+    if (m_centralStack->currentIndex() == 0) {
+        m_backgroundWidget->reloadFromSettings();
+    } else {
+        // Archive page: ArchiveTreeView paints the image inside its viewport.
+        // 归档页：由 ArchiveTreeView 在其 viewport 内绘制图片。
+        m_backgroundWidget->setBackgroundImage(BackgroundImageOptions{});
+    }
 }
 
 QStringList MainWindow::chooseSourceItems(const QString &title)
@@ -1218,6 +1309,15 @@ void MainWindow::closeEvent(QCloseEvent *event)
     PreviewManager::instance().cleanupOwn();
     DragOutManager::instance().cleanupOwn();
     event->accept();
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::PaletteChange
+        || event->type() == QEvent::StyleChange) {
+        updateSearchIcon();
+    }
+    QMainWindow::changeEvent(event);
 }
 
 // Helpers

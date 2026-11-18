@@ -20,6 +20,7 @@ SidebarWidget::SidebarWidget(QWidget *parent)
     // extra heading label is added here.
     // 标题由外层 QDockWidget（MainWindow）提供，因此这里不再添加额外标题标签。
     m_recentList = new QListWidget(this);
+    m_recentList->setObjectName(QStringLiteral("RecentList"));
     m_recentList->setIconSize(QSize(18, 18));
     m_recentList->setContextMenuPolicy(Qt::CustomContextMenu);
     m_recentList->setToolTip(tr("Recently opened archives. Double-click to open."));

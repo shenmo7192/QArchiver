@@ -141,6 +141,31 @@ bool AppSettings::showRecentFiles() const
     return value(QStringLiteral("ui/showRecentFiles"), false).toBool();
 }
 
+QString AppSettings::backgroundImagePath() const
+{
+    return value(QStringLiteral("ui/backgroundImage"), QString()).toString();
+}
+
+QString AppSettings::backgroundImageAlignment() const
+{
+    return value(QStringLiteral("ui/backgroundImageAlignment"),
+                 QStringLiteral("bottomRight")).toString();
+}
+
+QSize AppSettings::backgroundImageSize() const
+{
+    const int width = value(QStringLiteral("ui/backgroundImageWidth"), 0).toInt();
+    const int height = value(QStringLiteral("ui/backgroundImageHeight"), 0).toInt();
+    return QSize(std::max(0, width), std::max(0, height));
+}
+
+qreal AppSettings::backgroundImageOpacity() const
+{
+    const qreal opacity = value(QStringLiteral("ui/backgroundImageOpacity"),
+                                0.25).toDouble();
+    return std::clamp(opacity, 0.0, 1.0);
+}
+
 bool AppSettings::useLibArchiveBackend() const
 {
     return m_useLibArchive.load();
@@ -220,6 +245,42 @@ void AppSettings::setToolButtonStyle(const QString &style)
 void AppSettings::setShowRecentFiles(bool show)
 {
     setValue(QStringLiteral("ui/showRecentFiles"), show);
+}
+
+void AppSettings::setBackgroundImagePath(const QString &path)
+{
+    setValue(QStringLiteral("ui/backgroundImage"), path);
+    emit backgroundImageChanged();
+}
+
+void AppSettings::setBackgroundImageAlignment(const QString &alignment)
+{
+    static const QStringList supported = {
+        QStringLiteral("topLeft"), QStringLiteral("top"),
+        QStringLiteral("topRight"), QStringLiteral("left"),
+        QStringLiteral("center"), QStringLiteral("right"),
+        QStringLiteral("bottomLeft"), QStringLiteral("bottom"),
+        QStringLiteral("bottomRight")
+    };
+    const QString valueToStore = supported.contains(alignment)
+        ? alignment
+        : QStringLiteral("bottomRight");
+    setValue(QStringLiteral("ui/backgroundImageAlignment"), valueToStore);
+    emit backgroundImageChanged();
+}
+
+void AppSettings::setBackgroundImageSize(const QSize &size)
+{
+    setValue(QStringLiteral("ui/backgroundImageWidth"), std::max(0, size.width()));
+    setValue(QStringLiteral("ui/backgroundImageHeight"), std::max(0, size.height()));
+    emit backgroundImageChanged();
+}
+
+void AppSettings::setBackgroundImageOpacity(qreal opacity)
+{
+    setValue(QStringLiteral("ui/backgroundImageOpacity"),
+             std::clamp(opacity, 0.0, 1.0));
+    emit backgroundImageChanged();
 }
 
 void AppSettings::setUseLibArchiveBackend(bool use)

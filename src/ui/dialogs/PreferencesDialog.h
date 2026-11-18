@@ -11,6 +11,7 @@ class QComboBox;
 class QSpinBox;
 class QCheckBox;
 class QLabel;
+class QLineEdit;
 
 // Preferences dialog (design doc 4.6).
 // 偏好设置对话框（设计文档 4.6）。
@@ -37,6 +38,14 @@ private:
     QComboBox *m_viewModeCombo = nullptr;
     QComboBox *m_toolbarStyleCombo = nullptr;
     QCheckBox *m_showRecentFilesCheck = nullptr;
+
+    // Optional semi-transparent background image.
+    // 可选的半透明背景图片。
+    QLineEdit *m_backgroundPathEdit = nullptr;
+    QComboBox *m_backgroundAlignCombo = nullptr;
+    QSpinBox *m_backgroundWidthSpin = nullptr;
+    QSpinBox *m_backgroundHeightSpin = nullptr;
+    QSpinBox *m_backgroundOpacitySpin = nullptr;
 };
 
 #endif // PREFERENCESDIALOG_H

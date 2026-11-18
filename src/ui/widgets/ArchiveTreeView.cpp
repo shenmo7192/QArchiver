@@ -3,13 +3,58 @@
 // ArchiveTreeView 的尺寸、展开与选择辅助逻辑。
 
 #include "ArchiveTreeView.h"
+#include "AeroRowColors.h"
 #include "FileListModel.h"
+#include "core/AppSettings.h"
 #include "utils/Logger.h"
 
 #include <QMouseEvent>
 #include <QApplication>
 #include <QItemSelectionModel>
+#include <QPainter>
+#include <QPixmap>
+#include <QShowEvent>
 #include <QStringList>
+
+// A transparent image layer stacked directly below the tree viewport. The
+// viewport itself stays transparent, so the image is visible behind the rows
+// and empty space but is clipped to the viewport rectangle. Scroll bars and the
+// header are outside that rectangle and therefore never covered by the image.
+// 直接堆叠在树 viewport 下方的透明图片层。viewport 本身保持透明，因此图片会
+// 显示在行内容和空白区域之后，但被裁剪到 viewport 矩形内。滚动条和表头不在
+// 该矩形内，所以不会被图片覆盖。
+class ArchiveBackgroundOverlay : public QWidget {
+public:
+    explicit ArchiveBackgroundOverlay(QWidget *parent)
+        : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("ArchiveBackgroundOverlay"));
+        setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        setAttribute(Qt::WA_NoSystemBackground, true);
+        setAutoFillBackground(false);
+        setFocusPolicy(Qt::NoFocus);
+    }
+
+    void setBackground(const BackgroundImageOptions &options,
+                       const QPixmap &pixmap)
+    {
+        m_options = options;
+        m_pixmap = pixmap;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event);
+        QPainter painter(this);
+        BackgroundImage::paint(&painter, rect(), m_options, m_pixmap);
+    }
+
+private:
+    BackgroundImageOptions m_options;
+    QPixmap m_pixmap;
+};
 
 ArchiveTreeView::ArchiveTreeView(QWidget *parent)
     : QTreeView(parent)
@@ -20,9 +65,15 @@ ArchiveTreeView::ArchiveTreeView(QWidget *parent)
     setSelectionBehavior(QAbstractItemView::SelectRows);
     setDragEnabled(true);
     setDragDropMode(QAbstractItemView::DragOnly);
-    setAlternatingRowColors(true);
+    setAlternatingRowColors(false);
+    setMouseTracking(true);
     setSortingEnabled(true);
     setExpandsOnDoubleClick(false);
+
+    m_backgroundOverlay = new ArchiveBackgroundOverlay(this);
+    m_backgroundOverlay->stackUnder(viewport());
+    m_backgroundOverlay->setGeometry(viewport()->geometry());
+    viewport()->installEventFilter(this);
 
     connect(this, &QTreeView::doubleClicked, this, [this](const QModelIndex &index) {
         if (!index.isValid()) {
@@ -44,6 +95,66 @@ ArchiveTreeView::ArchiveTreeView(QWidget *parent)
             emit entryDoubleClicked(path);
         }
     });
+}
+
+void ArchiveTreeView::setBackgroundImage(const BackgroundImageOptions &options)
+{
+    m_backgroundOptions = options;
+    m_backgroundPixmap = options.isValid()
+        ? BackgroundImage::loadPixmap(options.path)
+        : QPixmap();
+
+    if (options.isValid() && m_backgroundPixmap.isNull()) {
+        LOG_WARN_S("ArchiveTreeView",
+                   QStringLiteral("Failed to load background image: %1")
+                       .arg(options.path));
+    }
+
+    if (m_backgroundOverlay) {
+        m_backgroundOverlay->setBackground(m_backgroundOptions,
+                                           m_backgroundPixmap);
+    }
+    updateBackgroundOverlayGeometry();
+}
+
+void ArchiveTreeView::reloadBackgroundFromSettings()
+{
+    AppSettings &settings = AppSettings::instance();
+
+    BackgroundImageOptions options;
+    options.path = settings.backgroundImagePath();
+    options.alignment = BackgroundImage::alignmentFromString(
+        settings.backgroundImageAlignment());
+    options.size = settings.backgroundImageSize();
+    options.opacity = settings.backgroundImageOpacity();
+    setBackgroundImage(options);
+}
+
+void ArchiveTreeView::updateBackgroundOverlayGeometry()
+{
+    if (!m_backgroundOverlay) {
+        return;
+    }
+    // viewport() excludes the header, frame and both scroll bars. Keeping the
+    // image layer exactly on that rectangle is the whole point of this class.
+    // viewport() 已排除表头、边框和两个滚动条；图片层精确覆盖该矩形。
+    m_backgroundOverlay->setGeometry(viewport()->geometry());
+    m_backgroundOverlay->stackUnder(viewport());
+}
+
+bool ArchiveTreeView::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == viewport()
+        && (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
+        updateBackgroundOverlayGeometry();
+    }
+    return QTreeView::eventFilter(watched, event);
+}
+
+void ArchiveTreeView::showEvent(QShowEvent *event)
+{
+    QTreeView::showEvent(event);
+    updateBackgroundOverlayGeometry();
 }
 
 void ArchiveTreeView::setFlatMode(bool flat)
@@ -73,6 +184,65 @@ QStringList ArchiveTreeView::selectedEntryPaths() const
     return paths;
 }
 
+bool ArchiveTreeView::isRowHovered(const QModelIndex &index) const
+{
+    return m_hoveredIndex.isValid() && index.isValid()
+        && index.row() == m_hoveredIndex.row()
+        && index.parent() == m_hoveredIndex.parent();
+}
+
+void ArchiveTreeView::drawBranches(QPainter *painter, const QRect &rect,
+                                   const QModelIndex &index) const
+{
+    // Let QTreeView draw its branch indicators first, then repaint the branch
+    // background for selected/hovered rows. The base implementation paints a
+    // solid background over the whole branch area, so doing it afterwards is
+    // the only way to get a continuous Explorer-style row highlight.
+    // 先让 QTreeView 绘制分支指示器，再重绘选中/悬停行的分支背景。
+    // 基类会覆盖整个分支区域，因此必须在其后绘制才能得到连续的整行高亮。
+    QTreeView::drawBranches(painter, rect, index);
+
+    const bool selected = selectionModel() && selectionModel()->isSelected(index);
+    const bool hovered = isRowHovered(index);
+    if (!selected && !hovered) {
+        return;
+    }
+
+    const bool dark = qApp->property("aeroDark").toBool();
+    const AeroRowColors colors = selected
+        ? aeroSelectedRowColors(dark, isActiveWindow())
+        : aeroHoverRowColors(dark);
+
+    painter->save();
+    painter->fillRect(rect, aeroRowGradient(rect, colors));
+    painter->setPen(colors.border);
+    painter->drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom());
+
+    if (model() && model()->hasChildren(index)) {
+        static const QPixmap openLight(QStringLiteral(":/styles/branch-open.png"));
+        static const QPixmap closedLight(QStringLiteral(":/styles/branch-closed.png"));
+        static const QPixmap openDark(QStringLiteral(":/styles/branch-open-dark.png"));
+        static const QPixmap closedDark(QStringLiteral(":/styles/branch-closed-dark.png"));
+        const QPixmap &pixmap = isExpanded(index)
+            ? (dark ? openDark : openLight)
+            : (dark ? closedDark : closedLight);
+        const QRect arrowRect(rect.right() - 16, rect.top(), 16, rect.height());
+        painter->drawPixmap(arrowRect.center()
+                                - QPoint(pixmap.width() / 2, pixmap.height() / 2),
+                            pixmap);
+    }
+    painter->restore();
+}
+
+void ArchiveTreeView::leaveEvent(QEvent *event)
+{
+    if (m_hoveredIndex.isValid()) {
+        m_hoveredIndex = QPersistentModelIndex();
+        viewport()->update();
+    }
+    QTreeView::leaveEvent(event);
+}
+
 void ArchiveTreeView::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
@@ -83,6 +253,15 @@ void ArchiveTreeView::mousePressEvent(QMouseEvent *event)
 
 void ArchiveTreeView::mouseMoveEvent(QMouseEvent *event)
 {
+    // Track the row under the mouse so the delegate can paint a full-row
+    // Windows 7 style hover highlight.
+    // 跟踪鼠标所在行，使 delegate 能绘制 Windows 7 风格的整行悬停高亮。
+    const QModelIndex hoverIndex = indexAt(event->pos());
+    if (hoverIndex != m_hoveredIndex) {
+        m_hoveredIndex = hoverIndex;
+        viewport()->update();
+    }
+
     // While the receiver prepares the payload and runs the native drag loop,
     // further mouse-move events are still delivered (the preparation spins a
     // nested event loop).  They must not start a second preparation.

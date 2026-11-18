@@ -8,14 +8,19 @@
 #include <QSpinBox>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QLineEdit>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QApplication>
+#include <QSize>
 
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
+#include "utils/BackgroundImage.h"
 #include "utils/ThemeManager.h"
 #include "utils/IconUtils.h"
 
@@ -98,6 +103,86 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     m_showRecentFilesCheck = new QCheckBox(tr("Show recent files sidebar"), this);
     m_showRecentFilesCheck->setChecked(settings.showRecentFiles());
 
+    // Background image: path, alignment, size and opacity. The controls are
+    // disabled until a path is selected; an empty path disables the image.
+    // 背景图片：路径、对齐、尺寸与透明度。选择路径前控件禁用；
+    // 路径为空表示不显示背景图片。
+    m_backgroundPathEdit = new QLineEdit(settings.backgroundImagePath(), this);
+    m_backgroundPathEdit->setPlaceholderText(tr("No background image"));
+    auto *backgroundBrowse = new QPushButton(tr("Browse..."), this);
+    auto *backgroundClear = new QPushButton(tr("Clear"), this);
+    auto *backgroundPathLayout = new QHBoxLayout;
+    backgroundPathLayout->setSpacing(6);
+    backgroundPathLayout->addWidget(m_backgroundPathEdit, 1);
+    backgroundPathLayout->addWidget(backgroundBrowse);
+    backgroundPathLayout->addWidget(backgroundClear);
+
+    m_backgroundAlignCombo = new QComboBox(this);
+    m_backgroundAlignCombo->addItem(tr("Top left"), QStringLiteral("topLeft"));
+    m_backgroundAlignCombo->addItem(tr("Top"), QStringLiteral("top"));
+    m_backgroundAlignCombo->addItem(tr("Top right"), QStringLiteral("topRight"));
+    m_backgroundAlignCombo->addItem(tr("Left"), QStringLiteral("left"));
+    m_backgroundAlignCombo->addItem(tr("Center"), QStringLiteral("center"));
+    m_backgroundAlignCombo->addItem(tr("Right"), QStringLiteral("right"));
+    m_backgroundAlignCombo->addItem(tr("Bottom left"), QStringLiteral("bottomLeft"));
+    m_backgroundAlignCombo->addItem(tr("Bottom"), QStringLiteral("bottom"));
+    m_backgroundAlignCombo->addItem(tr("Bottom right"), QStringLiteral("bottomRight"));
+    const int backgroundAlignIndex = m_backgroundAlignCombo->findData(
+        settings.backgroundImageAlignment());
+    m_backgroundAlignCombo->setCurrentIndex(backgroundAlignIndex >= 0
+                                                ? backgroundAlignIndex
+                                                : m_backgroundAlignCombo->count() - 1);
+
+    const QSize backgroundSize = settings.backgroundImageSize();
+    m_backgroundWidthSpin = new QSpinBox(this);
+    m_backgroundWidthSpin->setRange(0, 8192);
+    m_backgroundWidthSpin->setSpecialValueText(tr("Auto"));
+    m_backgroundWidthSpin->setSuffix(tr(" px"));
+    m_backgroundWidthSpin->setValue(backgroundSize.width());
+    m_backgroundHeightSpin = new QSpinBox(this);
+    m_backgroundHeightSpin->setRange(0, 8192);
+    m_backgroundHeightSpin->setSpecialValueText(tr("Auto"));
+    m_backgroundHeightSpin->setSuffix(tr(" px"));
+    m_backgroundHeightSpin->setValue(backgroundSize.height());
+    auto *backgroundSizeLayout = new QHBoxLayout;
+    backgroundSizeLayout->setSpacing(6);
+    backgroundSizeLayout->addWidget(m_backgroundWidthSpin);
+    backgroundSizeLayout->addWidget(new QLabel(QStringLiteral("×"), this));
+    backgroundSizeLayout->addWidget(m_backgroundHeightSpin);
+    backgroundSizeLayout->addStretch(1);
+
+    m_backgroundOpacitySpin = new QSpinBox(this);
+    m_backgroundOpacitySpin->setRange(0, 100);
+    m_backgroundOpacitySpin->setSuffix(QStringLiteral(" %"));
+    m_backgroundOpacitySpin->setValue(
+        qRound(settings.backgroundImageOpacity() * 100.0));
+
+    auto updateBackgroundControls = [this, backgroundClear]() {
+        const bool hasImage = !m_backgroundPathEdit->text().trimmed().isEmpty();
+        backgroundClear->setEnabled(hasImage);
+        m_backgroundAlignCombo->setEnabled(hasImage);
+        m_backgroundWidthSpin->setEnabled(hasImage);
+        m_backgroundHeightSpin->setEnabled(hasImage);
+        m_backgroundOpacitySpin->setEnabled(hasImage);
+    };
+    connect(m_backgroundPathEdit, &QLineEdit::textChanged, this,
+            [updateBackgroundControls](const QString &) {
+                updateBackgroundControls();
+            });
+    connect(backgroundBrowse, &QPushButton::clicked, this, [this]() {
+        const QString path = QFileDialog::getOpenFileName(
+            this, tr("Select Background Image"),
+            m_backgroundPathEdit->text(),
+            tr("PNG images (*.png);;All images (*.png *.jpg *.jpeg *.bmp *.gif *.webp);;All files (*)"));
+        if (!path.isEmpty()) {
+            m_backgroundPathEdit->setText(path);
+        }
+    });
+    connect(backgroundClear, &QPushButton::clicked, this, [this]() {
+        m_backgroundPathEdit->clear();
+    });
+    updateBackgroundControls();
+
     m_libArchiveCheck = new QCheckBox(
         tr("Read archives with libarchive (no external process)"), this);
     const bool libArchiveUsable = ArchiveManager::isLibArchiveAvailable()
@@ -125,6 +210,8 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     }
 
     auto *form = new QFormLayout;
+    form->setHorizontalSpacing(10);
+    form->setVerticalSpacing(6);
     form->addRow(tr("Default compression &format:"), m_defaultFormatCombo);
     form->addRow(tr("Default compression &level:"), m_defaultLevelSpin);
     form->addRow(tr("&Overwrite policy:"), m_overwriteCombo);
@@ -141,19 +228,32 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         form->addRow(QString(), m_libArchiveHint);
     }
     form->addRow(QString(), m_showRecentFilesCheck);
+    form->addRow(tr("Background &image:"), backgroundPathLayout);
+    form->addRow(tr("Image &alignment:"), m_backgroundAlignCombo);
+    form->addRow(tr("Image &size:"), backgroundSizeLayout);
+    form->addRow(tr("Image &opacity:"), m_backgroundOpacitySpin);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    buttons->setCenterButtons(false);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
         ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+        ok->setText(tr("OK"));
+        ok->setIconSize(QSize(16, 16));
+        ok->setMinimumWidth(75);
     }
     if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
         cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+        cancel->setText(tr("Cancel"));
+        cancel->setIconSize(QSize(16, 16));
+        cancel->setMinimumWidth(75);
     }
     connect(buttons, &QDialogButtonBox::accepted, this, &PreferencesDialog::saveSettings);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setSpacing(8);
     layout->addLayout(form);
     layout->addWidget(buttons);
 }
@@ -176,6 +276,11 @@ void PreferencesDialog::saveSettings()
     s.setContentViewMode(m_viewModeCombo->currentData().toString());
     s.setToolButtonStyle(m_toolbarStyleCombo->currentData().toString());
     s.setShowRecentFiles(m_showRecentFilesCheck->isChecked());
+    s.setBackgroundImagePath(m_backgroundPathEdit->text().trimmed());
+    s.setBackgroundImageAlignment(m_backgroundAlignCombo->currentData().toString());
+    s.setBackgroundImageSize(QSize(m_backgroundWidthSpin->value(),
+                                   m_backgroundHeightSpin->value()));
+    s.setBackgroundImageOpacity(m_backgroundOpacitySpin->value() / 100.0);
 
     // Apply the theme immediately so the change is visible without restarting.
     // 立即应用主题，无需重启即可看到变化。

@@ -6,9 +6,11 @@
 // 基于 QSettings 的全局应用偏好设置。
 
 #include <QObject>
+#include <QSize>
 #include <QString>
 #include <QStringList>
 #include <QVariant>
+#include <Qt>
 
 #include <atomic>
 #include <memory>
@@ -39,6 +41,15 @@ public:
     QString contentViewMode() const;   // "tree" or "list"
     QString toolButtonStyle() const;  // textUnderIcon/textBesideIcon/textOnly/iconOnly
     bool showRecentFiles() const;      // Show the recent-files sidebar
+
+    // Background image shown behind the archive content (design doc 10.5).
+    // The image path is empty when no background image is configured.
+    // 压缩包内容后方的背景图片（设计文档 10.5）。
+    // 未配置背景图片时路径为空。
+    QString backgroundImagePath() const;
+    QString backgroundImageAlignment() const;  // topLeft/top/.../bottomRight
+    QSize backgroundImageSize() const;         // 0 x 0 = natural size
+    qreal backgroundImageOpacity() const;      // 0.0 .. 1.0
     // Read archives with the libarchive backend instead of the command line.
     // Cached in an atomic so worker threads (PreviewManager) can read it too.
     // 使用 libarchive 后端而不是命令行读取压缩包；缓存在原子变量中，
@@ -60,6 +71,15 @@ public:
     void setToolButtonStyle(const QString &style);
     void setShowRecentFiles(bool show);
     void setUseLibArchiveBackend(bool use);
+    void setBackgroundImagePath(const QString &path);
+    void setBackgroundImageAlignment(const QString &alignment);
+    void setBackgroundImageSize(const QSize &size);
+    void setBackgroundImageOpacity(qreal opacity);
+
+signals:
+    // Emitted whenever one of the background image options changes.
+    // 任一背景图片选项变化时发出。
+    void backgroundImageChanged();
 
 private:
     AppSettings();

@@ -14,6 +14,7 @@
 #include <QHBoxLayout>
 #include <QFileDialog>
 #include <QDialogButtonBox>
+#include <QSize>
 #include <QFileInfo>
 
 #include "core/AppSettings.h"
@@ -25,6 +26,7 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
 {
     setWindowTitle(tr("Extract Archive"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    setMinimumWidth(480);
 
     QFileInfo fi(archivePath);
 
@@ -36,6 +38,7 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
                                       tr("Browse..."), this);
 
     auto *destLayout = new QHBoxLayout;
+    destLayout->setSpacing(6);
     destLayout->addWidget(m_destEdit);
     destLayout->addWidget(browseBtn);
 
@@ -58,20 +61,31 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     m_overwriteCombo->setCurrentIndex(overwriteIndex >= 0 ? overwriteIndex : 0);
 
     auto *form = new QFormLayout;
+    form->setHorizontalSpacing(10);
+    form->setVerticalSpacing(8);
     form->addRow(tr("&Overwrite policy:"), m_overwriteCombo);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    buttons->setCenterButtons(false);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
         ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+        ok->setText(tr("OK"));
+        ok->setIconSize(QSize(16, 16));
+        ok->setMinimumWidth(75);
     }
     if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
         cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+        cancel->setText(tr("Cancel"));
+        cancel->setIconSize(QSize(16, 16));
+        cancel->setMinimumWidth(75);
     }
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(browseBtn, &QPushButton::clicked, this, &ExtractDialog::browseDestDir);
 
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(10);
     layout->addWidget(destLabel);
     layout->addLayout(destLayout);
     layout->addWidget(m_preservePathsCheck);

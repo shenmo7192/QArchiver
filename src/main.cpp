@@ -20,6 +20,12 @@
 
 int main(int argc, char *argv[])
 {
+    // Force Qt's own file dialogs so the Aero control theme is consistent on
+    // every platform. Linux already uses the widget dialog in most setups.
+    // 强制使用 Qt 自带的文件对话框，保证各平台的 Aero 控件主题一致。
+    // 大多数 Linux 桌面本来也使用 Qt 控件对话框。
+    QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+
     QApplication app(argc, argv);
 
     QCoreApplication::setOrganizationName(QStringLiteral("QArchiver"));

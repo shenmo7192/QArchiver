@@ -15,6 +15,7 @@
 #include <QHBoxLayout>
 #include <QFileDialog>
 #include <QDialogButtonBox>
+#include <QSize>
 #include <QFileInfo>
 #include <QDir>
 #include <QMessageBox>
@@ -28,6 +29,7 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
 {
     setWindowTitle(tr("Create Archive"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    setMinimumWidth(520);
 
     const QFileInfo fi(sourceFiles.isEmpty() ? QString() : sourceFiles.first());
     const QString defaultName = fi.completeBaseName().isEmpty()
@@ -41,6 +43,7 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     auto *browseBtn = new QPushButton(qarchiverIcon(QStringLiteral("folder.png")),
                                       tr("Browse..."), this);
     auto *targetLayout = new QHBoxLayout;
+    targetLayout->setSpacing(6);
     targetLayout->addWidget(m_targetEdit);
     targetLayout->addWidget(browseBtn);
 
@@ -85,12 +88,15 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     m_excludeEdit->setPlaceholderText(tr("Patterns separated by ';' (e.g. *.tmp;build/*)"));
 
     auto *form = new QFormLayout;
+    form->setHorizontalSpacing(10);
+    form->setVerticalSpacing(8);
     form->addRow(tr("&Format:"), m_formatCombo);
     form->addRow(tr("Compression &level:"), m_levelSpin);
     form->addRow(tr("&Password:"), m_passwordEdit);
     form->addRow(QString(), m_encryptHeadersCheck);
 
     auto *volLayout = new QHBoxLayout;
+    volLayout->setSpacing(6);
     volLayout->addWidget(m_volumeSpin);
     volLayout->addWidget(m_volumeUnit);
     form->addRow(tr("&Volume size (0=no split):"), volLayout);
@@ -100,11 +106,18 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     form->addRow(QString(), m_storeFullPathCheck);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    buttons->setCenterButtons(false);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
         ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+        ok->setText(tr("OK"));
+        ok->setIconSize(QSize(16, 16));
+        ok->setMinimumWidth(75);
     }
     if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
         cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+        cancel->setText(tr("Cancel"));
+        cancel->setIconSize(QSize(16, 16));
+        cancel->setMinimumWidth(75);
     }
     connect(buttons, &QDialogButtonBox::accepted, this, &CompressDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -115,6 +128,8 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
             this, &CompressDialog::updateOptionAvailability);
 
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(10);
     layout->addWidget(targetLabel);
     layout->addLayout(targetLayout);
     layout->addLayout(form);

@@ -35,6 +35,28 @@ target_link_libraries(tst_utils PRIVATE
 
 add_test(NAME tst_utils COMMAND tst_utils)
 
+# Background image helpers: alignment, scaling, target rectangles and painting.
+# 背景图片辅助函数：对齐、缩放、目标矩形与绘制。
+qt_add_executable(tst_background
+    tst_background.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/BackgroundImage.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/BackgroundImage.h
+)
+
+target_include_directories(tst_background PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/utils
+)
+
+target_link_libraries(tst_background PRIVATE
+    Qt6::Gui
+    Qt6::Test
+)
+
+add_test(NAME tst_background COMMAND tst_background)
+set_tests_properties(tst_background PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Backend tests: tar/zip/7z/RAR/stream round-trips and special names.
 # 后端测试：tar/zip/7z/RAR/流往返及特殊文件名。
 qt_add_executable(tst_backends

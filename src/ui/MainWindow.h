@@ -15,6 +15,7 @@
 class FileListModel;
 class FilterProxyModel;
 class ArchiveTreeView;
+class BackgroundWidget;
 class ProgressDialog;
 class ArchiveBackend;
 class QStackedWidget;
@@ -39,6 +40,7 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     void dropEvent(QDropEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private slots:
     void onOpen();
@@ -74,6 +76,8 @@ private:
     void applyContentViewMode();
     void applyToolButtonStyle();
     void applySidebarVisibility();
+    void updateSearchIcon();
+    void updatePlaceholderBackground();
     void updateActionsState();
     void showPlaceholder(const QString &message);
     void showProgressDialog(const QString &title);
@@ -92,7 +96,9 @@ private:
     ArchiveTreeView *m_treeView = nullptr;
     QLineEdit *m_searchEdit = nullptr;
     QLabel *m_placeholderLabel = nullptr;
+    QAction *m_searchAction = nullptr;
     QStackedWidget *m_centralStack = nullptr;
+    BackgroundWidget *m_backgroundWidget = nullptr;
     QDockWidget *m_sidebarDock = nullptr;
     QToolBar *m_mainToolBar = nullptr;
 
