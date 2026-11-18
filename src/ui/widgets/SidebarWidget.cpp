@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// SidebarWidget item management and signals.
+// SidebarWidget 的条目管理与信号。
+
 #include "SidebarWidget.h"
 
 #include "core/RecentFilesManager.h"
@@ -14,6 +18,7 @@ SidebarWidget::SidebarWidget(QWidget *parent)
 {
     // The title is provided by the enclosing QDockWidget (MainWindow), so no
     // extra heading label is added here.
+    // 标题由外层 QDockWidget（MainWindow）提供，因此这里不再添加额外标题标签。
     m_recentList = new QListWidget(this);
     m_recentList->setIconSize(QSize(18, 18));
     m_recentList->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -29,7 +34,7 @@ SidebarWidget::SidebarWidget(QWidget *parent)
     connect(&RecentFilesManager::instance(), &RecentFilesManager::changed,
             this, &SidebarWidget::refreshRecent);
 
-    // Context menu for the recent-files list
+    // Context menu for the recent-files list / 最近文件列表的上下文菜单
     connect(m_recentList, &QListWidget::customContextMenuRequested, this,
             [this](const QPoint &pos) {
         auto *item = m_recentList->itemAt(pos);
@@ -45,6 +50,7 @@ SidebarWidget::SidebarWidget(QWidget *parent)
         menu->addSeparator();
         menu->addAction(tr("Clear missing entries"), this, []() {
             // Remove entries whose files no longer exist (order preserved).
+            // 移除文件已不存在的条目（保持顺序）。
             const QStringList stored = RecentFilesManager::instance().list();
             for (const QString &p : stored) {
                 if (!QFileInfo::exists(p)) {

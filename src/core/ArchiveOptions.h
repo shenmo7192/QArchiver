@@ -1,34 +1,38 @@
 #ifndef ARCHIVEOPTIONS_H
 #define ARCHIVEOPTIONS_H
 
+// QArchiver / 小Q解压
+// Option structures shared by list, extract, compress, add and delete operations.
+// 列表、解压、压缩、追加与删除操作共用的选项结构。
+
 #include <QString>
 #include <QStringList>
 #include "ArchiveConstants.h"
 
-// Options for listContents()
+// Options for listContents() / listContents() 选项
 struct ListOptions {
     QString     password;        // Password for encrypted filename archives
-    QString     encodingHint;   // Filename encoding hint (tar/unrar only)
+    QString     encodingHint;   // Filename encoding hint (legacy archive names)
 };
 
-// Options for testArchive()
+// Options for testArchive() / testArchive() 选项
 struct TestOptions {
     QString     password;        // Password for encrypted archives
 };
 
-// Options for extract()
+// Options for extract() / extract() 选项
 struct ExtractOptions {
     QString         destDir;             // Target directory (must exist and be writable)
     QStringList     selectedFiles;       // Extract only these entries; empty = whole archive
     bool            preservePaths = true;// Whether to preserve directory structure
     OverwritePolicy overwrite = OverwritePolicy::Ask; // Overwrite policy
     QString         password;            // Password for encrypted archives
-    QString         encodingHint;        // Filename encoding hint (tar/unrar only)
+    QString         encodingHint;        // Filename encoding hint (legacy archive names)
     bool            openDestAfterFinish = false; // Open destination after extraction
     bool            testBeforeExtract = false;   // Pre-test integrity before extraction
 };
 
-// Options for compress()
+// Options for compress() / compress() 选项
 struct CompressOptions {
     QString     archivePath;            // Target archive path
     QStringList sourceFiles;            // Files/dirs to compress
@@ -42,7 +46,7 @@ struct CompressOptions {
     bool        storeFullPath = false; // Store absolute paths
 };
 
-// Options for addFiles()
+// Options for addFiles() / addFiles() 选项
 struct AddFilesOptions {
     QString     archivePath;            // Existing archive path
     QStringList sourceFiles;            // Files/dirs to add
@@ -52,7 +56,7 @@ struct AddFilesOptions {
     bool        storeFullPath = false;
 };
 
-// Options for deleteFiles()
+// Options for deleteFiles() / deleteFiles() 选项
 struct DeleteFilesOptions {
     QString     archivePath;        // Existing archive path
     QStringList targetEntries;      // Entries to delete (relative paths)

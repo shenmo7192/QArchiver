@@ -1,7 +1,24 @@
+# Test suite: unit and integration tests for the core, backends and UI wiring.
+# 测试套件：覆盖核心层、后端与 UI 连接方式的单元及集成测试。
+
+# Qt Test is optional; the application itself does not require it.
+# Qt Test 是可选依赖；应用本身不需要它。
+find_package(Qt6 6.8 QUIET COMPONENTS Core Gui Widgets Concurrent Test)
+if(NOT TARGET Qt6::Test)
+    message(STATUS "Qt6::Test not found: skipping QArchiver tests")
+    return()
+endif()
+
+# Enable moc/automoc for the standalone test executables.
+# 为独立测试可执行文件启用 moc/automoc。
+set(CMAKE_AUTOMOC ON)
+
+# Utility tests: path normalization, traversal checks and -slt parsing.
+# 工具测试：路径规范化、路径穿越检查与 -slt 解析。
 qt_add_executable(tst_utils
     tst_utils.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.cpp
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.cpp
 )
 
 target_include_directories(tst_utils PRIVATE
@@ -18,14 +35,18 @@ target_link_libraries(tst_utils PRIVATE
 
 add_test(NAME tst_utils COMMAND tst_utils)
 
+# Backend tests: tar/zip/7z/RAR/stream round-trips and special names.
+# 后端测试：tar/zip/7z/RAR/流往返及特殊文件名。
 qt_add_executable(tst_backends
     tst_backends.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/ArchiveBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/ArchiveBackend.h
     ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.h
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.cpp
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.h
     ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipBackend.h
     ${CMAKE_SOURCE_DIR}/src/backends/rar/RarBackend.cpp
@@ -62,6 +83,8 @@ target_link_libraries(tst_backends PRIVATE
 
 add_test(NAME tst_backends COMMAND tst_backends)
 
+# ArchiveManager tests: async open/list/extract, fallback and preferences.
+# ArchiveManager 测试：异步打开/列表/解压、回退与偏好设置。
 qt_add_executable(tst_manager
     tst_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/ArchiveManager.cpp
@@ -76,8 +99,10 @@ qt_add_executable(tst_manager
     ${CMAKE_SOURCE_DIR}/src/backends/ArchiveBackend.h
     ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.h
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.cpp
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.h
     ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipBackend.h
     ${CMAKE_SOURCE_DIR}/src/backends/rar/RarBackend.cpp
@@ -114,7 +139,10 @@ target_link_libraries(tst_manager PRIVATE
 add_test(NAME tst_manager COMMAND tst_manager)
 
 # libarchive backend: only built when the system library was found.
+# libarchive 后端：仅当找到系统库时构建。
 if(QARCHIVER_HAS_LIBARCHIVE)
+    # Optional libarchive backend tests.
+    # 可选的 libarchive 后端测试。
     qt_add_executable(tst_libarchive
         tst_libarchive.cpp
         ${CMAKE_SOURCE_DIR}/src/backends/ArchiveBackend.cpp
@@ -154,6 +182,8 @@ if(QARCHIVER_HAS_LIBARCHIVE)
 
     # tst_manager drives ArchiveManager, which embeds the libarchive dispatch
     # whenever the library is available at build time.
+    # tst_manager 驱动 ArchiveManager；构建时若库可用，
+    # ArchiveManager 会包含 libarchive 调度逻辑。
     target_sources(tst_manager PRIVATE
         ${CMAKE_SOURCE_DIR}/src/backends/archive/LibArchiveBackend.cpp
         ${CMAKE_SOURCE_DIR}/src/backends/archive/LibArchiveBackend.h
@@ -165,6 +195,10 @@ endif()
 
 # Drag-out staging (DragOutManager): needs the manager, AppSettings and the
 # backends, but no widgets - it runs headless.
+# 拖出暂存（DragOutManager）：需要管理器、AppSettings 和后端，
+# 但不依赖控件，可无界面运行。
+# Drag-out tests: staging, path mapping, caching and CLI fallback.
+# 拖出测试：暂存、路径映射、缓存与 CLI 回退。
 qt_add_executable(tst_dragout
     tst_dragout.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/DragOutManager.cpp
@@ -181,8 +215,10 @@ qt_add_executable(tst_dragout
     ${CMAKE_SOURCE_DIR}/src/backends/ArchiveBackend.h
     ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.h
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.cpp
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.h
     ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipBackend.h
     ${CMAKE_SOURCE_DIR}/src/backends/rar/RarBackend.cpp
@@ -219,6 +255,7 @@ target_link_libraries(tst_dragout PRIVATE
 add_test(NAME tst_dragout COMMAND tst_dragout)
 
 # The drag-out staging must also work with the in-process libarchive backend.
+# 拖出暂存也必须支持进程内 libarchive 后端。
 if(QARCHIVER_HAS_LIBARCHIVE)
     target_sources(tst_dragout PRIVATE
         ${CMAKE_SOURCE_DIR}/src/backends/archive/LibArchiveBackend.cpp
@@ -229,8 +266,13 @@ if(QARCHIVER_HAS_LIBARCHIVE)
 endif()
 
 # Preferences dialog wiring (needs widgets, runs with the offscreen platform).
+# 偏好设置对话框连接测试（需要控件，使用离屏平台运行）。
+# Preferences and password dialog tests (offscreen QPA).
+# 偏好设置与密码对话框测试（离屏 QPA）。
 qt_add_executable(tst_preferences
     tst_preferences.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PasswordDialog.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PasswordDialog.h
     ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PreferencesDialog.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PreferencesDialog.h
     ${CMAKE_SOURCE_DIR}/src/core/ArchiveManager.cpp
@@ -245,8 +287,10 @@ qt_add_executable(tst_preferences
     ${CMAKE_SOURCE_DIR}/src/backends/ArchiveBackend.h
     ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.h
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.cpp
-    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarOutputParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.h
     ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipBackend.cpp
     ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipBackend.h
     ${CMAKE_SOURCE_DIR}/src/backends/rar/RarBackend.cpp
@@ -288,6 +332,7 @@ set_tests_properties(tst_preferences PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # libarchive sources for the preferences test (target defined above).
+# 偏好设置测试使用的 libarchive 源码（目标已在上方定义）。
 if(QARCHIVER_HAS_LIBARCHIVE)
     target_sources(tst_preferences PRIVATE
         ${CMAKE_SOURCE_DIR}/src/backends/archive/LibArchiveBackend.cpp
@@ -295,4 +340,27 @@ if(QARCHIVER_HAS_LIBARCHIVE)
     )
     target_compile_definitions(tst_preferences PRIVATE QARCHIVER_HAS_LIBARCHIVE)
     target_link_libraries(tst_preferences PRIVATE ${QARCHIVER_LIBARCHIVE_TARGET})
+endif()
+
+# Make the bundled 7-Zip helper visible to every test that spawns a CLI
+# backend.  QARCHIVER_7Z_PATH is the first entry in
+# ProcessRunner::resolveToolPath(), so tests use exactly the binary that ships
+# with QArchiver even when no system 7z is installed.
+# 让每个会启动 CLI 后端的测试都能找到随程序分发的 7-Zip 辅助程序。
+# QARCHIVER_7Z_PATH 是 ProcessRunner::resolveToolPath() 的第一优先级，
+# 因此即使系统未安装 7z，测试也会使用 QArchiver 自带的二进制。
+if(QARCHIVER_BUNDLE_7ZIP)
+    set(_qarchiver_test_7z_env "QARCHIVER_7Z_PATH=${QARCHIVER_7ZIP_EXE}")
+    foreach(_qarchiver_test IN ITEMS
+            tst_utils tst_backends tst_manager tst_libarchive tst_dragout
+            tst_preferences)
+        if(TEST ${_qarchiver_test})
+            set_tests_properties(${_qarchiver_test} PROPERTIES
+                ENVIRONMENT "${_qarchiver_test_7z_env}")
+        endif()
+    endforeach()
+    if(TEST tst_preferences)
+        set_tests_properties(tst_preferences PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen;${_qarchiver_test_7z_env}")
+    endif()
 endif()

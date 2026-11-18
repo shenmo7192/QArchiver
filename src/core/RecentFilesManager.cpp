@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// RecentFilesManager implementation and stale-entry cleanup.
+// RecentFilesManager 实现及失效条目清理。
+
 #include "RecentFilesManager.h"
 
 #include "AppSettings.h"
@@ -14,10 +18,10 @@ RecentFilesManager &RecentFilesManager::instance()
 void RecentFilesManager::add(const QString &filePath)
 {
     QStringList files = list();
-    // Dedup: move to front if exists
+    // Dedup: move to front if exists / 去重：已存在则移到最前
     files.removeAll(filePath);
     files.prepend(filePath);
-    while (files.size() > 10) {
+    while (files.size() > 20) {
         files.removeLast();
     }
     AppSettings::instance().setRecentFiles(files);

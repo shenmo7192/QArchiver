@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// Logger implementation: formatting, mutexing and log rotation.
+// Logger 实现：格式化、互斥保护与日志轮转。
+
 #include "Logger.h"
 
 #include <QDateTime>
@@ -9,6 +13,7 @@
 Logger::Logger()
 {
     // Enable debug logging via environment variable SAM_DEBUG=1
+    // 通过环境变量 SAM_DEBUG=1 启用调试日志
     if (qEnvironmentVariableIsSet("SAM_DEBUG")) {
         m_minLevel = Debug;
     }
@@ -32,7 +37,7 @@ void Logger::setLogFile(const QString &path)
     if (m_file.isOpen()) {
         m_file.close();
     }
-    // Ensure parent directory exists
+    // Ensure parent directory exists / 确保父目录存在
     QFileInfo fi(path);
     QDir().mkpath(fi.absolutePath());
 
@@ -64,7 +69,7 @@ void Logger::log(Level lvl, const QString &tag, const QString &msg)
         .arg(tag)
         .arg(msg);
 
-    // Also output to stderr
+    // Also output to stderr / 同时输出到标准错误
     fputs(line.toUtf8().constData(), stderr);
 
     if (m_file.isOpen()) {
@@ -79,7 +84,7 @@ void Logger::rotateIfNeeded()
     if (m_file.size() < m_maxFileSize) {
         return;
     }
-    // Rotate: current -> .1, drop old .1
+    // Rotate: current -> .1, drop old .1 / 轮转：当前文件 -> .1，丢弃旧 .1
     const QString oldPath = m_file.fileName() + ".1";
     m_file.close();
     QFile::remove(oldPath);

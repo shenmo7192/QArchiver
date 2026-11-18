@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// Implementation of the persistent application preference store.
+// 全局应用偏好存储的实现。
+
 #include "AppSettings.h"
 
 #include <QCoreApplication>
@@ -222,5 +226,6 @@ void AppSettings::setUseLibArchiveBackend(bool use)
 {
     setValue(QStringLiteral("backends/useLibArchive"), use);
     // Keep the cached copy in sync for the worker-thread readers.
+    // 同步缓存副本，供工作线程读取。
     m_useLibArchive.store(use);
 }

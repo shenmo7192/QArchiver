@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// MainWindow implementation: actions, drag/drop, previews and dialogs.
+// MainWindow 实现：动作、拖放、预览与对话框。
+
 #include "MainWindow.h"
 
 #include "FileListModel.h"
@@ -21,7 +25,6 @@
 #include "core/AppSettings.h"
 
 #include "backends/ArchiveBackend.h"
-
 
 #include <QAction>
 #include <QToolBar>
@@ -85,6 +88,7 @@ bool isArchiveFile(const QString &path)
 }
 
 // QFileDialog that allows selecting files and directories together.
+// 允许同时选择文件和目录的 QFileDialog。
 class MixedSelectionFileDialog : public QFileDialog
 {
 public:
@@ -215,6 +219,7 @@ void MainWindow::setupToolbar()
     tb->addAction(quitAct);
 
     // Ensure icon-only mode still has useful hover text.
+    // 确保仅图标模式仍具有有用的悬停提示。
     for (QAction *action : tb->actions()) {
         if (!action->isSeparator() && action->toolTip().isEmpty()) {
             action->setToolTip(action->text());
@@ -287,6 +292,7 @@ void MainWindow::setupCentralWidget()
     setCentralWidget(m_centralStack);
 
     // Busy indicator on the right side of the status bar
+    // 状态栏右侧的忙碌指示器
     m_busyLabel = new QLabel(this);
     m_busyBar = new QProgressBar(this);
     m_busyBar->setRange(0, 0);
@@ -309,6 +315,7 @@ void MainWindow::setupSidebar()
     m_sidebarDock = new QDockWidget(tr("Recent Files"), this);
     m_sidebarDock->setObjectName(QStringLiteral("SidebarDock"));
     // Title bar of the dock is the only heading of the sidebar.
+    // 停靠窗口标题栏是侧边栏唯一的标题。
     m_sidebarDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     auto *sidebar = new SidebarWidget(m_sidebarDock);
     m_sidebarDock->setWidget(sidebar);
@@ -326,6 +333,7 @@ void MainWindow::applyContentViewMode()
     m_treeView->setFlatMode(flat);
 
     // Re-apply the current header sort to whichever model now owns sorting.
+    // 把当前表头排序重新应用到负责排序的模型。
     const int sortSection = m_treeView->header()->sortIndicatorSection();
     const Qt::SortOrder sortOrder = m_treeView->header()->sortIndicatorOrder();
     m_treeView->sortByColumn(sortSection >= 0 ? sortSection : FileListModel::NameColumn,
@@ -566,6 +574,11 @@ void MainWindow::onPreferences()
 {
     PreferencesDialog dlg(this);
     if (dlg.exec() == QDialog::Accepted) {
+        if (!AppSettings::instance().rememberPasswords()) {
+            // Disabling the preference also stops reusing a password that was
+            // remembered earlier in this session.
+            m_sessionPassword.clear();
+        }
         applyContentViewMode();
         applyToolButtonStyle();
         applySidebarVisibility();
@@ -666,7 +679,10 @@ void MainWindow::onPasswordRequested()
     }
 
     m_currentPassword = dlg.password();
-    if (dlg.rememberPassword() || AppSettings::instance().rememberPasswords()) {
+    // The dialog's checkbox already defaults to the preference value.  The
+    // user may uncheck it to skip remembering this password without changing
+    // the preference itself.
+    if (dlg.rememberPassword()) {
         m_sessionPassword = m_currentPassword;
     }
     setBusyIndicatorVisible(true, tr("Processing..."));
@@ -840,10 +856,14 @@ void MainWindow::onSidebarFileOpened(const QString &path)
 
 // Drag out: stage the selected entries as real files, then start a standard
 // file URL drag.  The drop target (usually a file manager) performs the copy.
+// 拖出：把选中条目暂存为真实文件，然后启动标准文件 URL 拖拽。
+// 复制动作由放置目标（通常是文件管理器）执行。
 namespace {
 
 // Drag payload that reports who reads it: this is the only way to tell a
 // rejected drop (the target never asks for data) from a broken URL list.
+// 可报告谁读取了数据的拖拽负载：这是区分“放置被拒绝”（目标从未请求数据）
+// 与“URL 列表损坏”的唯一方式。
 class LoggingMimeData : public QMimeData {
 public:
     explicit LoggingMimeData(const QStringList &entryPaths)
@@ -857,6 +877,10 @@ protected:
         // override therefore recurses until the stack overflows - that was the
         // SIGSEGV right after the drag started.  Report only the payload we set
         // ourselves and guard re-entrancy as well.
+        // QMimeData::urls() 基于 data() 实现，而 data() 会回调 retrieveData()。
+        // 在此重写中调用 urls()/hasUrls()/data() 会无限递归直到栈溢出，
+        // 这正是拖拽开始后立即 SIGSEGV 的原因。
+        // 因此只报告我们自己设置的负载，并防止重入。
         if (m_reporting) {
             return QMimeData::retrieveData(mimeType, type);
         }
@@ -918,6 +942,9 @@ void MainWindow::onEntriesDragOut(const QStringList &paths)
         // no dialog window is shown here: that would break the drag gesture and
         // the drop target would never receive any URLs.  A busy cursor plus the
         // status bar keeps the gesture (and Esc) working.
+        // 解压必须在鼠标按键仍按下时完成，因此这里不显示对话框：
+        // 对话框会破坏拖拽手势，放置目标将永远收不到 URL。
+        // 使用忙碌光标和状态栏可保持手势（以及 Esc）正常工作。
         m_dragPrepareInProgress = true;
 
         const QList<ArchiveEntry> entries = m_model->sourceEntries();
@@ -969,8 +996,9 @@ void MainWindow::onEntriesDragOut(const QStringList &paths)
             }
             password = pw.password();
             m_currentPassword = password;
-            if (pw.rememberPassword()
-                || AppSettings::instance().rememberPasswords()) {
+            // As in onPasswordRequested(), only the checkbox state for this
+            // prompt decides whether the password is kept for the session.
+            if (pw.rememberPassword()) {
                 m_sessionPassword = password;
             }
         }
@@ -1093,6 +1121,8 @@ void MainWindow::onEntriesDragOut(const QStringList &paths)
         // A drag that is cancelled instantly usually means the platform refused
         // to start it (e.g. the button state changed while preparing); the
         // staged files are cached, so asking for a second attempt is cheap.
+        // 拖拽立即取消通常意味着平台拒绝启动（例如准备期间按键状态改变）；
+        // 暂存文件已缓存，因此请求再次尝试的成本很低。
         statusBar()->showMessage(
             dragMillis < 150
                 ? tr("Files are ready. Drag the selection again to copy them out.")
@@ -1107,6 +1137,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 {
     // Esc aborts a drag preparation that is still running (the mouse button is
     // held down at that point, so a dialog button cannot be used).
+    // Esc 中止仍在进行的拖拽准备（此时鼠标按键被按住，无法使用对话框按钮）。
     if (event->key() == Qt::Key_Escape && m_dragPrepareInProgress) {
         DragOutManager::instance().cancel();
         event->accept();
@@ -1119,6 +1150,8 @@ void MainWindow::dragEnterEvent(QDragEnterEvent *event)
 {
     // Entries dragged out of our own view must never be treated as files to
     // add: the URLs point at drag staging, not at real user files.
+    // 从本视图拖出的条目绝不能当作待追加文件：
+    // 这些 URL 指向拖拽暂存区，而不是真实用户文件。
     if (event->mimeData()->hasFormat(
             QStringLiteral("application/x-qarchiver-entries"))) {
         event->setDropAction(Qt::IgnoreAction);

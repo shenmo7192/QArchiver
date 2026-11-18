@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// StreamBackend compression, extraction and single-member listing.
+// StreamBackend 的压缩、解压与单条目列表。
+
 #include "StreamBackend.h"
 
 #include <QDir>
@@ -47,14 +51,16 @@ qint64 StreamBackend::queryUncompressedSize() const
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip,
-        {QStringLiteral("l"), m_archivePath, QStringLiteral("-slt")},
-        QStringLiteral("UTF-8"), QProcessEnvironment(), QString(), 30000);
+        {QStringLiteral("l"), QStringLiteral("-slt"),
+         QStringLiteral("-sccUTF-8"), QStringLiteral("--"), m_archivePath},
+        QString(), QProcessEnvironment(), QString(), 30000);
 
     if (!result.success()) {
         return -1;
     }
 
     // The entry block contains "Size = <uncompressed>" and "Packed Size =".
+    // 条目块包含 "Size = <解压后大小>" 与 "Packed Size ="。
     static const QRegularExpression sizeRe(
         QStringLiteral("^Size\\s*=\\s*(\\d+)$"));
     static const QRegularExpression packedRe(
@@ -67,6 +73,7 @@ qint64 StreamBackend::queryUncompressedSize() const
         if (packed.hasMatch()) {
             // We are inside an entry block; the preceding "Size" is the
             // uncompressed size.
+            // 当前位于条目块内，前面的 "Size" 即解压后大小。
             break;
         }
         const auto match = sizeRe.match(line.trimmed());
@@ -129,15 +136,17 @@ void StreamBackend::extract(const ExtractOptions &options)
     const QString tempDir = FileUtils::createTempExtractDir(options.destDir);
 
     QStringList args;
-    args << QStringLiteral("x") << m_archivePath
+    args << QStringLiteral("x")
          << QStringLiteral("-o") + tempDir
-         << QStringLiteral("-y");
+         << QStringLiteral("-y")
+         << QStringLiteral("-sccUTF-8")
+         << QStringLiteral("--") << m_archivePath;
 
     LOG_DEBUG("StreamBackend", "Extract: %s",
               ProcessRunner::maskedCommand(sevenZip, args).toUtf8().constData());
 
     const ProcessResult result = ProcessRunner::run(
-        sevenZip, args, QStringLiteral("UTF-8"), QProcessEnvironment(),
+        sevenZip, args, QString(), QProcessEnvironment(),
         QString(), 0, &m_cancelRequested,
         [this](const QString &line, bool isError) {
             if (!isError && !line.isEmpty()) {
@@ -241,8 +250,9 @@ void StreamBackend::testArchive(const TestOptions &)
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip,
-        {QStringLiteral("t"), m_archivePath},
-        QStringLiteral("UTF-8"), QProcessEnvironment(), QString(),
+        {QStringLiteral("t"), QStringLiteral("-sccUTF-8"),
+         QStringLiteral("--"), m_archivePath},
+        QString(), QProcessEnvironment(), QString(),
         300000, &m_cancelRequested);
 
     if (result.cancelled) {

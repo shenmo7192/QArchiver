@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// ExtractDialog layout, validation and result options.
+// ExtractDialog 的布局、校验与结果选项。
+
 #include "ExtractDialog.h"
 
 #include <QLineEdit>
@@ -25,6 +29,7 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     QFileInfo fi(archivePath);
 
     // Default destination: the directory containing the opened archive.
+    // 默认目标：已打开压缩包所在目录。
     auto *destLabel = new QLabel(tr("Destination:"), this);
     m_destEdit = new QLineEdit(fi.absolutePath(), this);
     auto *browseBtn = new QPushButton(qarchiverIcon(QStringLiteral("folder.png")),

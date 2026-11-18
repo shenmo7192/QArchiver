@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// ThemeManager implementation using palettes and the FreeDesktop color scheme.
+// ThemeManager 实现，使用调色板与 FreeDesktop 配色方案。
+
 #include "ThemeManager.h"
 
 #include <QApplication>
@@ -134,6 +138,9 @@ QString ThemeManager::systemColorScheme()
     //   0 = no preference, 1 = prefer dark, 2 = prefer light.
     // The portal returns the value as a variant (QDBusVariant), so unwrap it
     // before converting to a number.
+    // org.freedesktop.appearance color-scheme 取值：
+    //   0 = 无偏好，1 = 偏好深色，2 = 偏好浅色。
+    // 门户以 variant（QDBusVariant）返回该值，转换数字前需先解包。
     QVariant rawValue = reply.value();
     if (rawValue.canConvert<QDBusVariant>()) {
         rawValue = rawValue.value<QDBusVariant>().variant();
@@ -165,6 +172,7 @@ QString ThemeManager::effectiveTheme(const QString &configuredTheme)
         return QStringLiteral("light");
     }
     // "system" (or any unknown value): follow the desktop color-scheme.
+    // "system"（或任何未知值）：跟随桌面配色方案。
     return systemColorScheme();
 }
 
@@ -175,6 +183,8 @@ void ThemeManager::applyTheme(QApplication &app)
 
     // Ask the platform style to adopt the requested color scheme first, then
     // install our explicit palette so every widget renders consistently.
+    // 先让平台样式采用请求的配色方案，再设置显式调色板，
+    // 确保所有控件渲染一致。
     if (auto *hints = QGuiApplication::styleHints()) {
         hints->setColorScheme(dark ? Qt::ColorScheme::Dark : Qt::ColorScheme::Light);
     }

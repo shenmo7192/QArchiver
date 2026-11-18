@@ -1,6 +1,10 @@
 #ifndef PROGRESSDIALOG_H
 #define PROGRESSDIALOG_H
 
+// QArchiver / 小Q解压
+// Progress, log output and cancellation dialog.
+// 进度、日志输出与取消对话框。
+
 #include <QDialog>
 #include <QString>
 
@@ -9,7 +13,8 @@ class QLabel;
 class QPlainTextEdit;
 class QPushButton;
 
-// Progress dialog showing extraction/compression progress (design doc 7)
+// Progress dialog showing extraction/compression progress (design doc 7).
+// 显示解压/压缩进度的对话框（设计文档 7）。
 class ProgressDialog : public QDialog {
     Q_OBJECT
 public:

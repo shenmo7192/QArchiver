@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// Application entry point: logging, translations, theme and main window.
+// 应用入口：日志、翻译、主题与主窗口。
+
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QTranslator>
@@ -24,12 +28,14 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationVersion(QStringLiteral(QARCHIVER_VERSION));
 
     // Log file sink: <cache>/QArchiver/app.log
+    // 日志文件位置：<cache>/QArchiver/app.log
     const QString logDir =
         QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
     Logger::instance().setLogFile(QDir(logDir).filePath(QStringLiteral("app.log")));
     LOG_INFO("main", "QArchiver starting");
 
     // Parse command line options (e.g. --lang en / --lang zh_CN).
+    // 解析命令行选项（例如 --lang en / --lang zh_CN）。
     QCommandLineParser parser;
     parser.setApplicationDescription(
         QStringLiteral("QArchiver (小Q解压) - lightweight archive manager"));
@@ -60,7 +66,7 @@ int main(int argc, char *argv[])
 
     bool translationLoaded = false;
 
-    // --lang: explicit language name.
+    // --lang: explicit language name. / --lang：显式指定语言名称。
     if (parser.isSet(langOption)) {
         const QString lang = parser.value(langOption);
         static const QRegularExpression langNameRe(
@@ -72,11 +78,14 @@ int main(int argc, char *argv[])
 
     // Default: follow the system locale.  The catalogs are embedded into the
     // executable by qt_add_translations() under :/translations/<lang>.qm.
+    // 默认：跟随系统区域设置。翻译目录由 qt_add_translations() 嵌入可执行文件，
+    // 运行时路径为 :/translations/<lang>.qm。
     if (!translationLoaded) {
         translationLoaded = loadTranslator(QLocale::system().name());
     }
     if (!translationLoaded) {
         // Some platforms report BCP-47 names (zh-CN); Qt catalogs use zh_CN.
+        // 某些平台报告 BCP-47 名称（zh-CN）；Qt 翻译目录使用 zh_CN。
         const QStringList uiLanguages = QLocale::system().uiLanguages();
         for (const QString &uiLang : uiLanguages) {
             QString candidate = uiLang;
@@ -93,6 +102,7 @@ int main(int argc, char *argv[])
     }
 
     // Apply the configured theme before any widget is created.
+    // 在创建任何控件前应用配置的主题。
     ThemeManager::applyTheme(app);
 
     MainWindow window;

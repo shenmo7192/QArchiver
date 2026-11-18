@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// ProgressDialog updates and cancellation forwarding.
+// ProgressDialog 的更新与取消转发。
+
 #include "ProgressDialog.h"
 
 #include "utils/IconUtils.h"
@@ -8,6 +12,8 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+// Build the progress UI; cancellation is delegated through a signal.
+// 构建进度界面；取消操作通过信号转发。
 ProgressDialog::ProgressDialog(QWidget *parent)
     : QDialog(parent)
 {
@@ -46,6 +52,8 @@ ProgressDialog::ProgressDialog(QWidget *parent)
     });
 }
 
+// Reset the dialog for a new operation.
+// 为新操作重置对话框状态。
 void ProgressDialog::setOperation(const QString &title)
 {
     setWindowTitle(title);
@@ -58,6 +66,8 @@ void ProgressDialog::setOperation(const QString &title)
     m_cancelBtn->setText(tr("Cancel"));
 }
 
+// Update the bar and the "current / total files" statistics.
+// 更新进度条以及“当前/总文件数”统计。
 void ProgressDialog::updateProgress(int percent, int total, int current, int etaSec)
 {
     if (m_progressBar->maximum() == 0) {
@@ -76,12 +86,16 @@ void ProgressDialog::updateProgress(int percent, int total, int current, int eta
     m_statsLabel->setText(stats);
 }
 
+// Append one backend output line and mirror it in the status label.
+// 追加一行后端输出，并同步显示在状态标签中。
 void ProgressDialog::appendOutput(const QString &line)
 {
     m_output->appendPlainText(line);
     m_fileLabel->setText(line);
 }
 
+// Switch between determinate (0..100) and busy (0..0) modes.
+// 在确定进度（0..100）与忙碌模式（0..0）之间切换。
 void ProgressDialog::setIndeterminate(bool indeterminate)
 {
     if (indeterminate) {

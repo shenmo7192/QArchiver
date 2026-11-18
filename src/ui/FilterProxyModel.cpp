@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// FilterProxyModel matching and parent-chain visibility.
+// FilterProxyModel 的匹配与父链可见性处理。
+
 #include "FilterProxyModel.h"
 #include "FileListModel.h"
 
@@ -15,11 +19,15 @@ void FilterProxyModel::sort(int column, Qt::SortOrder order)
 {
     // In directory/list mode the source model owns sorting so that the
     // synthetic ".." row can stay at row 0 and never participate in sorting.
+    // 目录/列表模式下由源模型负责排序，使合成的 ".." 行始终位于第 0 行，
+    // 且不参与排序。
     if (auto *fileModel = qobject_cast<FileListModel *>(sourceModel());
         fileModel && fileModel->isFlatMode()) {
         // Clear any sorting state left over from tree mode.  Otherwise a
         // source-model reset (entering a directory) makes the proxy sort the
         // new rows again and moves the synthetic ".." entry away from row 0.
+        // 清除树模式遗留的排序状态。否则源模型重置（进入目录）后，
+        // 代理会再次排序新行，把合成的 ".." 条目移离第 0 行。
         QSortFilterProxyModel::sort(-1, Qt::AscendingOrder);
         fileModel->sortFlat(column, order);
         return;
@@ -72,6 +80,7 @@ bool FilterProxyModel::filterAcceptsRow(int sourceRow,
     }
 
     // Keep the synthetic ".." navigation row visible while filtering.
+    // 过滤时仍保持合成的 ".." 导航行可见。
     if (index.data(FileListModel::IsParentRole).toBool()) {
         return true;
     }
@@ -99,6 +108,8 @@ bool FilterProxyModel::filterAcceptsRow(int sourceRow,
         // wildcard expression required an exact match, so typing "file"
         // matched neither "file.txt" nor "dir/file.txt" and the view became
         // empty.
+        // 将普通搜索词视为子串匹配。此前通配符表达式要求精确匹配，
+        // 输入 "file" 无法匹配 "file.txt" 或 "dir/file.txt"，导致视图为空。
         QString pattern = m_pattern;
         if (!pattern.contains(QLatin1Char('*')) && !pattern.contains(QLatin1Char('?'))) {
             pattern = QLatin1Char('*') + pattern + QLatin1Char('*');
@@ -114,5 +125,6 @@ bool FilterProxyModel::filterAcceptsRow(int sourceRow,
     }
 
     // Qt's recursive filtering accepts a parent if any descendant matches.
+    // Qt 的递归过滤会在任一后代匹配时接受父项。
     return true;
 }

@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// PreferencesDialog widget wiring and persistence.
+// PreferencesDialog 的控件连接与持久化。
+
 #include "PreferencesDialog.h"
 
 #include <QComboBox>
@@ -174,6 +178,7 @@ void PreferencesDialog::saveSettings()
     s.setShowRecentFiles(m_showRecentFilesCheck->isChecked());
 
     // Apply the theme immediately so the change is visible without restarting.
+    // 立即应用主题，无需重启即可看到变化。
     if (auto *app = qobject_cast<QApplication *>(QCoreApplication::instance())) {
         ThemeManager::applyTheme(*app);
     }

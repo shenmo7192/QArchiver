@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// FileListModel node construction, sorting and entry lookup.
+// FileListModel 的节点构建、排序与条目查找。
+
 #include "FileListModel.h"
 
 #include "utils/FileUtils.h"
@@ -116,6 +120,8 @@ QString FileListModel::displayName(const Node *node) const
     // The tree is keyed by the normalized path.  Use that form for the
     // displayed basename as well; entry.path keeps the original archive
     // member name (e.g. "./foo" or a Windows-style "dir\\file").
+    // 树以规范化路径为键，显示的基本名称也使用该形式；
+    // entry.path 保留原始压缩包成员名（如 "./foo" 或 Windows 风格的 "dir\\file"）。
     const QString normalized = FileUtils::normalizeEntryPath(node->entry.path);
     const int slash = normalized.lastIndexOf(QLatin1Char('/'));
     return slash >= 0 ? normalized.mid(slash + 1) : normalized;
@@ -214,6 +220,7 @@ Qt::ItemFlags FileListModel::flags(const QModelIndex &index) const
     Qt::ItemFlags flags = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
     // Real entries can be dragged out of the view; the synthetic ".." row in
     // list mode cannot (it is navigation only).
+    // 真实条目可从视图拖出；列表模式中的合成 ".." 行不可拖出（仅用于导航）。
     if (!index.data(IsParentRole).toBool()) {
         flags |= Qt::ItemIsDragEnabled;
     }
@@ -266,6 +273,7 @@ void FileListModel::setFlatMode(bool flat)
     m_flatMode = flat;
     // Starting list mode always begins at the archive root.  Returning to
     // tree mode also resets the navigation cursor.
+    // 进入列表模式时总是从压缩包根目录开始；返回树模式也会重置导航位置。
     m_currentDir.clear();
     rebuild();
     endResetModel();
@@ -303,6 +311,7 @@ bool FileListModel::enterDirectory(const QString &path)
         && !m_currentDir.isEmpty()) {
         // Also accept a child name relative to the currently displayed
         // directory (handy for tests and future breadcrumb widgets).
+        // 也接受相对于当前显示目录的子项名称（便于测试及未来的面包屑控件）。
         const QString candidate =
             FileUtils::normalizeEntryPath(m_currentDir + QLatin1Char('/') + dir);
         if (directoryExists(candidate)) {
@@ -397,6 +406,7 @@ void FileListModel::rebuild()
             if (slash >= 0) {
                 // Deeper entries imply this child is a directory even if the
                 // archive does not contain an explicit directory entry.
+                // 更深的条目说明该子项是目录，即使压缩包没有显式目录条目。
                 if (it == visible.end()) {
                     auto *node = new Node;
                     node->parent = m_root;
@@ -412,6 +422,7 @@ void FileListModel::rebuild()
 
             // Keep the original member name for extraction; the normalized
             // path is only the navigation key.
+            // 解压时保留原始成员名；规范化路径仅作为导航键。
             entry.path = originalPath;
             if (it != visible.end()) {
                 Node *node = it.value();
@@ -448,6 +459,8 @@ void FileListModel::rebuild()
         // Keep the archive's original member name (for example a leading
         // "./" or a literal backslash); extraction tools match that name
         // exactly.  The normalized path is only used as the tree key.
+        // 保留压缩包原始成员名（例如前导 "./" 或字面反斜杠）；
+        // 解压工具会精确匹配该名称。规范化路径仅用作树键。
         entry.path = originalPath;
 
         const QStringList components = path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
@@ -541,6 +554,7 @@ void FileListModel::sortFlatNodes()
         int result = compare(a, b);
         if (result == 0) {
             // Stable, deterministic tie-breaker independent of sort order.
+            // 与排序方向无关的稳定确定性决胜规则。
             result = QString::compare(displayName(a), displayName(b),
                                       Qt::CaseInsensitive);
         }

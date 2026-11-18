@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// Tests for drag-out staging and archive extraction isolation.
+// 拖出暂存与压缩包解压隔离测试。
+
 #include <QtTest>
 
 #include <QDir>
@@ -83,6 +87,8 @@ private:
     QString m_sourceDir;
 };
 
+// Create the temporary archive fixtures.
+// 创建测试所需的临时压缩包。
 void TestDragOut::initTestCase()
 {
     QStandardPaths::setTestModeEnabled(true);
@@ -105,6 +111,8 @@ void TestDragOut::initTestCase()
                       QByteArrayLiteral("bravo")));
 }
 
+// Remove fixtures and staging directories.
+// 删除测试夹具和暂存目录。
 void TestDragOut::cleanupTestCase()
 {
     DragOutManager::instance().cleanupOwn();
@@ -136,6 +144,8 @@ QString TestDragOut::createEncrypted7z(const QString &name,
     return runTool(m_7z, args, m_sourceDir) ? archivePath : QString();
 }
 
+// Nested selections collapse to their top-level parent.
+// 嵌套选择折叠到其顶层父项。
 void TestDragOut::pruneNestedPathsKeepsTopLevel()
 {
     const QStringList pruned = DragOutManager::pruneNestedPaths(
@@ -147,6 +157,8 @@ void TestDragOut::pruneNestedPathsKeepsTopLevel()
     QVERIFY(pruned.contains(QStringLiteral("root.txt")));
 }
 
+// Selected sizes are summed once without double counting.
+// 选中大小只累加一次，避免重复计数。
 void TestDragOut::selectedUncompressedSizeSumsSelection()
 {
     QList<ArchiveEntry> entries;
@@ -176,6 +188,8 @@ void TestDragOut::selectedUncompressedSizeSumsSelection()
              500);
 }
 
+// Map archive paths to staged files.
+// 将压缩包路径映射到暂存文件。
 void TestDragOut::mapStagedPathsFindsNestedFile()
 {
     QTemporaryDir staging;
@@ -196,6 +210,8 @@ void TestDragOut::mapStagedPathsFindsNestedFile()
                 .isEmpty());
 }
 
+// Plain streams fall back to the staging root file.
+// 纯流回退到暂存根目录文件。
 void TestDragOut::mapStagedPathsStreamFallback()
 {
     QTemporaryDir staging;
@@ -210,6 +226,8 @@ void TestDragOut::mapStagedPathsStreamFallback()
     QCOMPARE(QFileInfo(mapped.first()).fileName(), QStringLiteral("data"));
 }
 
+// A selected file is extracted into staging.
+// 选中文件被解压到暂存目录。
 void TestDragOut::stagesSelectedFile()
 {
     const QString zip = createZip(QStringLiteral("plain.zip"));
@@ -227,6 +245,8 @@ void TestDragOut::stagesSelectedFile()
     manager.retire(payload);
 }
 
+// Selecting a directory stages its whole subtree.
+// 选中目录时暂存其整个子树。
 void TestDragOut::stagesDirectorySubtree()
 {
     const QString zip = createZip(QStringLiteral("plain2.zip"));
@@ -248,6 +268,8 @@ void TestDragOut::stagesDirectorySubtree()
     manager.retire(payload);
 }
 
+// Nested selections are pruned before extraction.
+// 解压前裁剪嵌套选择。
 void TestDragOut::prunesNestedSelection()
 {
     const QString zip = createZip(QStringLiteral("plain3.zip"));
@@ -266,6 +288,8 @@ void TestDragOut::prunesNestedSelection()
     manager.retire(payload);
 }
 
+// Unsafe paths are rejected before staging.
+// 暂存前拒绝不安全路径。
 void TestDragOut::blocksUnsafeSelection()
 {
     const QString zip = createZip(QStringLiteral("plain4.zip"));
@@ -280,6 +304,8 @@ void TestDragOut::blocksUnsafeSelection()
     QVERIFY(payload.stagingRoot.isEmpty());
 }
 
+// A plain gzip stream is staged as one file.
+// 纯 gzip 流作为一个文件暂存。
 void TestDragOut::stagesPlainGzipStream()
 {
     const QString archive = QDir(m_tempDir.path()).filePath(
@@ -302,6 +328,8 @@ void TestDragOut::stagesPlainGzipStream()
     manager.retire(payload);
 }
 
+// A cached preparation is reused for identical drags.
+// 相同拖拽复用已缓存的准备结果。
 void TestDragOut::reusesPreparedStaging()
 {
     const QString zip = createZip(QStringLiteral("cache.zip"));
@@ -327,6 +355,8 @@ void TestDragOut::reusesPreparedStaging()
                                     QStringLiteral("other")));
 }
 
+// A different password invalidates the cache key.
+// 密码变化会使缓存键失效。
 void TestDragOut::cacheMissAfterPasswordChange()
 {
     const QString zip = createZip(QStringLiteral("cache2.zip"));
@@ -351,6 +381,8 @@ void TestDragOut::cacheMissAfterPasswordChange()
     QVERIFY(!manager.hasPreparedFor(zip, ArchiveFormat::Zip, paths, QString()));
 }
 
+// Encrypted 7z falls back from libarchive to the CLI.
+// 加密 7z 从 libarchive 回退到 CLI。
 void TestDragOut::encrypted7zFallsBackToCli()
 {
     const QString archive = createEncrypted7z(QStringLiteral("enc.7z"),
@@ -371,6 +403,8 @@ void TestDragOut::encrypted7zFallsBackToCli()
     manager.retire(payload);
 }
 
+// Drag-out works when the CLI backend is forced.
+// 强制 CLI 后端时拖出仍可工作。
 void TestDragOut::worksWithCommandLineBackend()
 {
     const QString zip = createZip(QStringLiteral("plain5.zip"));

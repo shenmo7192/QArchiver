@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// FileUtils implementation: path normalization, traversal checks and moves.
+// FileUtils 实现：路径规范化、路径穿越检查与文件移动。
+
 #include "FileUtils.h"
 
 #include <QDir>
@@ -36,6 +40,7 @@ QString FileUtils::canonicalPath(const QString &path)
     const QString canon = fi.canonicalFilePath();
     if (canon.isEmpty()) {
         // File doesn't exist yet; canonicalize the parent.
+        // 文件尚不存在；改为规范化其父目录。
         return QDir::cleanPath(path);
     }
     return canon;
@@ -49,7 +54,7 @@ qint64 FileUtils::estimateFreeSpace(const QString &path)
         dir = fi.absolutePath();
     }
 
-    // Walk up to the first existing directory.
+    // Walk up to the first existing directory. / 向上查找第一个存在的目录。
     while (!dir.isEmpty() && !QFileInfo::exists(dir)) {
         const QString parent = QFileInfo(dir).absolutePath();
         if (parent == dir) {
@@ -109,6 +114,7 @@ bool FileUtils::moveFileAtomically(const QString &src, const QString &dest)
     QFile srcFile(src);
 
     // Same-filesystem rename preserves permissions, timestamps and symlinks.
+    // 同一文件系统内重命名可保留权限、时间戳和符号链接。
     if (srcFile.rename(dest)) {
         return true;
     }
@@ -123,7 +129,7 @@ bool FileUtils::moveFileAtomically(const QString &src, const QString &dest)
         return false;
     }
 
-    // Cross-filesystem fallback: copy then delete.
+    // Cross-filesystem fallback: copy then delete. / 跨文件系统回退：复制后删除。
     if (QFile::copy(src, dest)) {
         copyMetadata(src, dest);
         return QFile::remove(src);
@@ -139,6 +145,7 @@ int FileUtils::moveExtractedContents(const QString &srcDir, const QString &destD
 
     // Snapshot first: moving files while QDirIterator walks the tree can skip
     // entries on some filesystems.
+    // 先做快照：在 QDirIterator 遍历时移动文件，某些文件系统可能漏掉条目。
     struct Item {
         QString source;
         QString relative;
@@ -207,6 +214,7 @@ int FileUtils::moveExtractedContents(const QString &srcDir, const QString &destD
 
     // Keep the temporary directory when something failed so the caller can
     // report/retry instead of silently deleting extracted data.
+    // 失败时保留临时目录，便于调用方报告或重试，而不是静默删除已解压数据。
     if (failed == 0) {
         removeDirectoryRecursively(srcDir);
     }
@@ -227,7 +235,7 @@ QString FileUtils::normalizeEntryPath(const QString &path)
     QString normalized = path;
     normalized.replace(QLatin1Char('\\'), QLatin1Char('/'));
 
-    // Strip a Windows drive prefix ("C:").
+    // Strip a Windows drive prefix ("C:"). / 去掉 Windows 盘符前缀（"C:"）。
     if (normalized.size() >= 2 && normalized.at(1) == QLatin1Char(':')) {
         normalized = normalized.mid(2);
     }
@@ -248,6 +256,7 @@ bool FileUtils::isPathTraversal(const QString &entryPath, const QString &destDir
 
     // Reject any ".." path component. Substring matching would incorrectly
     // reject legitimate names such as "foo..bar".
+    // 拒绝任何 ".." 路径分量。若用子串匹配，会误判 "foo..bar" 这类合法名称。
     const QStringList components = normalized.split(QLatin1Char('/'), Qt::SkipEmptyParts);
     for (const QString &component : components) {
         if (component == QStringLiteral("..")) {
@@ -267,6 +276,7 @@ bool FileUtils::isPathTraversal(const QString &entryPath, const QString &destDir
 
     // If the target already exists, also compare canonical paths to catch
     // symlinked parent directories that escape the destination.
+    // 目标已存在时再比较规范化路径，以捕获通过符号链接父目录逃逸的情况。
     const QFileInfo resolvedInfo(cleanResolved);
     if (resolvedInfo.exists()) {
         const QString canonicalDest = QFileInfo(cleanDest).canonicalFilePath();

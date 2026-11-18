@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// ArchiveManager implementation: format detection, backend dispatch and retries.
+// ArchiveManager 实现：格式检测、后端调度与重试。
+
 #include "ArchiveManager.h"
 
 #include "backends/ArchiveBackend.h"
@@ -41,9 +45,9 @@ struct Overloaded : Ts... {
 template <typename... Ts>
 Overloaded(Ts...) -> Overloaded<Ts...>;
 
-// Formats the libarchive backend can read. RAR keeps using unrar/rar through
-// RarBackend, and volumes are always left to the CLI (libarchive has no volume
-// support at all).
+// Formats the libarchive backend can read. RAR keeps using the bundled 7-Zip
+// helper through RarBackend, and volumes are always left to the CLI (libarchive
+// has no volume support at all).
 #ifdef QARCHIVER_HAS_LIBARCHIVE
 bool supportsLibArchiveRead(ArchiveFormat fmt)
 {

@@ -1,10 +1,14 @@
 #ifndef ARCHIVECONSTANTS_H
 #define ARCHIVECONSTANTS_H
 
+// QArchiver / 小Q解压
+// Archive format, overwrite policy enums and shared format helpers.
+// 压缩格式、覆盖策略枚举以及共用的格式辅助函数。
+
 #include <QString>
 #include <QMetaType>
 
-// Archive format enumeration
+// Archive format enumeration / 压缩格式枚举
 enum class ArchiveFormat {
     Unknown,    // Unrecognized / corrupted
     Tar,        // Plain .tar
@@ -22,7 +26,7 @@ enum class ArchiveFormat {
 
 Q_DECLARE_METATYPE(ArchiveFormat)
 
-// Overwrite policy for extraction
+// Overwrite policy for extraction / 解压覆盖策略
 enum class OverwritePolicy {
     Ask,        // Ask the user for each conflict
     Always,     // Always overwrite
@@ -32,7 +36,7 @@ enum class OverwritePolicy {
 
 Q_DECLARE_METATYPE(OverwritePolicy)
 
-// Convert ArchiveFormat to a human-readable string
+// Convert ArchiveFormat to a human-readable string / 转换为可读字符串
 inline QString formatToString(ArchiveFormat fmt)
 {
     switch (fmt) {
@@ -52,7 +56,7 @@ inline QString formatToString(ArchiveFormat fmt)
     return QStringLiteral("unknown");
 }
 
-// Check whether a format is a tar variant
+// Check whether a format is a tar variant / 判断是否为 tar 系列格式
 inline bool isTarFamily(ArchiveFormat fmt)
 {
     return fmt == ArchiveFormat::Tar
@@ -61,7 +65,7 @@ inline bool isTarFamily(ArchiveFormat fmt)
         || fmt == ArchiveFormat::TarBz2;
 }
 
-// Check whether a format is a pure compression stream
+// Check whether a format is a pure compression stream / 判断是否为纯压缩流
 inline bool isStreamFamily(ArchiveFormat fmt)
 {
     return fmt == ArchiveFormat::Gzip
@@ -69,13 +73,13 @@ inline bool isStreamFamily(ArchiveFormat fmt)
         || fmt == ArchiveFormat::Xz;
 }
 
-// Check whether a format is a RAR variant
+// Check whether a format is a RAR variant / 判断是否为 RAR 系列格式
 inline bool isRarFamily(ArchiveFormat fmt)
 {
     return fmt == ArchiveFormat::Rar4 || fmt == ArchiveFormat::Rar5;
 }
 
-// Default extension for a given format
+// Default extension for a given format / 返回格式的默认扩展名
 inline QString defaultExtension(ArchiveFormat fmt)
 {
     switch (fmt) {

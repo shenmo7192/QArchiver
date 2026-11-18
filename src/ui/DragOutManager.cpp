@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// Drag-out staging, cache cleanup and cancellation.
+// 拖出暂存、缓存清理与取消处理。
+
 #include "DragOutManager.h"
 
 #include <QCoreApplication>

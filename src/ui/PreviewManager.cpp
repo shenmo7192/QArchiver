@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// PreviewManager worker lifecycle and preview size limits.
+// PreviewManager 工作线程生命周期与预览大小限制。
+
 #include "PreviewManager.h"
 
 #include "backends/ArchiveBackend.h"
@@ -80,6 +84,7 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
 
     // Do not call the main backend from the GUI thread.  A private backend is
     // created, used and destroyed entirely inside the worker thread.
+    // 不要在 GUI 线程调用主后端。私有后端完全在工作线程内创建、使用和销毁。
     (void)QtConcurrent::run([archivePath, format, entryPath, normalized, previewDir,
                               destPath, password]() {
         std::unique_ptr<ArchiveBackend> backend(

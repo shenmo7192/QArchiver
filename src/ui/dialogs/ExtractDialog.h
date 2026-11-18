@@ -1,6 +1,10 @@
 #ifndef EXTRACTDIALOG_H
 #define EXTRACTDIALOG_H
 
+// QArchiver / 小Q解压
+// Dialog for extraction destination and overwrite options.
+// 选择解压目标与覆盖选项的对话框。
+
 #include <QDialog>
 #include "core/ArchiveOptions.h"
 
@@ -9,7 +13,8 @@ class QCheckBox;
 class QComboBox;
 class QPushButton;
 
-// Extract options dialog (design doc 5.1.1/5.1.2)
+// Extract options dialog (design doc 5.1.1/5.1.2).
+// 解压选项对话框（设计文档 5.1.1/5.1.2）。
 class ExtractDialog : public QDialog {
     Q_OBJECT
 public:

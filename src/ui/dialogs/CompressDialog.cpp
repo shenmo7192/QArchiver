@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// CompressDialog widgets, validation and option collection.
+// CompressDialog 的控件、校验与选项收集。
+
 #include "CompressDialog.h"
 
 #include <QLineEdit>
@@ -146,6 +150,7 @@ void CompressDialog::onFormatChanged()
     const QString ext = defaultExtension(fmt);
 
     // Strip any known archive extension and append the selected one.
+    // 去掉已知压缩包扩展名，再追加当前选择的扩展名。
     QString current = m_targetEdit->text();
     const QStringList knownExtensions = {
         QStringLiteral(".7z"), QStringLiteral(".zip"),

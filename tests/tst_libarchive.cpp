@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// Tests for the optional in-process libarchive backend.
+// 可选进程内 libarchive 后端的测试。
+
 #include <QtTest>
 
 #include <QDir>
@@ -188,6 +192,8 @@ private:
     QString m_tar;
 };
 
+// Build the archive fixtures used by the tests.
+// 构建测试使用的压缩包夹具。
 void TestLibArchive::initTestCase()
 {
     m_7z = ProcessRunner::resolveToolPath(QStringLiteral("7z"));
@@ -197,6 +203,8 @@ void TestLibArchive::initTestCase()
     m_tar = ProcessRunner::resolveToolPath(QStringLiteral("tar"));
 }
 
+// List, extract and test zip through libarchive.
+// 通过 libarchive 列出、解压并测试 zip。
 void TestLibArchive::zipRoundTrip()
 {
     QTemporaryDir temp;
@@ -228,6 +236,8 @@ void TestLibArchive::zipRoundTrip()
     QVERIFY2(tested.success, qPrintable(tested.message));
 }
 
+// Read a gzip-compressed tar through libarchive.
+// 通过 libarchive 读取 gzip 压缩的 tar。
 void TestLibArchive::tarGzRoundTrip()
 {
     QTemporaryDir temp;
@@ -257,6 +267,8 @@ void TestLibArchive::tarGzRoundTrip()
              QByteArrayLiteral("bravo"));
 }
 
+// Read an xz-compressed tar through libarchive.
+// 通过 libarchive 读取 xz 压缩的 tar。
 void TestLibArchive::tarXzRoundTrip()
 {
     QTemporaryDir temp;
@@ -278,6 +290,8 @@ void TestLibArchive::tarXzRoundTrip()
     QVERIFY(containsPath(entries, QStringLiteral("src/a.txt")));
 }
 
+// Infer the output name for a pure gzip stream.
+// 为纯 gzip 流推断输出名称。
 void TestLibArchive::gzipStreamName()
 {
     QTemporaryDir temp;
@@ -308,6 +322,8 @@ void TestLibArchive::gzipStreamName()
              QByteArrayLiteral("compressed payload"));
 }
 
+// AES zip requests a password and then extracts.
+// AES zip 请求密码后完成解压。
 void TestLibArchive::aesZipNeedsPassword()
 {
     QTemporaryDir temp;
@@ -348,6 +364,8 @@ void TestLibArchive::aesZipNeedsPassword()
              QByteArrayLiteral("alpha"));
 }
 
+// Encrypted 7z is rejected so the manager can fall back.
+// 拒绝加密 7z，以便管理器回退。
 void TestLibArchive::encrypted7zIsNotSupported()
 {
     QTemporaryDir temp;
@@ -369,6 +387,8 @@ void TestLibArchive::encrypted7zIsNotSupported()
     QCOMPARE(listed.code, ArchiveErrorCode::UnsupportedFormat);
 }
 
+// Corrupted data is reported as an archive error.
+// 损坏数据被报告为压缩包错误。
 void TestLibArchive::corruptedArchiveIsDetected()
 {
     QTemporaryDir temp;
@@ -391,6 +411,8 @@ void TestLibArchive::corruptedArchiveIsDetected()
     QVERIFY(!tested.success);
 }
 
+// Only the selected member is extracted.
+// 仅解压选中的成员。
 void TestLibArchive::selectedExtractionOnly()
 {
     QTemporaryDir temp;
@@ -414,6 +436,8 @@ void TestLibArchive::selectedExtractionOnly()
     QVERIFY(!QFileInfo::exists(QDir(dest).filePath(QStringLiteral("src/a.txt"))));
 }
 
+// Selecting a directory extracts its subtree.
+// 选中目录时解压其子树。
 void TestLibArchive::directorySelectionExtractsSubtree()
 {
     QTemporaryDir temp;

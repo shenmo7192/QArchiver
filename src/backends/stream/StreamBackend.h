@@ -1,9 +1,14 @@
 #ifndef STREAMBACKEND_H
 #define STREAMBACKEND_H
 
+// QArchiver / 小Q解压
+// Backend for single-stream gzip, bzip2 and xz files.
+// 用于单流 gzip、bzip2 与 xz 文件的后端。
+
 #include "backends/ArchiveBackend.h"
 
-// Read-only backend for pure .gz/.bz2/.xz streams (design doc 5.6.3)
+// Read-only backend for pure .gz/.bz2/.xz streams (design doc 5.6.3).
+// 纯 .gz/.bz2/.xz 流的只读后端（设计文档 5.6.3）。
 class StreamBackend : public ArchiveBackend {
     Q_OBJECT
 public:

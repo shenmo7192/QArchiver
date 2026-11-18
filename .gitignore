@@ -10,6 +10,9 @@
 *.dll
 *.dylib
 
+# Bundled 7-Zip engine: 7z.dll is required next to 7z.exe.
+!third_party/7zip/win/x64/7z.dll
+
 # Qt-es
 object_script.*.Release
 object_script.*.Debug

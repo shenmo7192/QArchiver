@@ -1,5 +1,10 @@
+// QArchiver / 小Q解压
+// PasswordDialog initialization from preferences and password visibility.
+// PasswordDialog 从偏好设置初始化以及密码可见性处理。
+
 #include "PasswordDialog.h"
 
+#include "core/AppSettings.h"
 #include "utils/IconUtils.h"
 
 #include <QLineEdit>
@@ -24,6 +29,11 @@ PasswordDialog::PasswordDialog(QWidget *parent)
     m_passwordEdit->setPlaceholderText(tr("Password"));
 
     m_rememberCheck = new QCheckBox(tr("Remember password for this session"), this);
+    // The checkbox is only a per-prompt override: it starts from the
+    // preference, and changing it here never writes the preference back.
+    // 复选框仅覆盖本次提示：初始值来自偏好设置，
+    // 在此处修改不会回写偏好设置。
+    m_rememberCheck->setChecked(AppSettings::instance().rememberPasswords());
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {

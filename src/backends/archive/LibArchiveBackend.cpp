@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// LibArchiveBackend listing, extraction and stream handling.
+// LibArchiveBackend 的列表、解压与流处理。
+
 #include "LibArchiveBackend.h"
 
 #include <QDateTime>
@@ -18,6 +22,8 @@ namespace {
 
 // Read/write granularity handed to libarchive. 256 KiB keeps the syscall count
 // low without hurting the progress/cancel latency.
+// 交给 libarchive 的读写粒度。256 KiB 可减少系统调用次数，
+// 同时不会明显影响进度更新与取消延迟。
 constexpr size_t kBlockSize = 256 * 1024;
 
 struct ReaderDeleter {
@@ -31,6 +37,7 @@ struct ReaderDeleter {
 using ReaderPtr = std::unique_ptr<struct archive, ReaderDeleter>;
 
 // libarchive module name, used to pass per-format options such as hdrcharset.
+// libarchive 模块名，用于传递 hdrcharset 等按格式区分的选项。
 const char *moduleName(ArchiveFormat fmt)
 {
     switch (fmt) {
@@ -56,6 +63,8 @@ const char *moduleName(ArchiveFormat fmt)
 
 // libarchive exposes entry names as UTF-8 when the archive carries them; legacy
 // archives (CP437/GBK in zip, unrar'ed tar) only have byte strings.
+// 压缩包内带编码信息时，libarchive 以 UTF-8 暴露条目名；
+// 旧式压缩包（zip 中的 CP437/GBK、tar）只有字节串。
 QString entryPathString(struct archive_entry *entry)
 {
     if (const char *utf8 = archive_entry_pathname_utf8(entry)) {
@@ -89,6 +98,7 @@ ReaderPtr openReader(const QString &filePath, ArchiveFormat fmt,
     archive_read_support_format_all(reader.get());
     // Pure gz/bz2/xz streams have no header of their own; the raw reader
     // exposes them as a single unnamed entry.
+    // 纯 gz/bz2/xz 流没有自身头部；raw 读取器将其作为单个无名条目暴露。
     if (isStreamFamily(fmt)) {
         archive_read_support_format_raw(reader.get());
     }
@@ -96,6 +106,7 @@ ReaderPtr openReader(const QString &filePath, ArchiveFormat fmt,
     if (!encodingHint.isEmpty()) {
         if (const char *module = moduleName(fmt)) {
             // Only the format-specific form is honoured by libarchive.
+            // libarchive 仅识别带格式前缀的形式。
             if (archive_read_set_option(reader.get(), module, "hdrcharset",
                                         encodingHint.toUtf8().constData())
                 < ARCHIVE_WARN) {
@@ -207,6 +218,8 @@ void LibArchiveBackend::reportFailure(const QString &message,
 
     // libarchive knows the container but not its crypto (e.g. encrypted 7z).
     // UnsupportedFormat lets the manager retry with the CLI backend.
+    // libarchive 能识别容器但无法处理其加密（例如加密 7z）。
+    // 返回 UnsupportedFormat 可让管理器改用 CLI 后端重试。
     if (lower.contains(QStringLiteral("encrypted"))) {
         emit errorOccurred(ArchiveErrorCode::UnsupportedFormat,
                            tr("%1: %2").arg(context, message));
@@ -269,6 +282,7 @@ void LibArchiveBackend::listContents(const ListOptions &options)
         if (isStreamFamily(m_format) && entries.isEmpty()) {
             // Raw streams either expose the stored name or the placeholder
             // "data"; only the placeholder needs to be replaced.
+            // 原始流可能暴露已存储名称或占位符 "data"；仅需替换占位符。
             if (item.path.isEmpty() || item.path == QStringLiteral("data")) {
                 item.path = inferStreamName();
             }
@@ -323,6 +337,8 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
             // Selecting a directory selects its subtree (same as passing the
             // member path to 7z), and selecting a child keeps the parent
             // directories needed to recreate the layout.
+            // 选中目录会选中其整个子树（与把成员路径传给 7z 相同）；
+            // 选中子项时会保留重建目录结构所需的父目录。
             if (relative.startsWith(candidate + QLatin1Char('/'))
                 || candidate.startsWith(relative + QLatin1Char('/'))) {
                 return true;
@@ -350,6 +366,8 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
 
     // Progress model: prefer the entry sizes from the last listing; fall back
     // to a per-entry counter when the archive was never listed.
+    // 进度模型：优先使用最近一次列表中的条目大小；
+    // 若从未列表，则回退为按条目计数。
     int totalEntries = 0;
     qint64 totalBytes = 0;
     for (const ArchiveEntry &item : m_entries) {
@@ -419,6 +437,8 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
         if (type == AE_IFLNK) {
             // Symlinks are recreated only when they stay inside the archive
             // root; anything else is skipped instead of being written.
+            // 仅当符号链接目标仍位于压缩包根目录内时才重建；
+            // 其他链接会被跳过，不写入磁盘。
             const char *linkTarget = archive_entry_symlink(entry);
             const QString target = linkTarget ? QString::fromUtf8(linkTarget) : QString();
             if (isSafeSymlinkTarget(target)) {
@@ -434,6 +454,7 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
         QFile outFile(outPath);
         if (archive_entry_hardlink(entry)) {
             // Hard links carry no data; keep the entry's own (empty) file.
+            // 硬链接本身没有数据；保留该条目自己的（空）文件。
             if (!outFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
                 failure = tr("Cannot write file: %1").arg(outPath);
                 emit errorOccurred(ArchiveErrorCode::PermissionDenied, failure);
@@ -507,6 +528,8 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
             failure = libarchiveError(reader.get());
             // Password failures must go through reportFailure() so the UI is
             // asked for a passphrase instead of seeing a corruption error.
+            // 密码错误必须经过 reportFailure()，以便界面提示输入密码，
+            // 而不是显示为压缩包损坏。
             reportFailure(failure, options.password, tr("Extraction failed"));
             break;
         }
@@ -595,6 +618,7 @@ void LibArchiveBackend::testArchive(const TestOptions &options)
         while ((readResult = archive_read_data_block(reader.get(), &buffer, &size,
                                                     &offset)) == ARCHIVE_OK) {
             // Data is read (and therefore CRC-checked) but never stored.
+            // 读取数据（因此会校验 CRC），但不写入磁盘。
             if (isCancelled()) {
                 emit errorOccurred(ArchiveErrorCode::Cancelled, tr("Operation cancelled"));
                 return;

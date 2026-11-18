@@ -1,6 +1,10 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+// QArchiver / 小Q解压
+// Main application window and its user interaction state.
+// 主应用窗口及其用户交互状态。
+
 #include <QMainWindow>
 #include <QPointer>
 
@@ -22,7 +26,8 @@ class QLabel;
 class QLineEdit;
 class QProgressBar;
 
-// Main application window (design doc 3/6/7)
+// Main application window (design doc 3/6/7).
+// 主应用窗口（设计文档 3/6/7）。
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -79,11 +84,11 @@ private:
     void startExtract(const ExtractOptions &opts);
     void addFilesToCurrentArchive(const QStringList &files);
 
-    // Models
+    // Models / 模型
     FileListModel *m_model = nullptr;
     FilterProxyModel *m_proxyModel = nullptr;
 
-    // Views
+    // Views / 视图
     ArchiveTreeView *m_treeView = nullptr;
     QLineEdit *m_searchEdit = nullptr;
     QLabel *m_placeholderLabel = nullptr;
@@ -91,7 +96,7 @@ private:
     QDockWidget *m_sidebarDock = nullptr;
     QToolBar *m_mainToolBar = nullptr;
 
-    // Actions
+    // Actions / 动作
     QAction *m_openAct = nullptr;
     QAction *m_newAct = nullptr;
     QAction *m_extractAct = nullptr;
@@ -99,19 +104,19 @@ private:
     QAction *m_deleteAct = nullptr;
     QAction *m_closeAct = nullptr;
 
-    // Dialogs
+    // Dialogs / 对话框
     QPointer<ProgressDialog> m_progressDialog;
 
-    // Busy indicator in the status bar
+    // Busy indicator in the status bar / 状态栏忙碌指示器
     QWidget *m_busyWidget = nullptr;
     QLabel *m_busyLabel = nullptr;
     QProgressBar *m_busyBar = nullptr;
 
-    // State
-    QString m_currentPassword;   // Password for the current archive
-    bool m_dragPrepareInProgress = false;  // Guard against re-entrant drags
-    bool m_selfDropAttempted = false;      // Entry dropped back onto ourselves
-    QString m_sessionPassword;   // Optional session-wide remembered password
+    // State / 状态
+    QString m_currentPassword;   // Password for the current archive / 当前压缩包密码
+    bool m_dragPrepareInProgress = false;  // Guard against re-entrant drags / 防止重入拖拽
+    bool m_selfDropAttempted = false;      // Entry dropped back onto ourselves / 条目被拖回自身
+    QString m_sessionPassword;   // Optional session-wide remembered password / 可选的会话级记住密码
     bool m_openDestAfterExtract = false;
     QString m_lastExtractDest;
     enum class UiOp { None, Open, List, Extract, Compress, Add, Delete };

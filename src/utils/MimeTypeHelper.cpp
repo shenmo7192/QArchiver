@@ -1,9 +1,14 @@
+// QArchiver / 小Q解压
+// MimeTypeHelper implementation, including compressed-tar stream probing.
+// MimeTypeHelper 实现，包括压缩 tar 流探测。
+
 #include "MimeTypeHelper.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QProcessEnvironment>
+#include <QElapsedTimer>
+#include <QProcess>
 #include <QRegularExpression>
 
 #include <algorithm>
@@ -15,6 +20,8 @@
 
 // Magic Number signatures (design doc 4.3.2).  Compile-time byte arrays
 // avoid runtime QByteArray::fromHex allocations.
+// 魔数签名（设计文档 4.3.2）。使用编译期字节数组，
+// 避免运行时 QByteArray::fromHex 分配。
 namespace {
 
 constexpr std::array<std::uint8_t, 6> kSig7z      = {0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c};
@@ -30,6 +37,8 @@ constexpr std::array<std::uint8_t, 5> kSigTar     = {0x75, 0x73, 0x74, 0x61, 0x7
 
 // List files in @p dir whose name matches @p regex, preserving the on-disk
 // spelling (never lower-cases paths).
+// 列出 @p dir 中名称匹配 @p regex 的文件，保留磁盘上的大小写，
+// 绝不对路径做小写化。
 QStringList matchingFiles(const QDir &dir, const QRegularExpression &regex)
 {
     QStringList result;
@@ -42,7 +51,67 @@ QStringList matchingFiles(const QDir &dir, const QRegularExpression &regex)
     return result;
 }
 
-// Stage 1.5: probe whether a compressed stream contains a tar (design doc 4.3.3)
+// Stage 1.5: probe whether a compressed stream contains a tar (design doc 4.3.3).
+// Decompress only the first block to stdout and inspect the tar header, so a
+// multi-gigabyte stream is not extracted just to classify it.
+// 阶段 1.5：探测压缩流中是否包含 tar（设计文档 4.3.3）。
+// 仅将第一个块解压到 stdout 并检查 tar 头，避免为分类而解压数 GB 数据。
+bool isTarHeader(const QByteArray &header)
+{
+    if (header.size() < 512) {
+        return false;
+    }
+    if (header.mid(257, 5) == QLatin1String("ustar")) {
+        return true;
+    }
+
+    // Old (v7) tar has no ustar magic; validate its octal checksum instead.
+    // 旧式（v7）tar 没有 ustar 魔数；改为验证其八进制校验和。
+    bool ok = false;
+    const qint64 stored = header.mid(148, 8).trimmed().toLongLong(&ok, 8);
+    if (!ok) {
+        return false;
+    }
+    qint64 sum = 0;
+    for (int i = 0; i < 512; ++i) {
+        sum += (i >= 148 && i < 156)
+            ? QLatin1Char(' ').unicode()
+            : static_cast<unsigned char>(header.at(i));
+    }
+    return sum == stored;
+}
+
+bool isTarCompressedStream(const QString &sevenZip, const QString &filePath)
+{
+    QProcess process;
+    process.setProcessChannelMode(QProcess::SeparateChannels);
+    process.start(sevenZip,
+                  {QStringLiteral("x"), QStringLiteral("-so"),
+                   QStringLiteral("-y"), QStringLiteral("-sccUTF-8"),
+                   QStringLiteral("--"), filePath});
+    if (!process.waitForStarted(3000)) {
+        return false;
+    }
+
+    QByteArray head;
+    QElapsedTimer timer;
+    timer.start();
+    while (head.size() < 512 && timer.elapsed() < 3000) {
+        if (process.bytesAvailable() == 0 && !process.waitForReadyRead(100)) {
+            if (process.state() == QProcess::NotRunning) {
+                break;
+            }
+            continue;
+        }
+        head += process.readAllStandardOutput();
+        process.readAllStandardError();
+    }
+
+    process.kill();
+    process.waitForFinished(1000);
+    return isTarHeader(head);
+}
+
 ArchiveFormat resolveStreamFormat(const QString &filePath,
                                   ArchiveFormat tarFormat,
                                   ArchiveFormat streamFormat)
@@ -56,35 +125,13 @@ ArchiveFormat resolveStreamFormat(const QString &filePath,
         return tarFormat;
     }
 
-    QString decompressFlag;
-    switch (tarFormat) {
-    case ArchiveFormat::TarGz:  decompressFlag = QStringLiteral("-z"); break;
-    case ArchiveFormat::TarBz2: decompressFlag = QStringLiteral("-j"); break;
-    case ArchiveFormat::TarXz:  decompressFlag = QStringLiteral("-J"); break;
-    default: break;
-    }
-
-    const QString tarPath = ProcessRunner::resolveToolPath(QStringLiteral("tar"));
-    if (tarPath.isEmpty()) {
-        LOG_WARN("MimeTypeHelper", "tar tool not found; defaulting to stream format");
+    const QString sevenZip = ProcessRunner::resolveToolPath(QStringLiteral("7z"));
+    if (sevenZip.isEmpty()) {
+        LOG_WARN("MimeTypeHelper", "7z tool not found; defaulting to stream format");
         return streamFormat;
     }
 
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert(QStringLiteral("LC_ALL"), QStringLiteral("C"));
-    env.insert(QStringLiteral("LANG"), QStringLiteral("C"));
-
-    QStringList args;
-    args << QStringLiteral("-t");
-    if (!decompressFlag.isEmpty()) {
-        args << decompressFlag;
-    }
-    args << QStringLiteral("-f") << filePath;
-
-    const ProcessResult result = ProcessRunner::run(
-        tarPath, args, QString(), env, QString(), 3000);
-
-    return result.success() ? tarFormat : streamFormat;
+    return isTarCompressedStream(sevenZip, filePath) ? tarFormat : streamFormat;
 }
 
 } // namespace
@@ -159,6 +206,7 @@ QString MimeTypeHelper::resolveFirstVolume(const QString &filePath)
     const QDir dir = info.dir();
 
     // 7z/zip split: archive.7z.001 (preserve the original case).
+    // 7z/zip 分卷：archive.7z.001（保留原始大小写）。
     static const QRegularExpression zipVol(
         QStringLiteral("^(.*\\.(?:7z|zip))\\.\\d{3,}$"),
         QRegularExpression::CaseInsensitiveOption);
@@ -184,7 +232,7 @@ QString MimeTypeHelper::resolveFirstVolume(const QString &filePath)
         return filePath;
     }
 
-    // RAR5 split: archive.partNN.rar
+    // RAR5 split: archive.partNN.rar / RAR5 分卷：archive.partNN.rar
     static const QRegularExpression rar5Vol(
         QStringLiteral("^(.*)\\.part\\d+\\.rar$"),
         QRegularExpression::CaseInsensitiveOption);
@@ -210,7 +258,7 @@ QString MimeTypeHelper::resolveFirstVolume(const QString &filePath)
         return filePath;
     }
 
-    // RAR4 split: archive.rar + archive.r00...
+    // RAR4 split: archive.rar + archive.r00... / RAR4 分卷：archive.rar + archive.r00...
     static const QRegularExpression rar4Vol(
         QStringLiteral("^(.*)\\.r\\d{2,}$"),
         QRegularExpression::CaseInsensitiveOption);
@@ -243,7 +291,7 @@ ArchiveFormat MimeTypeHelper::detect(const QString &filePath)
         return ArchiveFormat::Unknown;
     }
 
-    // Stage 1: Magic Number
+    // Stage 1: Magic Number / 阶段 1：魔数
     if (matchMagic(head, kSigRar5, 0)) return ArchiveFormat::Rar5;
     if (matchMagic(head, kSigRar4, 0)) return ArchiveFormat::Rar4;
     if (matchMagic(head, kSig7z, 0))   return ArchiveFormat::SevenZip;
@@ -266,7 +314,7 @@ ArchiveFormat MimeTypeHelper::detect(const QString &filePath)
         return ArchiveFormat::Tar;
     }
 
-    // Stage 2: suffix fallback
+    // Stage 2: suffix fallback / 阶段 2：扩展名兜底
     const QString ext = extensionOf(filePath);
     LOG_DEBUG("MimeTypeHelper", "No magic match; falling back to suffix: %s",
               ext.toUtf8().constData());

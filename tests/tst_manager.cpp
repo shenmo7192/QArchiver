@@ -1,3 +1,7 @@
+// QArchiver / 小Q解压
+// Tests for ArchiveManager routing, retries and error handling.
+// ArchiveManager 路由、重试与错误处理测试。
+
 #include <QtTest>
 
 #include <QFile>
@@ -27,12 +31,16 @@ private slots:
     void backendSelectionHonoursPreference();
 };
 
+// Prepare the manager test environment.
+// 准备管理器测试环境。
 void TestManager::initTestCase()
 {
     QCoreApplication::setOrganizationName(QStringLiteral("QArchiverTest"));
     QCoreApplication::setApplicationName(QStringLiteral("QArchiverTest"));
 }
 
+// Open, list and extract through ArchiveManager.
+// 通过 ArchiveManager 打开、列出并解压。
 void TestManager::openListExtract()
 {
     QTemporaryDir temp;
@@ -93,6 +101,8 @@ void TestManager::openListExtract()
     manager.closeArchive();
 }
 
+// Compression replaces an existing target safely.
+// 压缩操作安全替换已有目标文件。
 void TestManager::compressOverwritesExistingTarget()
 {
     QTemporaryDir temp;
@@ -148,6 +158,8 @@ void TestManager::compressOverwritesExistingTarget()
 // An encrypted 7z cannot be read by libarchive. The manager must notice the
 // UnsupportedFormat error, rebuild the backend on the 7z command line and
 // replay the pending operation (including the password prompt).
+// Encrypted 7z falls back from libarchive to CLI.
+// 加密 7z 从 libarchive 回退到 CLI。
 void TestManager::encrypted7zFallsBackToCli()
 {
 #ifdef QARCHIVER_HAS_LIBARCHIVE
@@ -218,6 +230,8 @@ void TestManager::encrypted7zFallsBackToCli()
 
 // The "use libarchive" preference decides which backend serves a plain archive;
 // split volumes and rar always stay on the command line.
+// Backend selection follows preference and split-volume rules.
+// 后端选择遵循偏好设置与分卷规则。
 void TestManager::backendSelectionHonoursPreference()
 {
 #ifdef QARCHIVER_HAS_LIBARCHIVE
@@ -255,7 +269,7 @@ void TestManager::backendSelectionHonoursPreference()
     }
 
     // Not candidates for the libarchive backend, even when enabled: split
-    // volumes have to be resolved by the CLI, and rar keeps using unrar.
+    // volumes have to be resolved by the CLI, and RAR stays on RarBackend.
     {
         std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
             ArchiveFormat::SevenZip, QStringLiteral("archive.7z.001")));

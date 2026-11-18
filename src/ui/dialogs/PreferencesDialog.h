@@ -1,6 +1,10 @@
 #ifndef PREFERENCESDIALOG_H
 #define PREFERENCESDIALOG_H
 
+// QArchiver / 小Q解压
+// Application preferences editor.
+// 应用偏好设置编辑器。
+
 #include <QDialog>
 
 class QComboBox;
@@ -8,7 +12,8 @@ class QSpinBox;
 class QCheckBox;
 class QLabel;
 
-// Preferences dialog (design doc 4.6)
+// Preferences dialog (design doc 4.6).
+// 偏好设置对话框（设计文档 4.6）。
 class PreferencesDialog : public QDialog {
     Q_OBJECT
 public:

@@ -1,6 +1,10 @@
 #ifndef COMPRESSDIALOG_H
 #define COMPRESSDIALOG_H
 
+// QArchiver / 小Q解压
+// Dialog for creating a new archive and choosing its options.
+// 创建新压缩包并选择选项的对话框。
+
 #include <QDialog>
 #include "core/ArchiveOptions.h"
 #include "core/ArchiveConstants.h"
@@ -11,7 +15,8 @@ class QSpinBox;
 class QCheckBox;
 class QPushButton;
 
-// New archive creation dialog (design doc 5.2.1/5.2.2)
+// New archive creation dialog (design doc 5.2.1/5.2.2).
+// 新建压缩包对话框（设计文档 5.2.1/5.2.2）。
 class CompressDialog : public QDialog {
     Q_OBJECT
 public:

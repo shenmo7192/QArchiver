@@ -1,12 +1,19 @@
+// QArchiver / 小Q解压
+// 7-Zip command construction, listing, extraction, writing and splits.
+// 7-Zip 命令构建、列表、解压、写入及分卷处理。
+
 #include "SevenZipBackend.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QTextStream>
+#include <QTemporaryFile>
 
 #include <algorithm>
 
+#include "SevenZipListParser.h"
+#include "SevenZipUtils.h"
+#include "utils/EncodingDetector.h"
 #include "utils/FileUtils.h"
 #include "utils/Logger.h"
 #include "utils/MimeTypeHelper.h"
@@ -41,69 +48,17 @@ QString SevenZipBackend::targetPath() const
 
 void SevenZipBackend::appendPassword(QStringList &args, const QString &password) const
 {
-    if (!password.isEmpty()) {
-        args << QStringLiteral("-p") + password;
-    }
+    // Always pass -p, even when the password is empty.  Without it, 7-Zip
+    // prompts for a password on stdin when the archive has encrypted headers
+    // and the child process would block forever.
+    // 即使密码为空也始终传递 -p。否则当压缩包加密了文件头时，
+    // 7-Zip 会从 stdin 提示输入密码，导致子进程永久阻塞。
+    args << QStringLiteral("-p") + password;
 }
 
 int SevenZipBackend::validateLevel(int level) const
 {
     return qBound(0, level, 9);
-}
-
-QList<ArchiveEntry> SevenZipBackend::parseList(const QString &output) const
-{
-    // Parse 7z `l -slt` (technical) output.  The archive header block and each
-    // entry are "Key = Value" line groups; a new entry starts with "Path =".
-    // A block is an actual entry when it contains "Folder" (zip) or
-    // "Attributes" (7z).
-    QList<ArchiveEntry> entries;
-    QString data = output;
-    QTextStream stream(&data);
-    stream.setEncoding(QStringConverter::Utf8);
-    QString line;
-    ArchiveEntry current;
-    bool currentIsEntry = false;
-
-    auto commitEntry = [&]() {
-        if (currentIsEntry && !current.path.isEmpty()) {
-            entries.append(current);
-        }
-        current = ArchiveEntry{};
-        currentIsEntry = false;
-    };
-
-    while (stream.readLineInto(&line)) {
-        line = line.trimmed();
-        const int equals = line.indexOf(QLatin1Char('='));
-        if (equals < 0) {
-            continue;
-        }
-        const QString key = line.left(equals).trimmed();
-        const QString value = line.mid(equals + 1).trimmed();
-
-        if (key == QLatin1String("Path")) {
-            commitEntry();
-            current.path = value;
-        } else if (key == QLatin1String("Folder")) {
-            current.isDir = (value == QLatin1String("+"));
-            currentIsEntry = true;
-        } else if (key == QLatin1String("Attributes")) {
-            current.isDir = value.startsWith(QLatin1Char('D'));
-            currentIsEntry = true;
-        } else if (key == QLatin1String("Size")) {
-            current.size = value.toLongLong();
-        } else if (key == QLatin1String("Packed Size")) {
-            current.packedSize = value.toLongLong();
-        } else if (key == QLatin1String("Modified")) {
-            current.mtime = QDateTime::fromString(value.left(19),
-                                                  QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-        } else if (key == QLatin1String("Encrypted")) {
-            current.isEncrypted = (value == QLatin1String("+"));
-        }
-    }
-    commitEntry();
-    return entries;
 }
 
 void SevenZipBackend::openArchive(const QString &filePath)
@@ -120,6 +75,9 @@ void SevenZipBackend::openArchive(const QString &filePath)
         return;
     }
     m_archivePath = filePath;
+    m_entries.clear();
+    m_encrypted = false;
+    m_nameEncoding = QStringLiteral("UTF-8");
     m_isOpen = true;
     emit archiveOpened(filePath);
 }
@@ -138,8 +96,10 @@ void SevenZipBackend::listContents(const ListOptions &options)
     }
 
     QStringList args;
-    args << QStringLiteral("l") << targetPath() << QStringLiteral("-slt");
+    args << QStringLiteral("l") << QStringLiteral("-slt")
+         << QStringLiteral("-sccUTF-8");
     appendPassword(args, options.password);
+    args << QStringLiteral("--") << targetPath();
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
@@ -156,9 +116,15 @@ void SevenZipBackend::listContents(const ListOptions &options)
 
     if (!result.success()) {
         const QString errorText = result.stdErr;
+        // 7-Zip reports encrypted headers as "Cannot open encrypted
+        // archive. Wrong password?"; a plain "Can not open" is usually a
+        // corrupted/missing archive, so do not turn every open failure into a
+        // password prompt.
+        // 7-Zip 对加密文件头会报告 "Cannot open encrypted archive. Wrong
+        // password?"；普通的 "Can not open" 通常是压缩包损坏或缺失，
+        // 因此不能把所有打开失败都当成密码请求。
         const bool looksLikePassword = errorText.contains(QStringLiteral("password"), Qt::CaseInsensitive)
-            || errorText.contains(QStringLiteral("Can not open"), Qt::CaseInsensitive)
-            || errorText.contains(QStringLiteral("Cannot open"), Qt::CaseInsensitive);
+            || errorText.contains(QStringLiteral("encrypted archive"), Qt::CaseInsensitive);
 
         if (looksLikePassword) {
             m_encrypted = true;
@@ -175,7 +141,8 @@ void SevenZipBackend::listContents(const ListOptions &options)
         return;
     }
 
-    m_entries = parseList(result.stdOut);
+    m_entries = SevenZipListParser::parse(result.stdOut);
+    m_nameEncoding = EncodingDetector::detect(result.stdOutRaw);
     m_encrypted = std::any_of(m_entries.cbegin(), m_entries.cend(),
                               [](const ArchiveEntry &entry) { return entry.isEncrypted; });
     emit fileListReady(m_entries);
@@ -206,18 +173,40 @@ void SevenZipBackend::extract(const ExtractOptions &options)
     const QString tempDir = FileUtils::createTempExtractDir(options.destDir);
 
     QStringList args;
-    args << QStringLiteral("x") << targetPath()
-         << QStringLiteral("-o") + tempDir << QStringLiteral("-y");
+    args << QStringLiteral("x")
+         << QStringLiteral("-o") + tempDir
+         << QStringLiteral("-y")
+         << QStringLiteral("-spd")
+         << QStringLiteral("-sccUTF-8");
     appendPassword(args, options.password);
 
-    for (const QString &selected : options.selectedFiles) {
-        const QString normalized = FileUtils::normalizeEntryPath(selected);
-        if (!normalized.isEmpty()) {
-            // Use the exact member path.  A leading "./" or a literal
-            // backslash is significant to the archive tool.
-            args << selected;
+    // Pass selected members through a listfile instead of the command line:
+    // 7-Zip interprets positional names as wildcards, treats leading '-' as a
+    // switch and leading '@' as a nested listfile.
+    // 通过列表文件而不是命令行传递选定成员：7-Zip 会把位置参数当作通配符，
+    // 把前导 '-' 当作开关，把前导 '@' 当作嵌套列表文件。
+    QTemporaryFile membersFile(
+        QDir::tempPath() + QStringLiteral("/qarchiver-7z-members-XXXXXX.txt"));
+    if (!options.selectedFiles.isEmpty()) {
+        QStringList selectedPaths;
+        selectedPaths.reserve(options.selectedFiles.size());
+        for (const QString &selected : options.selectedFiles) {
+            const QString normalized = FileUtils::normalizeEntryPath(selected);
+            if (!normalized.isEmpty()) {
+                selectedPaths << selected;
+            }
+        }
+        if (selectedPaths.isEmpty()
+            || !SevenZipUtils::appendListFileArgs(membersFile, selectedPaths,
+                                   m_nameEncoding, args)) {
+            FileUtils::removeDirectoryRecursively(tempDir);
+            emit errorOccurred(ArchiveErrorCode::Unknown,
+                               tr("Could not prepare the selected files for extraction"));
+            return;
         }
     }
+
+    args << QStringLiteral("--") << targetPath();
 
     LOG_DEBUG("SevenZipBackend", "Extract: %s",
               ProcessRunner::maskedCommand(sevenZip, args).toUtf8().constData());
@@ -270,6 +259,15 @@ void SevenZipBackend::extract(const ExtractOptions &options)
         return;
     }
 
+#ifndef Q_OS_WIN
+    // Convert legacy-codepage filenames written by 7-Zip into UTF-8 before the
+    // temporary tree is moved to its final destination.
+    // 在临时目录移动到最终位置前，将 7-Zip 写出的旧代码页文件名转换为 UTF-8。
+    if (m_nameEncoding.compare(QStringLiteral("UTF-8"), Qt::CaseInsensitive) != 0) {
+        SevenZipUtils::renameLegacyExtractedTree(QFile::encodeName(tempDir), m_nameEncoding);
+    }
+#endif
+
     const int failedMoves = FileUtils::moveExtractedContents(
         tempDir, options.destDir, options.overwrite, options.preservePaths);
     if (failedMoves > 0) {
@@ -286,6 +284,12 @@ void SevenZipBackend::extract(const ExtractOptions &options)
 
 void SevenZipBackend::compress(const CompressOptions &options)
 {
+    if (isReadOnly()) {
+        emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
+                           tr("This archive format is read-only"));
+        return;
+    }
+
     const QString sevenZip = sevenZipPath();
     if (sevenZip.isEmpty()) {
         emit errorOccurred(ArchiveErrorCode::ToolNotFound, tr("7z tool not found"));
@@ -297,9 +301,9 @@ void SevenZipBackend::compress(const CompressOptions &options)
     if (!formatSwitch().isEmpty()) {
         args << formatSwitch();
     }
-    args << options.archivePath
-         << QStringLiteral("-mx=%1").arg(validateLevel(options.compressionLevel))
-         << QStringLiteral("-mmt=on");
+    args << QStringLiteral("-mx=%1").arg(validateLevel(options.compressionLevel))
+         << QStringLiteral("-mmt=on")
+         << QStringLiteral("-sccUTF-8");
 
     if (m_format == ArchiveFormat::SevenZip && options.solidMode) {
         args << QStringLiteral("-ms=on");
@@ -313,7 +317,9 @@ void SevenZipBackend::compress(const CompressOptions &options)
     if (options.volumeSize > 0) {
         args << QStringLiteral("-v%1b").arg(options.volumeSize);
     }
-    if (options.followSymlinks) {
+    // 7-Zip follows symlinks by default; -snl stores them as links.
+    // 7-Zip 默认跟随符号链接；-snl 将符号链接按链接本身保存。
+    if (!options.followSymlinks) {
         args << QStringLiteral("-snl");
     }
     if (options.storeFullPath) {
@@ -325,7 +331,24 @@ void SevenZipBackend::compress(const CompressOptions &options)
         }
     }
 
-    args.append(options.sourceFiles);
+    QTemporaryFile sourceListFile(
+        QDir::tempPath() + QStringLiteral("/qarchiver-7z-sources-XXXXXX.txt"));
+    if (!SevenZipUtils::appendListFileArgs(sourceListFile, options.sourceFiles,
+                            QStringLiteral("UTF-8"), args)) {
+        emit errorOccurred(ArchiveErrorCode::Unknown,
+                           tr("Could not prepare the source files for compression"));
+        return;
+    }
+
+    // -spd disables wildcard matching for both filenames and -x patterns, so
+    // only enable it when no exclude patterns are in use.
+    // -spd 会同时禁用文件名与 -x 模式的通配符匹配，
+    // 因此仅在没有排除规则时启用。
+    if (options.excludePatterns.isEmpty()) {
+        args << QStringLiteral("-spd");
+    }
+
+    args << QStringLiteral("--") << options.archivePath;
 
     LOG_DEBUG("SevenZipBackend", "Compress: %s",
               ProcessRunner::maskedCommand(sevenZip, args).toUtf8().constData());
@@ -372,6 +395,11 @@ void SevenZipBackend::compress(const CompressOptions &options)
 
 void SevenZipBackend::addFiles(const AddFilesOptions &options)
 {
+    if (isReadOnly()) {
+        emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
+                           tr("This archive format is read-only"));
+        return;
+    }
     if (!supportsAppend()) {
         emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
                            tr("Cannot add files to a split archive"));
@@ -389,18 +417,34 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
     if (!formatSwitch().isEmpty()) {
         args << formatSwitch();
     }
-    args << options.archivePath
-         << QStringLiteral("-mx=%1").arg(validateLevel(options.compressionLevel));
+    args << QStringLiteral("-mx=%1").arg(validateLevel(options.compressionLevel))
+         << QStringLiteral("-sccUTF-8");
+    if (m_encrypted && options.password.isEmpty()) {
+        emit errorOccurred(ArchiveErrorCode::PasswordRequired,
+                           tr("Password required"));
+        return;
+    }
     if (!options.password.isEmpty()) {
         args << QStringLiteral("-p") + options.password;
     }
-    if (options.followSymlinks) {
+    // 7-Zip follows symlinks by default; -snl stores them as links.
+    if (!options.followSymlinks) {
         args << QStringLiteral("-snl");
     }
     if (options.storeFullPath) {
         args << QStringLiteral("-spf");
     }
-    args.append(options.sourceFiles);
+
+    QTemporaryFile sourceListFile(
+        QDir::tempPath() + QStringLiteral("/qarchiver-7z-sources-XXXXXX.txt"));
+    if (!SevenZipUtils::appendListFileArgs(sourceListFile, options.sourceFiles,
+                            QStringLiteral("UTF-8"), args)) {
+        emit errorOccurred(ArchiveErrorCode::Unknown,
+                           tr("Could not prepare the source files for adding"));
+        return;
+    }
+    args << QStringLiteral("-spd")
+         << QStringLiteral("--") << options.archivePath;
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
@@ -420,6 +464,11 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
 
 void SevenZipBackend::deleteFiles(const DeleteFilesOptions &options)
 {
+    if (isReadOnly()) {
+        emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
+                           tr("This archive format is read-only"));
+        return;
+    }
     if (!supportsAppend()) {
         emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
                            tr("Cannot delete files from a split archive"));
@@ -437,11 +486,18 @@ void SevenZipBackend::deleteFiles(const DeleteFilesOptions &options)
     if (!formatSwitch().isEmpty()) {
         args << formatSwitch();
     }
-    args << options.archivePath;
+    args << QStringLiteral("-spd") << QStringLiteral("-sccUTF-8");
+    if (m_encrypted && options.password.isEmpty()) {
+        emit errorOccurred(ArchiveErrorCode::PasswordRequired,
+                           tr("Password required"));
+        return;
+    }
     if (!options.password.isEmpty()) {
         args << QStringLiteral("-p") + options.password;
     }
 
+    QStringList targetEntries;
+    targetEntries.reserve(options.targetEntries.size());
     for (const QString &entry : options.targetEntries) {
         const QString normalized = FileUtils::normalizeEntryPath(entry);
         if (normalized.isEmpty()) {
@@ -453,8 +509,20 @@ void SevenZipBackend::deleteFiles(const DeleteFilesOptions &options)
                                tr("Blocked unsafe path: %1").arg(entry));
             return;
         }
-        args << entry;
+        targetEntries << entry;
     }
+
+    QTemporaryFile membersFile(
+        QDir::tempPath() + QStringLiteral("/qarchiver-7z-members-XXXXXX.txt"));
+    if (targetEntries.isEmpty()
+        || !SevenZipUtils::appendListFileArgs(membersFile, targetEntries,
+                               m_nameEncoding, args)) {
+        emit errorOccurred(ArchiveErrorCode::Unknown,
+                           tr("Could not prepare the selected files for deletion"));
+        return;
+    }
+
+    args << QStringLiteral("--") << options.archivePath;
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
@@ -481,8 +549,9 @@ void SevenZipBackend::testArchive(const TestOptions &options)
     }
 
     QStringList args;
-    args << QStringLiteral("t") << targetPath();
+    args << QStringLiteral("t") << QStringLiteral("-sccUTF-8");
     appendPassword(args, options.password);
+    args << QStringLiteral("--") << targetPath();
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
@@ -511,6 +580,7 @@ void SevenZipBackend::closeArchive()
     m_archivePath.clear();
     m_entries.clear();
     m_encrypted = false;
+    m_nameEncoding = QStringLiteral("UTF-8");
 }
 
 bool SevenZipBackend::supportsAppend() const

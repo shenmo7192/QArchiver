@@ -31,10 +31,12 @@
 
 | 依赖 | 是否必需 | 说明 |
 | --- | --- | --- |
-| 7z（7-Zip 21+ / 7zip 包） | 必需 | 7z/zip 的创建、追加、删除、分卷，tar 系兜底 |
-| tar | 可选 | 用于格式探测，以及未启用 libarchive 时的 tar 系读写 |
-| unrar | 打开 rar 时必需 | 非自由软件，未安装时打开 rar 会提示缺少工具 |
+| 7-Zip CLI | 已内置 | `third_party/7zip/`（Linux `7zzs`，Windows `7z.exe + 7z.dll`）随程序分发；负责 7z/zip/tar 读写、纯流解压和 RAR 只读 |
 | libarchive13 | 启用 libarchive 时必需 | 程序加载的是构建时探测到的共享库 |
+
+构建时会把当前架构的 7-Zip 辅助程序复制到可执行文件旁的 `7zip/`
+目录（Linux 安装到 `libexec/qarchiver/7zip/`）。运行时优先使用这个内置
+版本，只有找不到时才回退到系统 PATH 中的 `7z` / `7zzs`。
 
 ## 构建
 
@@ -63,7 +65,10 @@ sudo cmake --install build            # 可选，默认装到 /usr/local
   tar.bz2 / tar.xz、单文件 gz / bz2 / xz 在进程内解析，不启动外部程序。
   无法处理的情形（加密 7z、7z/zip 分卷、rar）会自动回退到命令行后端，
   并把待执行的操作重放一次。
-- **命令行**：7z / unrar / tar，等同早期版本的行为。
+- **命令行**：全部由内置 7-Zip 完成（7z/zip/tar/gz/bz2/xz 读写、RAR 只读），
+  不再依赖系统 `tar` / `unrar`。7-Zip 调用统一使用 `-sccUTF-8`、`--` 和
+  `-spd`，选中成员通过 UTF-8 或原始代码页 listfile 传入，避免通配符、`@`、
+  前导 `-` 和旧 ZIP 编码问题。
 
 写入（压缩、追加、删除、分卷）始终由命令行完成，libarchive 后端只读。
 
@@ -85,7 +90,8 @@ QT_QPA_PLATFORM=offscreen ctest --output-on-failure   # 无显示环境
 
 测试覆盖：工具函数（路径规范化/穿越检测/重名）、CLI 后端、管理器（分派、
 取消、回退）、libarchive 后端（往返、AES 密码、损坏检测、选择性解压）、
-偏好对话框与配置同步。缺少 `7z` 时依赖真实归档的用例会自动 SKIP。
+偏好对话框与配置同步。测试通过 `QARCHIVER_7Z_PATH` 使用内置 7-Zip；
+`tarDotPrefixAndNonAscii` 兼容性用例在系统没有 `tar` 时会自动跳过。
 
 ## 调试与诊断
 
@@ -103,7 +109,7 @@ QT_QPA_PLATFORM=offscreen ctest --output-on-failure   # 无显示环境
 
 - 加密 7z 无法用 libarchive 读取，会回退到 7z 命令行（仍需密码）
 - libarchive 不支持 7z/zip 分卷；分卷归档直接在打开时走命令行
-- rar 始终使用 `unrar`，未通过 libarchive 读取
+- rar 只读由内置 7-Zip 完成，不支持创建、追加或删除
 - 未设置 locale 时，libarchive 无法转换非 UTF-8 条目名；这类归档需在
   解压对话框里指定编码（如 GBK/CP936/GB18030）
 - 归档注释的显示/编辑不再提供
@@ -111,7 +117,9 @@ QT_QPA_PLATFORM=offscreen ctest --output-on-failure   # 无显示环境
 ## 许可证
 
 AGPL-3.0，见 `LICENSE`。程序运行期调用外部工具、并与 libarchive（BSD-2-Clause）
-链接；`unrar` 属非自由许可，仅为可选运行期依赖，不随本项目分发。
+链接；内置的 7-Zip 按 GNU LGPL（含 unRAR 限制）分发，许可证见
+`third_party/7zip/License.txt`，安装后位于 `share/doc/qarchiver/`。
+程序不再依赖非自由的 `unrar`；RAR 读取由内置 7-Zip 完成。
 
 ## 打包参考
 
