@@ -5,6 +5,24 @@
 Debian 控制文件片段。**这些片段未在 CI 中验证过**，合并进正式打包脚本前
 请先在目标发行版上跑一遍。
 
+## 构建期依赖
+
+| 依赖 | Debian/Ubuntu 包 | 最低版本 |
+| --- | --- | --- |
+| Qt 6 基础库与工具 | `qt6-base-dev`, `qt6-tools-dev` | 6.4 |
+| 构建工具 | `cmake`（>= 3.20）, `g++`（>= 12）或 `clang`（>= 15） | — |
+| libarchive 开发头文件（可选） | `libarchive-dev`（>= 3.4） | 3.4 |
+
+对应 `debian/control` 的 `Build-Depends` 可写为：
+
+```text
+Build-Depends: debhelper-compat (= 13), cmake (>= 3.20),
+               qt6-base-dev (>= 6.4), qt6-tools-dev (>= 6.4),
+               libarchive-dev (>= 3.4)
+```
+
+若以 `-DQARCHIVER_USE_LIBARCHIVE=OFF` 构建，可去掉 `libarchive-dev`。
+
 ## 运行期依赖
 
 | 能力 | 依赖 | Debian/Ubuntu 包 | 备注 |
@@ -12,6 +30,7 @@ Debian 控制文件片段。**这些片段未在 CI 中验证过**，合并进�
 | 启动 | Qt 6 运行库 | `libqt6core6`, `libqt6gui6`, `libqt6widgets6`, `libqt6concurrent6` | 由 dh_shlibdeps 自动生成，通常不用手写 |
 | 读取 zip / 明文 7z / tar 系 / gz|bz2|xz | libarchive（可选） | `libarchive13` / `libarchive13t64` | 构建时链接，启用时运行期必须声明 |
 | 7z / zip / tar 系读写、纯流、RAR 只读 | 内置 7-Zip | 无（随包安装） | 安装到 `/usr/libexec/qarchiver/7zip/7zzs`，不要额外声明 `7zip` / `tar` / `unrar` 依赖 |
+| 标准对话框按钮、文件对话框中文文本（可选） | Qt 基础翻译 | `qt6-translations-l10n` | 缺失时应用自身文本仍为中文，仅 Qt 自带控件文本保持英文 |
 
 注意：
 
@@ -26,7 +45,7 @@ Debian 控制文件片段。**这些片段未在 CI 中验证过**，合并进�
 Package: qarchiver
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Recommends: libarchive13 | libarchive13t64
+Recommends: libarchive13 | libarchive13t64, qt6-translations-l10n
 Description: Qt based archive manager
  小Q解压 is a Qt 6 archive manager for browsing, extracting, creating,
  appending to, deleting from and testing 7z, zip, tar, gz, bz2, xz and rar

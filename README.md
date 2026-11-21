@@ -23,12 +23,12 @@
 
 ## 依赖
 
-构建期（Debian 13 / trixie 包名）：
+构建期（Debian/Ubuntu 包名，Qt 6.4 起可用）：
 
 | 依赖 | 是否必需 | 说明 |
 | --- | --- | --- |
-| Qt 6.8+（Core Gui Widgets Concurrent） | 必需 | `qt6-base-dev` |
-| Qt LinguistTools（lupdate/lrelease） | 必需 | `qt6-tools-dev`，翻译在构建时编译 |
+| Qt 6.4+（Core Gui Widgets Concurrent） | 必需 | `qt6-base-dev (>= 6.4)` |
+| Qt LinguistTools（lupdate/lrelease） | 必需 | `qt6-tools-dev (>= 6.4)`，翻译在构建时编译 |
 | CMake 3.20+、GCC 12+/Clang 15+（C++20） | 必需 | |
 | libarchive 3.4+（开发头文件） | 可选（默认启用） | `libarchive-dev`；缺失时仅 WARNING，自动退回纯命令行后端 |
 
@@ -38,6 +38,7 @@
 | --- | --- | --- |
 | 7-Zip CLI | 已内置 | `third_party/7zip/`（Linux `7zzs`，Windows `7z.exe + 7z.dll`）随程序分发；负责 7z/zip/tar 读写、纯流解压和 RAR 只读 |
 | libarchive13 | 启用 libarchive 时必需 | 程序加载的是构建时探测到的共享库 |
+| qt6-translations-l10n | 可选 | 提供 `qtbase_<lang>.qm`，用于本地化标准对话框按钮与文件对话框；缺失时应用自身文本仍会翻译 |
 
 构建时会把当前架构的 7-Zip 辅助程序复制到可执行文件旁的 `7zip/`
 目录（Linux 安装到 `libexec/qarchiver/7zip/`）。运行时优先使用这个内置

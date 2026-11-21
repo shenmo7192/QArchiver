@@ -61,7 +61,7 @@ bool isTarHeader(const QByteArray &header)
     if (header.size() < 512) {
         return false;
     }
-    if (header.mid(257, 5) == QLatin1String("ustar")) {
+    if (header.mid(257, 5) == QByteArrayLiteral("ustar")) {
         return true;
     }
 

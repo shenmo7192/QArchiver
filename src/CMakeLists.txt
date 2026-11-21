@@ -1,12 +1,12 @@
 # Qt runtime dependencies for the application target.
 # 应用目标所需的 Qt 运行时依赖。
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Concurrent)
+find_package(Qt6 ${QARCHIVER_MIN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Concurrent)
 
 # Optional Qt modules are probed individually: a missing optional module must
 # not prevent the other modules from being detected.
 # 可选 Qt 模块逐个探测：缺少某个可选模块不应影响其他模块的检测。
 foreach(_qt_component IN ITEMS DBus)
-    find_package(Qt6 6.8 QUIET COMPONENTS ${_qt_component})
+    find_package(Qt6 ${QARCHIVER_MIN_QT_VERSION} QUIET COMPONENTS ${_qt_component})
 endforeach()
 
 # GNUInstallDirs provides the standard bin/lib/share install destinations.
@@ -15,7 +15,7 @@ include(GNUInstallDirs)
 
 # Standard Qt project defaults (AUTOMOC, AUTOUIC, output directories, ...).
 # Qt 项目标准默认设置（AUTOMOC、AUTOUIC、输出目录等）。
-qt_standard_project_setup(REQUIRES 6.8)
+qt_standard_project_setup(REQUIRES ${QARCHIVER_MIN_QT_VERSION})
 
 # Main application target; sources are contributed by the child directories.
 # 主应用目标；具体源文件由各子目录追加。

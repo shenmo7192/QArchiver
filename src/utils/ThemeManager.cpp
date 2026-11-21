@@ -456,10 +456,21 @@ QString ThemeManager::systemColorScheme()
 
     return (value == 1) ? QStringLiteral("dark") : QStringLiteral("light");
 #else
+    // Qt::ColorScheme and QStyleHints::colorScheme() were added in Qt 6.5.
+    // Qt::ColorScheme 与 QStyleHints::colorScheme() 自 Qt 6.5 起提供。
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     const Qt::ColorScheme scheme = QGuiApplication::styleHints()->colorScheme();
     return scheme == Qt::ColorScheme::Dark
         ? QStringLiteral("dark")
         : QStringLiteral("light");
+#else
+    // On Qt 6.4 fall back to the lightness of the default window color.
+    // 在 Qt 6.4 上退回到使用默认窗口颜色的明度判断。
+    const QPalette palette = QGuiApplication::palette();
+    return palette.color(QPalette::Window).lightness() < 128
+        ? QStringLiteral("dark")
+        : QStringLiteral("light");
+#endif
 #endif
 }
 
@@ -489,9 +500,13 @@ void ThemeManager::applyTheme(QApplication &app)
     applyBaseStyle(app);
     applyFont(app);
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    // setColorScheme() was added in Qt 6.5; older versions follow the palette.
+    // setColorScheme() 自 Qt 6.5 起提供；更早版本直接使用调色板。
     if (auto *hints = QGuiApplication::styleHints()) {
         hints->setColorScheme(dark ? Qt::ColorScheme::Dark : Qt::ColorScheme::Light);
     }
+#endif
     app.setPalette(buildPalette(dark));
 
     // Expose the effective theme to custom-painted widgets (the file list

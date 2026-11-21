@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QTranslator>
+#include <QLibraryInfo>
 #include <QLocale>
 #include <QDir>
 #include <QRegularExpression>
@@ -54,20 +55,45 @@ int main(int argc, char *argv[])
     parser.addOption(langOption);
     parser.process(app);
 
-    const QString appDir = QCoreApplication::applicationDirPath();
+    const QString qtTranslationsDir =
+        QLibraryInfo::path(QLibraryInfo::TranslationsPath);
 
-    auto loadTranslator = [&app](const QString &name) -> bool {
+    auto loadTranslator = [&app, &qtTranslationsDir](const QString &name) -> bool {
         if (name.isEmpty()) {
             return false;
         }
+        // The catalogs are embedded by translations/CMakeLists.txt under the
+        // fixed resource prefix "/translations" on every supported Qt version.
+        // 翻译目录由 translations/CMakeLists.txt 以固定的资源前缀
+        // "/translations" 嵌入，在所有支持的 Qt 版本上路径一致。
         auto *translator = new QTranslator(&app);
-        if (translator->load(name, QStringLiteral(":/translations"))) {
-            if (app.installTranslator(translator)) {
-                return true;
-            }
+        if (!translator->load(name, QStringLiteral(":/translations"))) {
+            delete translator;
+            return false;
         }
-        delete translator;
-        return false;
+        if (!app.installTranslator(translator)) {
+            delete translator;
+            return false;
+        }
+
+        // Qt's own catalogs localize standard dialog buttons and the
+        // non-native file dialog.  They are optional: distributions may
+        // not install qt6-translations-l10n.
+        // Qt 自身的翻译目录用于本地化标准对话框按钮和非原生文件对话框。
+        // 该目录是可选的：发行版未必安装 qt6-translations-l10n。
+        const QString qtCatalog = QStringLiteral("qtbase_") + name;
+        auto *qtTranslator = new QTranslator(&app);
+        if (qtTranslator->load(qtCatalog, qtTranslationsDir)) {
+            app.installTranslator(qtTranslator);
+            LOG_INFO("main", "Loaded Qt translation catalog '%s' from %s",
+                     qPrintable(qtCatalog), qPrintable(qtTranslationsDir));
+        } else {
+            delete qtTranslator;
+        }
+
+        LOG_INFO("main", "Loaded translation catalog '%s' from :/translations",
+                 qPrintable(name));
+        return true;
     };
 
     bool translationLoaded = false;

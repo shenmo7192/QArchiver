@@ -7,11 +7,17 @@ project(QArchiver
     LANGUAGES CXX
 )
 
-# The shared core/backends/utils layers use C++20; Qt 6.8 supports it.
-# core/backends/utils 等公共层使用 C++20；Qt 6.8 支持该标准。
+# The shared core/backends/utils layers use C++20; Qt 6.4 supports it.
+# core/backends/utils 等公共层使用 C++20；Qt 6.4 支持该标准。
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Minimum supported Qt version.  All find_package() calls use this value so
+# Qt 6.4+ distributions (Debian 12 / Ubuntu 22.04+) can build QArchiver.
+# 最低支持的 Qt 版本。所有 find_package() 都使用该值，使 Qt 6.4+ 的发行版
+# （Debian 12 / Ubuntu 22.04+）也能构建 QArchiver。
+set(QARCHIVER_MIN_QT_VERSION 6.4)
 
 # Project-wide helper modules.  Feature-specific setup lives in the child
 # CMakeLists.txt files; the root only orchestrates the build.

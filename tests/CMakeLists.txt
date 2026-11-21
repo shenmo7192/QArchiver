@@ -3,7 +3,7 @@
 
 # Qt Test is optional; the application itself does not require it.
 # Qt Test 是可选依赖；应用本身不需要它。
-find_package(Qt6 6.8 QUIET COMPONENTS Core Gui Widgets Concurrent Test)
+find_package(Qt6 ${QARCHIVER_MIN_QT_VERSION} QUIET COMPONENTS Core Gui Widgets Concurrent Test)
 if(NOT TARGET Qt6::Test)
     message(STATUS "Qt6::Test not found: skipping QArchiver tests")
     return()
