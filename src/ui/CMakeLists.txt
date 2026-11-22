@@ -30,6 +30,8 @@ target_sources(QArchiver PRIVATE
     dialogs/ProgressDialog.h
     dialogs/PreferencesDialog.cpp
     dialogs/PreferencesDialog.h
+    dialogs/BenchmarkDialog.cpp
+    dialogs/BenchmarkDialog.h
 
     # Reusable custom widgets.
     # 可复用自定义控件。
@@ -39,4 +41,14 @@ target_sources(QArchiver PRIVATE
     widgets/BackgroundWidget.h
     widgets/SidebarWidget.cpp
     widgets/SidebarWidget.h
+    widgets/ModernToolBar.cpp
+    widgets/ModernToolBar.h
+    widgets/ModernNavBar.cpp
+    widgets/ModernNavBar.h
+    widgets/ArchiveFolderPane.cpp
+    widgets/ArchiveFolderPane.h
+    widgets/ArchiveGridView.cpp
+    widgets/ArchiveGridView.h
+    widgets/WelcomePage.cpp
+    widgets/WelcomePage.h
 )

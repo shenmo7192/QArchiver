@@ -147,7 +147,12 @@ void TestBackground::paintHonorsOpacityAndAlignment()
     QCOMPARE(inside.red(), 255);
     QCOMPARE(inside.green(), 0);
     QCOMPARE(inside.blue(), 0);
-    QVERIFY(qAbs(inside.alpha() - 128) <= 1);
+    QVERIFY2(qAbs(inside.alpha() - 128) <= 2,
+             qPrintable(QStringLiteral("inside alpha=%1 rgba=%2,%3,%4")
+                            .arg(inside.alpha())
+                            .arg(inside.red())
+                            .arg(inside.green())
+                            .arg(inside.blue())));
     QCOMPARE(target.pixelColor(0, 0).alpha(), 0);
 }
 

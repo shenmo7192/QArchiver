@@ -120,6 +120,93 @@ QPalette buildPalette(bool dark)
 }
 
 // ---------------------------------------------------------------------------
+// Modern palette
+// ---------------------------------------------------------------------------
+
+QPalette buildModernPalette(bool dark)
+{
+    QPalette p;
+
+    if (dark) {
+        const QColor window(23, 27, 34);
+        const QColor windowText(230, 235, 242);
+        const QColor base(31, 36, 45);
+        const QColor alternateBase(35, 42, 52);
+        const QColor text(230, 235, 242);
+        const QColor button(36, 43, 53);
+        const QColor buttonText(230, 235, 242);
+        const QColor highlight(52, 90, 128);
+        const QColor highlightedText(234, 243, 255);
+        const QColor placeholder(122, 135, 150);
+
+        p.setColor(QPalette::Window, window);
+        p.setColor(QPalette::WindowText, windowText);
+        p.setColor(QPalette::Base, base);
+        p.setColor(QPalette::AlternateBase, alternateBase);
+        p.setColor(QPalette::ToolTipBase, QColor(36, 43, 53));
+        p.setColor(QPalette::ToolTipText, windowText);
+        p.setColor(QPalette::Text, text);
+        p.setColor(QPalette::Button, button);
+        p.setColor(QPalette::ButtonText, buttonText);
+        p.setColor(QPalette::BrightText, QColor(255, 255, 255));
+        p.setColor(QPalette::Link, QColor(108, 186, 255));
+        p.setColor(QPalette::Highlight, highlight);
+        p.setColor(QPalette::HighlightedText, highlightedText);
+        p.setColor(QPalette::PlaceholderText, placeholder);
+        p.setColor(QPalette::Light, base.lighter(150));
+        p.setColor(QPalette::Midlight, base.lighter(125));
+        p.setColor(QPalette::Mid, base.darker(125));
+        p.setColor(QPalette::Dark, base.darker(160));
+        p.setColor(QPalette::Shadow, base.darker(200));
+
+        p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(101, 113, 127));
+        p.setColor(QPalette::Disabled, QPalette::Text, QColor(101, 113, 127));
+        p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(101, 113, 127));
+        p.setColor(QPalette::Disabled, QPalette::Highlight, QColor(45, 56, 70));
+        p.setColor(QPalette::Disabled, QPalette::HighlightedText, QColor(120, 132, 146));
+    } else {
+        const QColor window(243, 246, 251);
+        const QColor windowText(30, 42, 57);
+        const QColor base(255, 255, 255);
+        const QColor alternateBase(248, 250, 253);
+        const QColor text(30, 42, 57);
+        const QColor button(255, 255, 255);
+        const QColor buttonText(30, 42, 57);
+        const QColor highlight(220, 235, 255);
+        const QColor highlightedText(30, 42, 57);
+        const QColor placeholder(152, 162, 179);
+
+        p.setColor(QPalette::Window, window);
+        p.setColor(QPalette::WindowText, windowText);
+        p.setColor(QPalette::Base, base);
+        p.setColor(QPalette::AlternateBase, alternateBase);
+        p.setColor(QPalette::ToolTipBase, base);
+        p.setColor(QPalette::ToolTipText, windowText);
+        p.setColor(QPalette::Text, text);
+        p.setColor(QPalette::Button, button);
+        p.setColor(QPalette::ButtonText, buttonText);
+        p.setColor(QPalette::BrightText, QColor(255, 255, 255));
+        p.setColor(QPalette::Link, QColor(27, 126, 255));
+        p.setColor(QPalette::Highlight, highlight);
+        p.setColor(QPalette::HighlightedText, highlightedText);
+        p.setColor(QPalette::PlaceholderText, placeholder);
+        p.setColor(QPalette::Light, base.lighter(150));
+        p.setColor(QPalette::Midlight, base.lighter(125));
+        p.setColor(QPalette::Mid, base.darker(125));
+        p.setColor(QPalette::Dark, base.darker(160));
+        p.setColor(QPalette::Shadow, base.darker(200));
+
+        p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(168, 179, 192));
+        p.setColor(QPalette::Disabled, QPalette::Text, QColor(168, 179, 192));
+        p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(168, 179, 192));
+        p.setColor(QPalette::Disabled, QPalette::Highlight, QColor(236, 241, 247));
+        p.setColor(QPalette::Disabled, QPalette::HighlightedText, QColor(168, 179, 192));
+    }
+
+    return p;
+}
+
+// ---------------------------------------------------------------------------
 // Aero style sheet colors
 // ---------------------------------------------------------------------------
 
@@ -307,6 +394,152 @@ QHash<QString, QString> darkTokens()
 }
 
 // ---------------------------------------------------------------------------
+// Modern theme tokens
+// ---------------------------------------------------------------------------
+
+QHash<QString, QString> modernTokens(bool dark)
+{
+    QHash<QString, QString> tokens;
+    const QString suffix = dark ? QStringLiteral("-light") : QString();
+
+    const auto addAsset = [&tokens, &suffix](const char *key, const char *file) {
+        tokens.insert(QString::fromLatin1(key),
+                      QStringLiteral(":/modern/%1%2.png")
+                          .arg(QString::fromLatin1(file), suffix));
+    };
+    addAsset("branchClosed", "branch-closed");
+    addAsset("branchOpen", "branch-open");
+    addAsset("chevronDown", "arrow-down");
+    addAsset("chevronUp", "arrow-up");
+    addAsset("close", "close");
+    addAsset("sizeGrip", "sizegrip");
+    addAsset("sortUp", "sort-up");
+    addAsset("sortDown", "sort-down");
+
+    // These glyphs are white/grey in both themes and have no dark variant.
+    // 这些图标在两种主题下都是白色/灰色，不需要深色变体。
+    const auto addFixed = [&tokens](const char *key, const char *file) {
+        tokens.insert(QString::fromLatin1(key),
+                      QStringLiteral(":/modern/%1.png")
+                          .arg(QString::fromLatin1(file)));
+    };
+    addFixed("check", "check");
+    addFixed("minus", "minus");
+    addFixed("radioDot", "radio-dot");
+
+    if (dark) {
+        tokens.insert(QStringLiteral("window"), QStringLiteral("#171b22"));
+        tokens.insert(QStringLiteral("text"), QStringLiteral("#e6ebf2"));
+        tokens.insert(QStringLiteral("mutedText"), QStringLiteral("#9aa8b8"));
+        tokens.insert(QStringLiteral("base"), QStringLiteral("#1f242d"));
+        tokens.insert(QStringLiteral("alternateBase"), QStringLiteral("#232a34"));
+        tokens.insert(QStringLiteral("border"), QStringLiteral("#3b4858"));
+        tokens.insert(QStringLiteral("borderLight"), QStringLiteral("#303a46"));
+        tokens.insert(QStringLiteral("inputBorder"), QStringLiteral("#3d4856"));
+        tokens.insert(QStringLiteral("focusBorder"), QStringLiteral("#4aa6ff"));
+        tokens.insert(QStringLiteral("accent"), QStringLiteral("#4aa6ff"));
+        tokens.insert(QStringLiteral("accentHover"), QStringLiteral("#6cbaff"));
+        tokens.insert(QStringLiteral("accentDark"), QStringLiteral("#6cbaff"));
+        tokens.insert(QStringLiteral("accentSoft"), QStringLiteral("#223449"));
+        tokens.insert(QStringLiteral("selection"), QStringLiteral("#24425f"));
+        tokens.insert(QStringLiteral("selectionText"), QStringLiteral("#eaf3ff"));
+        tokens.insert(QStringLiteral("hover"), QStringLiteral("#26313e"));
+        tokens.insert(QStringLiteral("pressed"), QStringLiteral("#2d3b4c"));
+        tokens.insert(QStringLiteral("disabledText"), QStringLiteral("#65717f"));
+        tokens.insert(QStringLiteral("disabledBg"), QStringLiteral("#232830"));
+        tokens.insert(QStringLiteral("headerBg"), QStringLiteral("#232b35"));
+        tokens.insert(QStringLiteral("headerText"), QStringLiteral("#9aa8b8"));
+        tokens.insert(QStringLiteral("separator"), QStringLiteral("#303a46"));
+        tokens.insert(QStringLiteral("headerTop"), QStringLiteral("#223447"));
+        tokens.insert(QStringLiteral("headerMid"), QStringLiteral("#1d252f"));
+        tokens.insert(QStringLiteral("headerBottom"), QStringLiteral("#1a212a"));
+        tokens.insert(QStringLiteral("brand"), QStringLiteral("#6cbaff"));
+        tokens.insert(QStringLiteral("brandTag"), QStringLiteral("#8fa3b8"));
+        tokens.insert(QStringLiteral("toolbarText"), QStringLiteral("#d7e0ea"));
+        tokens.insert(QStringLiteral("toolbarHover"), QStringLiteral("#26384c"));
+        tokens.insert(QStringLiteral("toolbarHoverBorder"), QStringLiteral("#354b62"));
+        tokens.insert(QStringLiteral("toolbarPressed"), QStringLiteral("#2c435c"));
+        tokens.insert(QStringLiteral("toolbarPressedBorder"), QStringLiteral("#4a6a8a"));
+        tokens.insert(QStringLiteral("menuBg"), QStringLiteral("#242b35"));
+        tokens.insert(QStringLiteral("menuBorder"), QStringLiteral("#3a4552"));
+        tokens.insert(QStringLiteral("menuHover"), QStringLiteral("#2b3948"));
+        tokens.insert(QStringLiteral("scrollHandle"), QStringLiteral("#4a5868"));
+        tokens.insert(QStringLiteral("scrollHandleHover"), QStringLiteral("#63758a"));
+        tokens.insert(QStringLiteral("progressBg"), QStringLiteral("#222a34"));
+        tokens.insert(QStringLiteral("progressTop"), QStringLiteral("#4aa6ff"));
+        tokens.insert(QStringLiteral("progressBottom"), QStringLiteral("#2f8cf6"));
+        tokens.insert(QStringLiteral("statusBg"), QStringLiteral("#151b22"));
+        tokens.insert(QStringLiteral("statusText"), QStringLiteral("#9aa8b8"));
+        tokens.insert(QStringLiteral("rowSelected"), QStringLiteral("#24425f"));
+        tokens.insert(QStringLiteral("rowSelectedBorder"), QStringLiteral("#3b6f9e"));
+        tokens.insert(QStringLiteral("rowHover"), QStringLiteral("#26313e"));
+        tokens.insert(QStringLiteral("rowHoverBorder"), QStringLiteral("#33404e"));
+        tokens.insert(QStringLiteral("detailsBg"), QStringLiteral("#171d25"));
+        tokens.insert(QStringLiteral("welcomeBg"), QStringLiteral("#1b2330"));
+        tokens.insert(QStringLiteral("welcomeBorder"), QStringLiteral("#31465e"));
+        tokens.insert(QStringLiteral("buttonBg"), QStringLiteral("#242b35"));
+        tokens.insert(QStringLiteral("tooltipBg"), QStringLiteral("#2d2d30"));
+        tokens.insert(QStringLiteral("outputBg"), QStringLiteral("#14181f"));
+        tokens.insert(QStringLiteral("outputText"), QStringLiteral("#c6d3e1"));
+    } else {
+        tokens.insert(QStringLiteral("window"), QStringLiteral("#e9eef6"));
+        tokens.insert(QStringLiteral("text"), QStringLiteral("#1e2a39"));
+        tokens.insert(QStringLiteral("mutedText"), QStringLiteral("#7a8796"));
+        tokens.insert(QStringLiteral("base"), QStringLiteral("#ffffff"));
+        tokens.insert(QStringLiteral("alternateBase"), QStringLiteral("#f6f9fd"));
+        tokens.insert(QStringLiteral("border"), QStringLiteral("#cfdbe8"));
+        tokens.insert(QStringLiteral("borderLight"), QStringLiteral("#e2eaf3"));
+        tokens.insert(QStringLiteral("inputBorder"), QStringLiteral("#c6d4e3"));
+        tokens.insert(QStringLiteral("focusBorder"), QStringLiteral("#2f8cf6"));
+        tokens.insert(QStringLiteral("accent"), QStringLiteral("#2f8cf6"));
+        tokens.insert(QStringLiteral("accentHover"), QStringLiteral("#4aa6ff"));
+        tokens.insert(QStringLiteral("accentDark"), QStringLiteral("#1b6fd6"));
+        tokens.insert(QStringLiteral("accentSoft"), QStringLiteral("#e8f3ff"));
+        tokens.insert(QStringLiteral("selection"), QStringLiteral("#dcebff"));
+        tokens.insert(QStringLiteral("selectionText"), QStringLiteral("#1e2a39"));
+        tokens.insert(QStringLiteral("hover"), QStringLiteral("#f2f7ff"));
+        tokens.insert(QStringLiteral("pressed"), QStringLiteral("#e3f0ff"));
+        tokens.insert(QStringLiteral("disabledText"), QStringLiteral("#a8b3c0"));
+        tokens.insert(QStringLiteral("disabledBg"), QStringLiteral("#f2f5f8"));
+        tokens.insert(QStringLiteral("headerBg"), QStringLiteral("#edf3fa"));
+        tokens.insert(QStringLiteral("headerText"), QStringLiteral("#5c6e82"));
+        tokens.insert(QStringLiteral("separator"), QStringLiteral("#d9e3ee"));
+        tokens.insert(QStringLiteral("headerTop"), QStringLiteral("#e1efff"));
+        tokens.insert(QStringLiteral("headerMid"), QStringLiteral("#f2f8ff"));
+        tokens.insert(QStringLiteral("headerBottom"), QStringLiteral("#fbfdff"));
+        tokens.insert(QStringLiteral("brand"), QStringLiteral("#1b7eff"));
+        tokens.insert(QStringLiteral("brandTag"), QStringLiteral("#8fa3b8"));
+        tokens.insert(QStringLiteral("toolbarText"), QStringLiteral("#2b3a4a"));
+        tokens.insert(QStringLiteral("toolbarHover"), QStringLiteral("#e8f3ff"));
+        tokens.insert(QStringLiteral("toolbarHoverBorder"), QStringLiteral("#cfe4fb"));
+        tokens.insert(QStringLiteral("toolbarPressed"), QStringLiteral("#d8eaff"));
+        tokens.insert(QStringLiteral("toolbarPressedBorder"), QStringLiteral("#b5d6f8"));
+        tokens.insert(QStringLiteral("menuBg"), QStringLiteral("#ffffff"));
+        tokens.insert(QStringLiteral("menuBorder"), QStringLiteral("#e3e8ef"));
+        tokens.insert(QStringLiteral("menuHover"), QStringLiteral("#eef6ff"));
+        tokens.insert(QStringLiteral("scrollHandle"), QStringLiteral("#c9d5e2"));
+        tokens.insert(QStringLiteral("scrollHandleHover"), QStringLiteral("#aabacb"));
+        tokens.insert(QStringLiteral("progressBg"), QStringLiteral("#eef2f7"));
+        tokens.insert(QStringLiteral("progressTop"), QStringLiteral("#62b6ff"));
+        tokens.insert(QStringLiteral("progressBottom"), QStringLiteral("#2f8cf6"));
+        tokens.insert(QStringLiteral("statusBg"), QStringLiteral("#eaf0f7"));
+        tokens.insert(QStringLiteral("statusText"), QStringLiteral("#7a8796"));
+        tokens.insert(QStringLiteral("rowSelected"), QStringLiteral("#dcebff"));
+        tokens.insert(QStringLiteral("rowSelectedBorder"), QStringLiteral("#b9d7fb"));
+        tokens.insert(QStringLiteral("rowHover"), QStringLiteral("#f2f7ff"));
+        tokens.insert(QStringLiteral("rowHoverBorder"), QStringLiteral("#e3edf8"));
+        tokens.insert(QStringLiteral("detailsBg"), QStringLiteral("#ecf2f9"));
+        tokens.insert(QStringLiteral("welcomeBg"), QStringLiteral("#f3f9ff"));
+        tokens.insert(QStringLiteral("welcomeBorder"), QStringLiteral("#bfd5ea"));
+        tokens.insert(QStringLiteral("buttonBg"), QStringLiteral("#ffffff"));
+        tokens.insert(QStringLiteral("tooltipBg"), QStringLiteral("#ffffff"));
+        tokens.insert(QStringLiteral("outputBg"), QStringLiteral("#fbfcfe"));
+        tokens.insert(QStringLiteral("outputText"), QStringLiteral("#3b4a5a"));
+    }
+    return tokens;
+}
+
+// ---------------------------------------------------------------------------
 // Base style
 // ---------------------------------------------------------------------------
 
@@ -366,20 +599,23 @@ void applyFont(QApplication &app)
     app.setFont(font);
 }
 
-QString loadAeroStyleSheet(bool dark)
+QString loadStyleSheet(bool dark, bool modern)
 {
-    QFile file(QStringLiteral(":/styles/aero.qss"));
+    QFile file(modern ? QStringLiteral(":/styles/modern.qss")
+                      : QStringLiteral(":/styles/aero.qss"));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         // The test binaries link ThemeManager without the application
         // resources; an empty style sheet is the expected fallback there.
         // 测试程序链接了 ThemeManager 但没有应用资源；
         // 在那里空样式表是预期的回退结果。
-        LOG_DEBUG_S("ThemeManager", "Aero style sheet resource is not available");
+        LOG_DEBUG_S("ThemeManager", "Theme style sheet resource is not available");
         return {};
     }
 
     QString qss = QString::fromUtf8(file.readAll());
-    const QHash<QString, QString> tokens = dark ? darkTokens() : lightTokens();
+    const QHash<QString, QString> tokens = modern
+        ? modernTokens(dark)
+        : (dark ? darkTokens() : lightTokens());
     for (auto it = tokens.cbegin(); it != tokens.cend(); ++it) {
         qss.replace(QStringLiteral("@%1@").arg(it.key()), it.value());
     }
@@ -443,6 +679,8 @@ void ThemeManager::applyTheme(QApplication &app)
 {
     const QString theme = effectiveTheme(AppSettings::instance().theme());
     const bool dark = (theme == QStringLiteral("dark"));
+    const bool modern = AppSettings::instance().uiLayoutMode()
+        == QStringLiteral("modern");
 
     // Install the base style first, then the font, palette and style sheet.
     // The style may reset palette/font state, so the order matters.
@@ -458,17 +696,19 @@ void ThemeManager::applyTheme(QApplication &app)
         hints->setColorScheme(dark ? Qt::ColorScheme::Dark : Qt::ColorScheme::Light);
     }
 #endif
-    app.setPalette(buildPalette(dark));
+    app.setPalette(modern ? buildModernPalette(dark) : buildPalette(dark));
 
     // Expose the effective theme to custom-painted widgets (the file list
-    // delegate and any future marquee progress bar).
-    // 将实际主题暴露给自绘控件（文件列表 delegate 和未来的跑马灯进度条）。
+    // delegate, row colors and the modern/classic distinction).
+    // 将实际主题暴露给自绘控件（文件列表 delegate、行配色以及现代/经典布局）。
     app.setProperty("aeroDark", dark);
+    app.setProperty("modernUi", modern);
     app.setProperty("aeroAccent",
                     QColor(dark ? QStringLiteral("#2a82da")
-                                : QStringLiteral("#3399ff")));
-    app.setStyleSheet(loadAeroStyleSheet(dark));
+                                : (modern ? QStringLiteral("#2f8cf6")
+                                          : QStringLiteral("#3399ff"))));
+    app.setStyleSheet(loadStyleSheet(dark, modern));
 
-    LOG_INFO_S("ThemeManager", dark ? "Applied Aero dark theme"
-                                    : "Applied Aero light theme");
+    LOG_INFO("ThemeManager", "Applied %s %s theme",
+             modern ? "modern" : "Aero", dark ? "dark" : "light");
 }

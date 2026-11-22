@@ -1,20 +1,61 @@
-# QArchiver
+# QArchiver / 小Q解压
 
 English | [中文](./README.md)
 
+[![CI](https://github.com/shenmo7192/QArchiver/actions/workflows/ci.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/actions/workflows/ci.yml)
+[![Release](https://github.com/shenmo7192/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/releases)
+
 A Qt 6–based graphical archive manager: browse, extract, create, append, delete, and test
-7z / zip / tar / gz / bz2 / xz / rar archives.
+7z / zip / tar / gz / bz2 / xz / rar archives. The default interface follows the modern
+HaoZip style and can be switched instantly back to the classic layout in
+"Preferences → Interface"; Linux x86_64/ARM64 and Windows x86_64/ARM64 are supported.
+
+![Modern main window](docs/screenshots/modern-main.png)
+
+## Downloads
+
+Pushing a `v*` tag makes the release workflow publish:
+
+| Platform | Artifact |
+| --- | --- |
+| Linux x86_64 | `qarchiver_<version>_amd64.deb` |
+| Linux ARM64 | `qarchiver_<version>_arm64.deb` |
+| Windows x86_64 | `QArchiver-<version>-windows-x64.zip` |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip` |
+
+Windows packages are portable: unzip and run `QArchiver.exe`; the optional
+Explorer integration scripts are in the same directory. `SHA256SUMS` is attached as well.
+
+Publish a release:
+
+```bash
+git tag v2.1.0
+git push origin v2.1.0
+```
 
 ## Features
 
-- Browse archive contents in tree or list view, with filtering and sorting
+- Modern HaoZip-style interface: flat gradient header, large colorful toolbar, folder and details panes,
+  path navigation, in-archive search, and an archive status summary
+- Welcome page: drop area, recent files list, and Open / One-click Extract entries
+- The navigation bar above the archive list provides grid/list/tree switching on both the welcome and archive pages
+- One-click extraction: automatically extracts into a separate folder named after the archive;
+  on directory conflicts it automatically uses unique names such as `name (1)`; supports a first-use
+  prompt and "close the program after extraction"
+- 7-Zip benchmark (`7z b`): live output, thread count selection, stop, and copy results
+- Modern and classic layouts can be switched instantly in Preferences; the classic layout keeps the
+  original toolbar, recent-files sidebar, background image, and toolbar style options
+- Browse archive contents in a grid by default, switchable between grid, list, and tree views; filtering and sorting supported;
+  grid icons are centred and long filenames wrap across multiple lines
 - Extraction: all or selected entries, overwrite strategies (ask/overwrite/skip/rename), password, encoding hints
-- Compression: 7z / zip / tar / tar.gz / tar.bz2 / tar.xz; if `rar` is installed on the system, RAR and RAR volumes can also be created
+- Compression: 7z / zip / tar / tar.gz / tar.bz2 / tar.xz / gz / bz2 / xz; if `rar` is installed on the system, RAR and RAR volumes can also be created
 - Append and delete entries (7z / zip / tar families)
 - Integrity testing, with optional automatic test before extraction
 - In-archive single-file preview (text/images); images are pre-extracted together with other images in the same directory, supporting continuous viewing in the system viewer.
   When the number of images in the same directory exceeds a configurable threshold (default 200, 0 means any batch), a cancellable preparation dialog is shown;
   this threshold only controls whether the prompt appears and does not limit the total batch extraction size
+- Icons for common file kinds: images, audio/video, PDF, Office, code, fonts, disk images, e-books, databases, torrents, design files, subtitles, 3D/CAD, packages, and more
+- Native system file dialogs; compression sources ask for files or a folder, then use the native dialog
 - Drag-out: drag selected entries directly to a file manager/desktop to extract them while preserving directory structure
   (extraction happens in the background to a staging directory, cancellable with `Esc`; a second drag of the same selection is zero-latency)
 
@@ -30,19 +71,58 @@ A Qt 6–based graphical archive manager: browse, extract, create, append, delet
 - Archive list output is parsed as a stream, avoiding retention of the full command-line text just for listing; size accumulation includes overflow checks
 - Warnings are shown when opening the system viewer or extraction target directory fails, rather than failing silently
 
-## Interface and Personalization
+## Interface
 
-- Frutiger Aero / Windows 7–style light and Aero Dark themes, Chinese and English UI
-- Optional semi-transparent background image: nine alignments (including four corners/four edges/center), custom size and opacity, PNG with alpha supported;
-  the placeholder page is shown in the central area, and archive pages are shown only within the visible area of the content view, without covering headers or scrollbars
+The default layout is modeled on HaoZip: a large colorful toolbar at the top, a folder pane, a details pane,
+path navigation and in-archive search, and an archive status summary. The modern layout uses a completely
+new flat theme and colorful file-type icons.
+
+| Modern layout (default) | Classic layout |
+| --- | --- |
+| ![Modern archive view](docs/screenshots/modern-archive.png) | ![Classic layout](docs/screenshots/classic-layout.png) |
+
+- Modern and classic layouts switch instantly in "Preferences → Interface" without a restart;
+  switching is disabled while an archive operation is in progress so it does not interrupt progress.
+- Both light and dark themes work with both layouts; Chinese and English UI. Dark theme preview: [modern-dark.png](docs/screenshots/modern-dark.png).
+- The classic layout keeps the original Frutiger Aero skin, the optional recent-files sidebar, the toolbar style,
+  and the semi-transparent background image (nine alignments, custom size and opacity).
+- The modern layout contains no ads, bundled installers, or "security scan" pop-ups.
+
+## One-click Extraction
+
+After clicking "One-click Extract" in the toolbar (or the button on the welcome page, or the command-line `--oneclick`):
+
+1. If no archive is open yet, first choose an archive;
+2. By default it extracts into a separate folder named after the archive in the archive's directory;
+   this can also be changed to a custom directory in settings;
+3. If the target folder already exists, unique names such as `name (1)` and `name (2)` are generated automatically,
+   and existing files are never silently overwritten;
+4. On first use it asks whether to close the program after extraction; this can later be changed in
+   "Preferences → Extraction → One-click extraction";
+5. If extraction succeeds and "close after completion" is set, the window closes automatically; on failure or cancellation it stays open.
+
+## 7-Zip Benchmark
+
+"Preferences → Tools → Run 7-Zip benchmark..." or "Tools → 7-Zip Benchmark..." executes the bundled
+`7z b` to measure compression/decompression throughput and CPU frequency. The test runs in a background
+process, can be stopped at any time, and its output can be copied. It does not modify any archive.
 
 ## Configuration
 
-The background image is selected in "Preferences → Background Image"; an empty path disables it. Leaving size blank/0 means "automatic"
-(when only one of width/height is filled, the aspect ratio is preserved), and opacity ranges from 0–100%.
+The background image is selected in "Preferences → Interface → Background image (classic layout)"; an empty path disables it.
+Leaving size blank/0 means "automatic" (when only one of width/height is filled, the aspect ratio is preserved),
+and opacity ranges from 0–100%.
+
+One-click extraction configuration keys:
+
+- `extract/oneClickDestMode`: `archive` (same directory as the archive, default) or `custom`;
+- `extract/oneClickDest`: custom destination root directory;
+- `extract/oneClickCloseAfter`: whether to close the program after successful one-click extraction;
+- `extract/oneClickCloseAsked`: whether the first-use prompt has already been shown.
 
 Other configurable items (Preferences):
 
+- Interface layout: `ui/layoutMode`, `modern` (default) or `classic`;
 - Continuous image viewing preparation dialog threshold: `preview/continuousImageDialogThreshold`, default 200, range 0–9999;
 - Recent files limit: `history/recentFilesLimit`, default 20, range 1–100; lowering it trims immediately and refreshes the sidebar.
 
@@ -56,6 +136,7 @@ Build-time (Debian/Ubuntu package names, available from Qt 6.4):
 | Qt LinguistTools (lupdate/lrelease) | Required | `qt6-tools-dev (>= 6.4)`, translations are compiled at build time |
 | CMake 3.20+, GCC 12+/Clang 15+ (C++20) | Required | |
 | libarchive 3.4+ (development headers) | Optional (enabled by default) | `libarchive-dev`; if missing, only a WARNING is shown and it automatically falls back to the pure command-line backend |
+| MinGW-w64 | Optional | Cross-compile the Windows version; native Windows builds can also use MSVC 2022 |
 
 Runtime:
 
@@ -88,7 +169,33 @@ At startup the fallback toolchain is checked:
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j"$(nproc)"
+ctest --test-dir build --output-on-failure
 sudo cmake --install build            # optional, installs to /usr/local by default
+```
+
+If the launcher does not show the icon immediately, refresh the desktop caches
+(replace `PREFIX` with the install prefix, e.g. `/usr/local` or `/usr`):
+
+```bash
+sudo update-desktop-database PREFIX/share/applications
+sudo gtk-update-icon-cache -f PREFIX/share/icons/hicolor
+```
+
+Icons are installed at 32/48/64/128/256/512 px and the desktop entry sets
+`StartupWMClass`; `.deb` installs refresh the caches through Debian triggers.
+
+On Debian/Ubuntu, the build dependencies can be installed directly from the repository's `debian/control`:
+
+```bash
+mk-build-deps --install --remove -t 'apt-get -y' debian/control
+# or build the dependency package first, then install it with aptss/apt
+mk-build-deps -t 'apt-get -y' --build-dep debian/control
+```
+
+Packaging:
+
+```bash
+dpkg-buildpackage -us -uc -b
 ```
 
 Common options:
@@ -116,6 +223,10 @@ There are two read paths:
   listfile, avoiding wildcards, `@`, leading `-`, and legacy ZIP encoding issues.
 
 Writing (compression, appending, deletion, volumes) is always done by the command line; the libarchive backend is read-only.
+When adding/deleting in zip / 7z / uncompressed tar while the current backend is the read-only libarchive backend,
+the program automatically reopens the same archive with the command-line backend and replays the operation, so
+"Add" and "Delete" remain directly usable in the UI; tar.gz/tar.xz/tar.bz2, RAR, and volume formats still do not
+support append/delete.
 
 Two-level switch, either of which can disable libarchive:
 
@@ -125,7 +236,44 @@ Two-level switch, either of which can disable libarchive:
 2. Environment variable `QARCHIVER_NO_LIBARCHIVE=1`: disables it at startup with higher priority than the config item,
    suitable for comparative troubleshooting.
 
-## Testing
+## Windows
+
+See [`packaging/windows/README.md`](packaging/windows/README.md) for Windows build, ZIP packaging, Explorer context
+menu, and cross-compilation instructions. Key points:
+
+- Native exe icon, version resource, and Per-Monitor V2 DPI manifest;
+- GBK/Big5/Shift-JIS filenames are converted through the Win32 API without depending on iconv;
+- The console window is hidden when launching 7z/rar;
+- Windows x64 and ARM64; the ARM64 package uses the native ARM64 7-Zip helper;
+- `cmake --install` uses `windeployqt` to deploy the Qt runtime libraries, and `cpack` generates a portable ZIP;
+- `packaging/windows/install-shell-menu.ps1` registers "Open with QArchiver" and "One-click extract" context menu
+  entries for the current user;
+- On Debian/Ubuntu, `tools/build-windows-cross.sh` can cross-compile and assemble a portable directory;
+- GitHub Actions builds x64 on `windows-latest` and ARM64 with
+  `win64_msvc2022_arm64_cross_compiled`.
+
+## Command Line
+
+```bash
+QArchiver [archive]                 # open an archive
+QArchiver --oneclick <archive>      # one-click extraction
+QArchiver --preferences             # open Preferences
+QArchiver --benchmark               # open the 7-Zip benchmark
+QArchiver --lang en                 # specify the UI language
+```
+
+## Testing and CI
+
+GitHub Actions:
+
+- `.github/workflows/build.yml`: reusable matrix that builds Linux amd64/arm64
+  natively and produces .deb packages, builds and tests Windows x64 natively,
+  and cross-builds Windows ARM64;
+- `.github/workflows/ci.yml`: build and test on every push and pull request;
+- `.github/workflows/release.yml`: on a `v*` tag, build all four artifacts,
+  generate `SHA256SUMS`, and create a GitHub Release.
+
+Local testing:
 
 ```bash
 cd build
@@ -141,7 +289,8 @@ old volume replacement, fallback 7-Zip `--help` validation and RAR Codecs detect
 list-mode directory indexing, background image caching. Tests use the bundled 7-Zip via `QARCHIVER_7Z_PATH`;
 RAR creation test cases are automatically skipped when the system has no `rar`, and `QARCHIVER_RAR_PATH` can be used to
 specify the rar executable under test.
-The `tarDotPrefixAndNonAscii` compatibility test case is automatically skipped when the system has no `tar`.
+The `tarDotPrefixAndNonAscii` compatibility test case is automatically skipped when the system has no `tar`;
+test cases that depend on Unix symlinks are automatically skipped on Windows.
 
 ## Debugging and Diagnostics
 
@@ -168,6 +317,9 @@ which is more reliable than checking the return value of `QDrag::exec()`.
 - When no locale is set, libarchive cannot convert non-UTF-8 entry names; such archives require specifying an encoding
   in the extraction dialog (e.g. GBK/CP936/GB18030)
 - Display/editing of archive comments is no longer provided
+- On Windows, extracting symlinks through libarchive requires Developer Mode or administrator privileges;
+  the command-line 7-Zip backend usually follows/skips links directly
+- One-click extraction does not show a directory picker by default; use "Extract to..." when a directory must be chosen each time
 
 ## License
 
@@ -177,6 +329,10 @@ the bundled 7-Zip is distributed under GNU LGPL (including the unRAR restriction
 The program no longer depends on non-free `unrar`; RAR reading is done by the bundled 7-Zip.
 RAR creation is optional and enabled only when the user's system already has the `rar` command installed; the program itself does not distribute that command.
 
+## Changelog
+
+See [`CHANGELOG.md`](CHANGELOG.md).
+
 ## Packaging Reference
 
-See `packaging/README.md`.
+See [`packaging/README.md`](packaging/README.md) and [`packaging/windows/README.md`](packaging/windows/README.md).

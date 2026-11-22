@@ -681,8 +681,7 @@ void DragOutManager::cleanupStale()
     for (const QString &entry : pidDirs) {
         bool ok = false;
         const qint64 pid = entry.toLongLong(&ok);
-        if (ok && pid > 0
-            && !QFileInfo::exists(QStringLiteral("/proc/%1").arg(pid))) {
+        if (ok && pid > 0 && !FileUtils::isProcessRunning(pid)) {
             QDir(dir.absoluteFilePath(entry)).removeRecursively();
             LOG_DEBUG("DragOutManager", "Removed stale drag staging for PID %lld",
                       static_cast<long long>(pid));

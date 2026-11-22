@@ -4,6 +4,8 @@
 
 #include "MimeTypeHelper.h"
 
+#include "PlatformProcess.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -85,6 +87,7 @@ bool isTarCompressedStream(const QString &sevenZip, const QString &filePath)
 {
     QProcess process;
     process.setProcessChannelMode(QProcess::SeparateChannels);
+    qarchiverHideConsoleWindow(process);
     process.start(sevenZip,
                   {QStringLiteral("x"), QStringLiteral("-so"),
                    QStringLiteral("-y"), QStringLiteral("-sccUTF-8"),

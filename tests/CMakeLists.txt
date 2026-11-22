@@ -393,6 +393,8 @@ qt_add_executable(tst_preferences
     ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PasswordDialog.h
     ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PreferencesDialog.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PreferencesDialog.h
+    ${CMAKE_SOURCE_DIR}/src/ui/dialogs/BenchmarkDialog.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/dialogs/BenchmarkDialog.h
     ${CMAKE_SOURCE_DIR}/src/ui/FileListModel.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/FileListModel.h
     ${CMAKE_SOURCE_DIR}/src/core/ArchiveManager.cpp
@@ -428,6 +430,8 @@ qt_add_executable(tst_preferences
     ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.h
     ${CMAKE_SOURCE_DIR}/src/utils/MimeTypeHelper.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/MimeTypeHelper.h
+    ${CMAKE_SOURCE_DIR}/src/utils/FileTypeHelper.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/FileTypeHelper.h
     ${CMAKE_SOURCE_DIR}/src/utils/Logger.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/Logger.h
     ${CMAKE_SOURCE_DIR}/src/utils/ThemeManager.cpp

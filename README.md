@@ -2,19 +2,58 @@
 
 [English](./README_en.md) | 中文
 
+[![CI](https://github.com/shenmo7192/QArchiver/actions/workflows/ci.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/actions/workflows/ci.yml)
+[![Release](https://github.com/shenmo7192/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/releases)
+
 基于 Qt 6 的图形化压缩包管理器：浏览、解压、创建、追加、删除、测试
-7z / zip / tar / gz / bz2 / xz / rar 归档。
+7z / zip / tar / gz / bz2 / xz / rar 归档。默认界面采用现代好压（HaoZip）
+风格，可在“偏好设置 → 界面”中即时切回经典布局；支持 Linux x86_64/ARM64
+与 Windows x86_64/ARM64。
+
+![现代主界面](docs/screenshots/modern-main.png)
+
+## 下载
+
+推送 `v*` 标签后，Release 工作流会生成并发布：
+
+| 平台 | 产物 |
+| --- | --- |
+| Linux x86_64 | `qarchiver_<version>_amd64.deb` |
+| Linux ARM64 | `qarchiver_<version>_arm64.deb` |
+| Windows x86_64 | `QArchiver-<version>-windows-x64.zip` |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip` |
+
+Windows 包为便携目录，解压后运行 `QArchiver.exe`；右键菜单脚本也在同一目录。发布页同时提供 `SHA256SUMS`。
+
+发布新版本：
+
+```bash
+git tag v2.1.0
+git push origin v2.1.0
+```
 
 ## 功能
 
-- 浏览归档内容，树形与列表两种视图，支持过滤与排序
+- 现代好压风格界面：扁平渐变头部、大号彩色工具栏、文件夹与详细信息面板、
+  路径导航、包内搜索、归档状态摘要
+- 起始页：拖放区、最近打开列表、打开/一键解压入口
+- 导航栏在压缩包列表上方提供网格/列表/树形切换，主页与归档页均可使用
+- 一键解压：自动解压到以压缩包命名的独立文件夹；目录冲突时自动使用
+  `名称 (1)` 等唯一名称；支持首次提示与“解压完成后关闭程序”
+- 7-Zip 性能测试（`7z b`）：实时输出、线程数选择、停止与复制结果
+- 现代 / 经典两种布局可在偏好设置中即时切换，经典布局保留原有工具栏、
+  最近文件侧栏、背景图片与工具栏样式选项
+- 浏览归档内容，默认网格视图，可切换网格/列表/树形；支持过滤与排序；
+  网格图标居中，长文件名自动换行显示
 - 解压：全部或选中条目、覆盖策略（询问/覆盖/跳过/重命名）、密码、编码提示
-- 压缩：7z / zip / tar / tar.gz / tar.bz2 / tar.xz；系统安装 `rar` 时还可创建 RAR 及 RAR 分卷
+- 压缩：7z / zip / tar / tar.gz / tar.bz2 / tar.xz / gz / bz2 / xz；系统安装 `rar` 时还可创建 RAR 及 RAR 分卷
 - 追加与删除条目（7z / zip / tar 系）
 - 完整性测试，解压前可选自动测试
 - 归档内单文件预览（文本/图片）；图片会连同同目录图片一起预解压，支持系统查看器连续看图。
   同目录图片超过可配置阈值（默认 200 张，0 表示任意批次）时显示可取消的准备对话框；
   该阈值只决定是否提示，不限制批量解压总量
+- 常见文件类型图标：图片、音视频、PDF、Office、代码、字体、磁盘映像、电子书、数据库、种子、设计稿、字幕、3D/CAD、安装包等
+- 文件选择使用系统原生对话框；压缩源选择先选择“文件”或“文件夹”，再调用系统对话框
 - 拖出：把选中条目直接拖到文件管理器/桌面即完成解压并保留目录结构
   （后台解压到 staging 目录，`Esc` 可取消；同一选中项第二次拖动零延迟）
 
@@ -30,19 +69,56 @@
 - 压缩包列表输出流式解析，避免为列表额外保留完整命令行文本；大小累计带溢出检查
 - 打开系统查看器或解压目标目录失败时会给出警告，不静默失败
 
-## 界面与个性化
+## 界面
 
-- Frutiger Aero / Windows 7 风格浅色与 Aero Dark 深色主题，中英文界面
-- 可选半透明背景图片：九种对齐（含四角/四边/居中）、自定义尺寸与透明度，支持带 alpha 的 PNG；
-  占位页显示在中央区域，归档页只显示在内容视图的可视区域内，不覆盖表头与滚动条
+默认布局参考好压：顶部大号彩色工具栏、文件夹面板、详细信息面板、
+路径导航与包内搜索、归档状态摘要。现代布局使用全新扁平主题与彩色文件类型图标。
+
+| 现代布局（默认） | 经典布局 |
+| --- | --- |
+| ![现代归档视图](docs/screenshots/modern-archive.png) | ![经典布局](docs/screenshots/classic-layout.png) |
+
+- 现代 / 经典布局在“偏好设置 → 界面”中即时切换，无需重启；
+  有压缩包操作进行时禁止切换，避免打断进度。
+- 浅色与深色主题均适用于两种布局；中英文界面。深色主题预览：[modern-dark.png](docs/screenshots/modern-dark.png)。
+- 经典布局保留原有 Frutiger Aero 皮肤、可选最近文件侧边栏、工具栏样式，
+  以及半透明背景图片（九种对齐、自定义尺寸与透明度）。
+- 现代布局不包含广告、捆绑安装或“安全扫描”弹窗。
+
+## 一键解压
+
+点击工具栏的“一键解压”（或起始页按钮，或命令行 `--oneclick`）后：
+
+1. 若尚未打开压缩包，先选择一个压缩包；
+2. 默认解压到压缩包所在目录下、以压缩包命名的独立文件夹；
+   也可以在设置中改为自定义目录；
+3. 目标文件夹已存在时自动生成 `名称 (1)`、`名称 (2)` 等唯一名称，
+   不会静默覆盖已有文件；
+4. 首次使用会询问解压完成后是否关闭程序；之后可在
+   “偏好设置 → 解压 → 一键解压”中修改；
+5. 解压成功且设置了“完成后关闭”时，窗口会自动关闭；失败或取消时保持打开。
+
+## 7-Zip 性能测试
+
+“偏好设置 → 工具 → 运行 7-Zip 性能测试...”或“工具 → 7-Zip 性能测试...”
+会执行随程序分发的 `7z b`，测量压缩/解压吞吐和 CPU 频率。测试在后台进程运行，
+可随时停止、复制输出，不会修改任何压缩包。
 
 ## 配置项
 
-背景图片在“偏好设置 → 背景图片”中选择；路径为空即关闭。尺寸留空/0 表示“自动”
-（宽高只填一个时保持比例），透明度范围为 0–100%。
+背景图片在“偏好设置 → 界面 → 背景图片（经典布局）”中选择；路径为空即关闭。
+尺寸留空/0 表示“自动”（宽高只填一个时保持比例），透明度范围为 0–100%。
+
+一键解压相关配置键：
+
+- `extract/oneClickDestMode`：`archive`（压缩包同目录，默认）或 `custom`；
+- `extract/oneClickDest`：自定义目标根目录；
+- `extract/oneClickCloseAfter`：一键解压成功后是否关闭程序；
+- `extract/oneClickCloseAsked`：是否已经显示过首次提示。
 
 其他可配置项（偏好设置）：
 
+- 界面布局：`ui/layoutMode`，`modern`（默认）或 `classic`；
 - 连续看图准备对话框阈值：`preview/continuousImageDialogThreshold`，默认 200，范围 0–9999；
 - 最近文件数量上限：`history/recentFilesLimit`，默认 20，范围 1–100，降低时立即裁剪并刷新侧边栏。
 
@@ -56,6 +132,7 @@
 | Qt LinguistTools（lupdate/lrelease） | 必需 | `qt6-tools-dev (>= 6.4)`，翻译在构建时编译 |
 | CMake 3.20+、GCC 12+/Clang 15+（C++20） | 必需 | |
 | libarchive 3.4+（开发头文件） | 可选（默认启用） | `libarchive-dev`；缺失时仅 WARNING，自动退回纯命令行后端 |
+| MinGW-w64（可选） | 可选 | 交叉编译 Windows 版本；Windows 原生构建也可用 MSVC 2022 |
 
 运行期：
 
@@ -88,7 +165,33 @@
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j"$(nproc)"
+ctest --test-dir build --output-on-failure
 sudo cmake --install build            # 可选，默认装到 /usr/local
+```
+
+若安装后启动器没有立即显示图标，刷新桌面缓存（把 `PREFIX` 换成实际安装前缀，
+例如 `/usr/local` 或 `/usr`）：
+
+```bash
+sudo update-desktop-database PREFIX/share/applications
+sudo gtk-update-icon-cache -f PREFIX/share/icons/hicolor
+```
+
+图标已安装 32/48/64/128/256/512 多尺寸，并设置 `StartupWMClass`；使用 `.deb`
+安装时由 Debian 的图标缓存触发器自动刷新。
+
+Debian/Ubuntu 可直接用仓库内的 `debian/control` 安装构建依赖：
+
+```bash
+mk-build-deps --install --remove -t 'apt-get -y' debian/control
+# 或者先构建依赖包，再用 aptss/apt 安装
+mk-build-deps -t 'apt-get -y' --build-dep debian/control
+```
+
+打包：
+
+```bash
+dpkg-buildpackage -us -uc -b
 ```
 
 常用选项：
@@ -116,6 +219,9 @@ sudo cmake --install build            # 可选，默认装到 /usr/local
   listfile 传入，避免通配符、`@`、前导 `-` 和旧 ZIP 编码问题。
 
 写入（压缩、追加、删除、分卷）始终由命令行完成，libarchive 后端只读。
+对 zip / 7z / 未压缩 tar 执行“添加/删除”时，如果当前是只读的 libarchive 后端，
+程序会自动用命令行后端重新打开同一压缩包并重放操作，因此界面上仍可直接使用
+“添加/删除”；tar.gz/tar.xz/tar.bz2、RAR 与分卷格式仍不支持追加/删除。
 
 两级开关，均可关闭 libarchive：
 
@@ -125,7 +231,43 @@ sudo cmake --install build            # 可选，默认装到 /usr/local
 2. 环境变量 `QARCHIVER_NO_LIBARCHIVE=1`：启动即禁用，优先级高于配置项，
    适合对比排查问题。
 
-## 测试
+## Windows
+
+Windows 构建、ZIP 打包、资源管理器右键菜单与交叉编译说明见
+[`packaging/windows/README.md`](packaging/windows/README.md)。要点：
+
+- 原生 exe 图标、版本资源、Per-Monitor V2 DPI 清单；
+- Windows x64 与 ARM64；ARM64 包使用原生 ARM64 的 7-Zip 辅助程序；
+- 通过 Win32 API 转换 GBK/Big5/Shift-JIS 文件名，不依赖 iconv；
+- 启动 7z/rar 时隐藏控制台窗口；
+- `cmake --install` 使用 `windeployqt` 部署 Qt 运行库，`cpack` 生成便携 ZIP；
+- `packaging/windows/install-shell-menu.ps1` 为当前用户注册
+  “用 小Q解压 打开”和“一键解压”右键菜单；
+- Debian/Ubuntu 上可用 `tools/build-windows-cross.sh` 交叉编译并整理便携目录；
+- GitHub Actions 在 `windows-latest` 上构建 x64，并用
+  `win64_msvc2022_arm64_cross_compiled` 交叉构建 ARM64。
+
+## 命令行
+
+```bash
+QArchiver [archive]                 # 打开压缩包
+QArchiver --oneclick <archive>      # 一键解压
+QArchiver --preferences             # 打开设置
+QArchiver --benchmark               # 打开 7-Zip 性能测试
+QArchiver --lang en                 # 指定界面语言
+```
+
+## 测试与 CI
+
+GitHub Actions：
+
+- `.github/workflows/build.yml`：可复用构建矩阵，Linux amd64/arm64 原生构建
+  并生成 deb，Windows x64 原生构建 + 测试，Windows ARM64 交叉构建；
+- `.github/workflows/ci.yml`：push / pull request 自动构建测试；
+- `.github/workflows/release.yml`：推送 `v*` 标签后构建四种产物、生成
+  `SHA256SUMS` 并创建 GitHub Release。
+
+本地测试：
 
 ```bash
 cd build
@@ -141,7 +283,9 @@ libarchive 后端（往返、AES 密码、损坏检测、选择性解压、硬�
 连续预览、列表模式目录索引、背景图片缓存。测试通过 `QARCHIVER_7Z_PATH` 使用内置
 7-Zip；RAR 创建用例在系统没有 `rar` 时会自动跳过，也可用
 `QARCHIVER_RAR_PATH` 指定待测的 rar 可执行文件。
-`tarDotPrefixAndNonAscii` 兼容性用例在系统没有 `tar` 时会自动跳过。
+`tarDotPrefixAndNonAscii` 兼容性用例在系统没有 `tar` 时会自动跳过；
+依赖 Unix 符号链接的用例在 Windows 上会自动跳过。测试还覆盖了
+“跳过危险符号链接时不得解出该链接”的 tar/7z 成员过滤回归。
 
 ## 调试与诊断
 
@@ -168,6 +312,9 @@ libarchive 后端（往返、AES 密码、损坏检测、选择性解压、硬�
 - 未设置 locale 时，libarchive 无法转换非 UTF-8 条目名；这类归档需在
   解压对话框里指定编码（如 GBK/CP936/GB18030）
 - 归档注释的显示/编辑不再提供
+- Windows 上由 libarchive 解压符号链接需要开发者模式或管理员权限；
+  命令行 7-Zip 后端通常会直接跟随/跳过链接
+- 一键解压默认不弹目录选择框；需要每次选择目录时请使用“解压到...”
 
 ## 许可证
 
@@ -177,6 +324,10 @@ AGPL-3.0，见 `LICENSE`。程序运行期调用外部工具、并与 libarchive
 程序不再依赖非自由的 `unrar`；RAR 读取由内置 7-Zip 完成。
 RAR 创建是可选的，仅在用户系统已安装 `rar` 命令时启用，程序本身不分发该命令。
 
+## 变更记录
+
+见 [`CHANGELOG.md`](CHANGELOG.md)。
+
 ## 打包参考
 
-见 `packaging/README.md`。
+见 `packaging/README.md` 与 `packaging/windows/README.md`。

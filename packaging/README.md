@@ -1,9 +1,8 @@
 # 打包说明
 
-目前仓库只提供 `qarchiver.desktop`（由 `cmake --install` 安装到
-`share/applications`）。本文件列出打包者需要声明的依赖，以及可直接改用的
-Debian 控制文件片段。**这些片段未在 CI 中验证过**，合并进正式打包脚本前
-请先在目标发行版上跑一遍。
+仓库提供完整的 `debian/` 打包目录（`control`、`rules`、`changelog`、
+`copyright`）以及 `qarchiver.desktop`。`cmake --install` 会安装桌面入口、
+hicolor 图标、文档与内置 7-Zip。本文件列出打包者需要声明的依赖与平台说明。
 
 ## 构建期依赖
 
@@ -13,15 +12,30 @@ Debian 控制文件片段。**这些片段未在 CI 中验证过**，合并进�
 | 构建工具 | `cmake`（>= 3.20）, `g++`（>= 12）或 `clang`（>= 15） | — |
 | libarchive 开发头文件（可选） | `libarchive-dev`（>= 3.4） | 3.4 |
 
-对应 `debian/control` 的 `Build-Depends` 可写为：
+`debian/control` 已声明：
 
 ```text
 Build-Depends: debhelper-compat (= 13), cmake (>= 3.20),
+               g++ (>= 12) | clang (>= 15),
                qt6-base-dev (>= 6.4), qt6-tools-dev (>= 6.4),
-               libarchive-dev (>= 3.4)
+               libarchive-dev (>= 3.4), pkg-config
 ```
 
 若以 `-DQARCHIVER_USE_LIBARCHIVE=OFF` 构建，可去掉 `libarchive-dev`。
+
+构建依赖可以用 `mk-build-deps` 管理：
+
+```bash
+mk-build-deps --install --remove -t 'apt-get -y' debian/control
+# 或者生成依赖包后自行安装
+mk-build-deps --build-dep -t 'apt-get -y' debian/control
+```
+
+打包：
+
+```bash
+dpkg-buildpackage -us -uc -b
+```
 
 ## 运行期依赖
 
@@ -59,7 +73,29 @@ Description: Qt based archive manager
 
 ## 桌面文件
 
-`qarchiver.desktop` 已声明 `MimeType`，安装后需要一次
+`qarchiver.desktop` 已声明 `MimeType`，并提供一个
+`OneClickExtract` 桌面动作（`QArchiver --oneclick %F`）。安装后需要一次
 `update-desktop-database`（debhelper / `desktop-file-utils` 的触发器会处理）。
-图标安装为 `share/icons/hicolor/128x128/apps/qarchiver.png`，`Icon=qarchiver`
-与之对应。
+图标安装为 `share/icons/hicolor/{32x32,48x48,64x64,128x128,256x256,512x512}/apps/qarchiver.png`，
+并提供 `share/pixmaps/qarchiver.png` 兜底；`Icon=qarchiver` 与之对应。
+desktop 文件设置 `StartupWMClass=QArchiver`，并使用合法的
+`Categories=Utility;Archiving;`。
+
+## Windows
+
+Windows 使用 `cmake --install` + `qt_generate_deploy_app_script()` 部署 Qt，
+`cpack` 生成 `QArchiver-<version>-windows-<arch>.zip`。资源管理器右键菜单由
+`packaging/windows/install-shell-menu.ps1` 注册（当前用户，无需管理员）。
+交叉编译与更多细节见 `packaging/windows/README.md`。
+
+## GitHub Actions
+
+`build.yml` 是供 CI/Release 复用的构建矩阵：
+
+- Linux amd64/arm64 在原生 runner 上生成 `.deb`；
+- Windows x64 在 `windows-latest` 上原生构建、测试并生成便携 ZIP；
+- Windows ARM64 使用 Qt `win64_msvc2022_arm64_cross_compiled` 交叉构建，
+  内置原生 ARM64 7-Zip，生成 `QArchiver-<version>-windows-arm64.zip`。
+
+推送 `v*` 标签会触发 `release.yml`，自动创建 Release 并上传两个 deb、
+两个 Windows ZIP 以及 `SHA256SUMS`。

@@ -1,258 +1,483 @@
 // QArchiver / 小Q解压
-// PreferencesDialog widget wiring and persistence.
-// PreferencesDialog 的控件连接与持久化。
+// PreferencesDialog: tabbed settings, one-click extraction and benchmark entry.
+// PreferencesDialog：分页设置、一键解压与性能测试入口。
 
 #include "PreferencesDialog.h"
 
-#include <QComboBox>
-#include <QSpinBox>
+#include "BenchmarkDialog.h"
+
+#include <QApplication>
 #include <QCheckBox>
-#include <QPushButton>
-#include <QLineEdit>
+#include <QCoreApplication>
+#include <QComboBox>
+#include <QDialogButtonBox>
+#include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
-#include <QVBoxLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
-#include <QDialogButtonBox>
 #include <QLabel>
-#include <QApplication>
+#include <QLineEdit>
+#include <QPushButton>
 #include <QSize>
+#include <QSpinBox>
+#include <QStandardPaths>
+#include <QTabWidget>
+#include <QVBoxLayout>
 
 #include "backends/rar/RarBackend.h"
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
 #include "utils/BackgroundImage.h"
-#include "utils/ThemeManager.h"
 #include "utils/IconUtils.h"
+#include "utils/SevenZipTool.h"
+#include "utils/ThemeManager.h"
+
+namespace {
+
+QLabel *hintLabel(const QString &text, QWidget *parent)
+{
+    auto *label = new QLabel(text, parent);
+    label->setWordWrap(true);
+    label->setObjectName(QStringLiteral("WelcomeSubtitle"));
+    return label;
+}
+
+QPushButton *makeBrowseButton(QWidget *parent)
+{
+    auto *button = new QPushButton(
+        qarchiverIcon(QStringLiteral("folder.png")), QObject::tr("Browse..."),
+        parent);
+    button->setIconSize(QSize(16, 16));
+    return button;
+}
+
+} // namespace
 
 PreferencesDialog::PreferencesDialog(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle(tr("Preferences"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    setMinimumSize(620, 520);
+    resize(680, 640);
 
-    auto &settings = AppSettings::instance();
+    auto *tabs = new QTabWidget(this);
+    tabs->setDocumentMode(true);
 
-    // Default format
-    m_defaultFormatCombo = new QComboBox(this);
-    m_defaultFormatCombo->addItem(tr("Zip"), static_cast<int>(ArchiveFormat::Zip));
-    m_defaultFormatCombo->addItem(tr("7z"), static_cast<int>(ArchiveFormat::SevenZip));
-    if (RarBackend::isCreateAvailable()) {
-        m_defaultFormatCombo->addItem(tr("RAR"), static_cast<int>(ArchiveFormat::Rar5));
-    }
-    m_defaultFormatCombo->addItem(tr("Tar"), static_cast<int>(ArchiveFormat::Tar));
-    m_defaultFormatCombo->addItem(tr("Tar.gz"), static_cast<int>(ArchiveFormat::TarGz));
-    const int formatIndex = m_defaultFormatCombo->findData(
-        static_cast<int>(settings.defaultCompressFormat()));
-    m_defaultFormatCombo->setCurrentIndex(formatIndex >= 0 ? formatIndex : 0);
+    auto *generalPage = new QWidget(tabs);
+    auto *generalLayout = new QVBoxLayout(generalPage);
+    generalLayout->setContentsMargins(14, 14, 14, 14);
+    generalLayout->setSpacing(10);
 
-    // Default level
-    m_defaultLevelSpin = new QSpinBox(this);
-    m_defaultLevelSpin->setRange(0, 9);
-    m_defaultLevelSpin->setValue(settings.defaultCompressionLevel());
+    auto *extractPage = new QWidget(tabs);
+    auto *extractLayout = new QVBoxLayout(extractPage);
+    extractLayout->setContentsMargins(14, 14, 14, 14);
+    extractLayout->setSpacing(10);
 
-    // Overwrite policy
-    m_overwriteCombo = new QComboBox(this);
-    m_overwriteCombo->addItem(tr("Ask"), static_cast<int>(OverwritePolicy::Ask));
-    m_overwriteCombo->addItem(tr("Always overwrite"), static_cast<int>(OverwritePolicy::Always));
-    m_overwriteCombo->addItem(tr("Never overwrite"), static_cast<int>(OverwritePolicy::Never));
-    const int overwriteIndex = m_overwriteCombo->findData(
-        static_cast<int>(settings.overwritePolicy()));
-    m_overwriteCombo->setCurrentIndex(overwriteIndex >= 0 ? overwriteIndex : 0);
+    auto *interfacePage = new QWidget(tabs);
+    auto *interfaceLayout = new QVBoxLayout(interfacePage);
+    interfaceLayout->setContentsMargins(14, 14, 14, 14);
+    interfaceLayout->setSpacing(10);
 
-    m_preservePathsCheck = new QCheckBox(tr("Preserve directory structure"), this);
-    m_preservePathsCheck->setChecked(settings.preservePaths());
+    auto *toolsPage = new QWidget(tabs);
+    auto *toolsLayout = new QVBoxLayout(toolsPage);
+    toolsLayout->setContentsMargins(14, 14, 14, 14);
+    toolsLayout->setSpacing(10);
 
-    m_openAfterCheck = new QCheckBox(tr("Open destination after extraction"), this);
-    m_openAfterCheck->setChecked(settings.openDestAfterFinish());
-
-    m_maxPreviewSpin = new QSpinBox(this);
-    m_maxPreviewSpin->setRange(1, 500);
-    m_maxPreviewSpin->setSuffix(tr(" MB"));
-    m_maxPreviewSpin->setValue(static_cast<int>(settings.maxPreviewSize() / (1024 * 1024)));
-
-    m_continuousPreviewSpin = new QSpinBox(this);
-    m_continuousPreviewSpin->setRange(0, 9999);
-    m_continuousPreviewSpin->setSpecialValueText(tr("Always"));
-    m_continuousPreviewSpin->setSuffix(tr(" images"));
-    m_continuousPreviewSpin->setValue(settings.continuousImageDialogThreshold());
-    m_continuousPreviewSpin->setToolTip(
-        tr("Show a preparation dialog when a continuous-preview batch contains "
-           "more than this many images. 0 shows it for every batch."));
-
-    m_followSymlinksCheck = new QCheckBox(tr("Follow symlinks when compressing"), this);
-    m_followSymlinksCheck->setChecked(settings.followSymlinks());
-
-    m_rememberPasswordsCheck = new QCheckBox(tr("Remember passwords for the session"), this);
-    m_rememberPasswordsCheck->setChecked(settings.rememberPasswords());
-    m_rememberPasswordsCheck->setToolTip(
-        tr("Passwords are kept in memory only and are never written to disk."));
-
-    m_themeCombo = new QComboBox(this);
-    m_themeCombo->addItem(tr("System"), QStringLiteral("system"));
-    m_themeCombo->addItem(tr("Light"), QStringLiteral("light"));
-    m_themeCombo->addItem(tr("Dark"), QStringLiteral("dark"));
-    const int themeIndex = m_themeCombo->findData(settings.theme());
-    m_themeCombo->setCurrentIndex(themeIndex >= 0 ? themeIndex : 0);
-
-    m_viewModeCombo = new QComboBox(this);
-    m_viewModeCombo->addItem(tr("Tree view"), QStringLiteral("tree"));
-    m_viewModeCombo->addItem(tr("List view"), QStringLiteral("list"));
-    const int viewModeIndex = m_viewModeCombo->findData(settings.contentViewMode());
-    m_viewModeCombo->setCurrentIndex(viewModeIndex >= 0 ? viewModeIndex : 0);
-
-    m_toolbarStyleCombo = new QComboBox(this);
-    m_toolbarStyleCombo->addItem(tr("Icons above text"),
-                                 QStringLiteral("textUnderIcon"));
-    m_toolbarStyleCombo->addItem(tr("Icons beside text"),
-                                 QStringLiteral("textBesideIcon"));
-    m_toolbarStyleCombo->addItem(tr("Text only"),
-                                 QStringLiteral("textOnly"));
-    m_toolbarStyleCombo->addItem(tr("Icons only (tooltips)"),
-                                 QStringLiteral("iconOnly"));
-    const int toolbarStyleIndex = m_toolbarStyleCombo->findData(settings.toolButtonStyle());
-    m_toolbarStyleCombo->setCurrentIndex(toolbarStyleIndex >= 0 ? toolbarStyleIndex : 0);
-
-    m_showRecentFilesCheck = new QCheckBox(tr("Show recent files sidebar"), this);
-    m_showRecentFilesCheck->setChecked(settings.showRecentFiles());
-
-    m_recentFilesLimitSpin = new QSpinBox(this);
-    m_recentFilesLimitSpin->setRange(1, 100);
-    m_recentFilesLimitSpin->setValue(settings.recentFilesLimit());
-
-    // Background image: path, alignment, size and opacity. The controls are
-    // disabled until a path is selected; an empty path disables the image.
-    // 背景图片：路径、对齐、尺寸与透明度。选择路径前控件禁用；
-    // 路径为空表示不显示背景图片。
-    m_backgroundPathEdit = new QLineEdit(settings.backgroundImagePath(), this);
-    m_backgroundPathEdit->setPlaceholderText(tr("No background image"));
-    auto *backgroundBrowse = new QPushButton(tr("Browse..."), this);
-    auto *backgroundClear = new QPushButton(tr("Clear"), this);
-    auto *backgroundPathLayout = new QHBoxLayout;
-    backgroundPathLayout->setSpacing(6);
-    backgroundPathLayout->addWidget(m_backgroundPathEdit, 1);
-    backgroundPathLayout->addWidget(backgroundBrowse);
-    backgroundPathLayout->addWidget(backgroundClear);
-
-    m_backgroundAlignCombo = new QComboBox(this);
-    m_backgroundAlignCombo->addItem(tr("Top left"), QStringLiteral("topLeft"));
-    m_backgroundAlignCombo->addItem(tr("Top"), QStringLiteral("top"));
-    m_backgroundAlignCombo->addItem(tr("Top right"), QStringLiteral("topRight"));
-    m_backgroundAlignCombo->addItem(tr("Left"), QStringLiteral("left"));
-    m_backgroundAlignCombo->addItem(tr("Center"), QStringLiteral("center"));
-    m_backgroundAlignCombo->addItem(tr("Right"), QStringLiteral("right"));
-    m_backgroundAlignCombo->addItem(tr("Bottom left"), QStringLiteral("bottomLeft"));
-    m_backgroundAlignCombo->addItem(tr("Bottom"), QStringLiteral("bottom"));
-    m_backgroundAlignCombo->addItem(tr("Bottom right"), QStringLiteral("bottomRight"));
-    const int backgroundAlignIndex = m_backgroundAlignCombo->findData(
-        settings.backgroundImageAlignment());
-    m_backgroundAlignCombo->setCurrentIndex(backgroundAlignIndex >= 0
-                                                ? backgroundAlignIndex
-                                                : m_backgroundAlignCombo->count() - 1);
-
-    const QSize backgroundSize = settings.backgroundImageSize();
-    m_backgroundWidthSpin = new QSpinBox(this);
-    m_backgroundWidthSpin->setRange(0, 8192);
-    m_backgroundWidthSpin->setSpecialValueText(tr("Auto"));
-    m_backgroundWidthSpin->setSuffix(tr(" px"));
-    m_backgroundWidthSpin->setValue(backgroundSize.width());
-    m_backgroundHeightSpin = new QSpinBox(this);
-    m_backgroundHeightSpin->setRange(0, 8192);
-    m_backgroundHeightSpin->setSpecialValueText(tr("Auto"));
-    m_backgroundHeightSpin->setSuffix(tr(" px"));
-    m_backgroundHeightSpin->setValue(backgroundSize.height());
-    auto *backgroundSizeLayout = new QHBoxLayout;
-    backgroundSizeLayout->setSpacing(6);
-    backgroundSizeLayout->addWidget(m_backgroundWidthSpin);
-    backgroundSizeLayout->addWidget(new QLabel(QStringLiteral("×"), this));
-    backgroundSizeLayout->addWidget(m_backgroundHeightSpin);
-    backgroundSizeLayout->addStretch(1);
-
-    m_backgroundOpacitySpin = new QSpinBox(this);
-    m_backgroundOpacitySpin->setRange(0, 100);
-    m_backgroundOpacitySpin->setSuffix(QStringLiteral(" %"));
-    m_backgroundOpacitySpin->setValue(
-        qRound(settings.backgroundImageOpacity() * 100.0));
-
-    auto updateBackgroundControls = [this, backgroundClear]() {
-        const bool hasImage = !m_backgroundPathEdit->text().trimmed().isEmpty();
-        backgroundClear->setEnabled(hasImage);
-        m_backgroundAlignCombo->setEnabled(hasImage);
-        m_backgroundWidthSpin->setEnabled(hasImage);
-        m_backgroundHeightSpin->setEnabled(hasImage);
-        m_backgroundOpacitySpin->setEnabled(hasImage);
-    };
-    connect(m_backgroundPathEdit, &QLineEdit::textChanged, this,
-            [updateBackgroundControls](const QString &) {
-                updateBackgroundControls();
-            });
-    connect(backgroundBrowse, &QPushButton::clicked, this, [this]() {
-        const QString path = QFileDialog::getOpenFileName(
-            this, tr("Select Background Image"),
-            m_backgroundPathEdit->text(),
-            tr("PNG images (*.png);;All images (*.png *.jpg *.jpeg *.bmp *.gif *.webp);;All files (*)"));
-        if (!path.isEmpty()) {
-            m_backgroundPathEdit->setText(path);
+    // --- General ---------------------------------------------------------
+    {
+        auto &settings = AppSettings::instance();
+        m_defaultFormatCombo = new QComboBox(generalPage);
+        m_defaultFormatCombo->addItem(tr("Zip"), static_cast<int>(ArchiveFormat::Zip));
+        m_defaultFormatCombo->addItem(tr("7z"), static_cast<int>(ArchiveFormat::SevenZip));
+        if (RarBackend::isCreateAvailable()) {
+            m_defaultFormatCombo->addItem(tr("RAR"), static_cast<int>(ArchiveFormat::Rar5));
         }
-    });
-    connect(backgroundClear, &QPushButton::clicked, this, [this]() {
-        m_backgroundPathEdit->clear();
-    });
-    updateBackgroundControls();
+        m_defaultFormatCombo->addItem(tr("Tar"), static_cast<int>(ArchiveFormat::Tar));
+        m_defaultFormatCombo->addItem(tr("Tar.gz"), static_cast<int>(ArchiveFormat::TarGz));
+        const int formatIndex = m_defaultFormatCombo->findData(
+            static_cast<int>(settings.defaultCompressFormat()));
+        m_defaultFormatCombo->setCurrentIndex(formatIndex >= 0 ? formatIndex : 0);
 
-    m_libArchiveCheck = new QCheckBox(
-        tr("Read archives with libarchive (no external process)"), this);
-    const bool libArchiveUsable = ArchiveManager::isLibArchiveAvailable()
-        && !ArchiveManager::isLibArchiveDisabledByEnvironment();
-    m_libArchiveCheck->setChecked(settings.useLibArchiveBackend()
-                                  && libArchiveUsable);
-    if (libArchiveUsable) {
-        m_libArchiveCheck->setToolTip(
-            tr("zip, tar, 7z and gz/bz2/xz archives are read inside the "
-               "application. Archives that libarchive cannot open (encrypted "
-               "7z, split volumes, rar) automatically switch to the command "
-               "line tools. The change applies to the next archive you open."));
-        m_libArchiveHint = new QLabel(
-            tr("Applies to the next archive you open; the currently open "
-               "archive keeps the backend it started with."), this);
-        m_libArchiveHint->setWordWrap(true);
-        m_libArchiveHint->setEnabled(false);
-    } else {
-        m_libArchiveCheck->setChecked(false);
-        m_libArchiveCheck->setEnabled(false);
-        m_libArchiveCheck->setToolTip(
-            ArchiveManager::isLibArchiveAvailable()
-                ? tr("Disabled by the QARCHIVER_NO_LIBARCHIVE environment variable.")
-                : tr("This build was compiled without libarchive."));
+        m_defaultLevelSpin = new QSpinBox(generalPage);
+        m_defaultLevelSpin->setRange(0, 9);
+        m_defaultLevelSpin->setValue(settings.defaultCompressionLevel());
+
+        m_overwriteCombo = new QComboBox(generalPage);
+        m_overwriteCombo->addItem(tr("Ask"), static_cast<int>(OverwritePolicy::Ask));
+        m_overwriteCombo->addItem(tr("Always overwrite"), static_cast<int>(OverwritePolicy::Always));
+        m_overwriteCombo->addItem(tr("Never overwrite"), static_cast<int>(OverwritePolicy::Never));
+        const int overwriteIndex = m_overwriteCombo->findData(
+            static_cast<int>(settings.overwritePolicy()));
+        m_overwriteCombo->setCurrentIndex(overwriteIndex >= 0 ? overwriteIndex : 0);
+
+        m_preservePathsCheck = new QCheckBox(
+            tr("Preserve directory structure when extracting"), generalPage);
+        m_preservePathsCheck->setChecked(settings.preservePaths());
+
+        auto *compressionGroup = new QGroupBox(tr("Compression"), generalPage);
+        auto *compressionForm = new QFormLayout(compressionGroup);
+        compressionForm->setHorizontalSpacing(12);
+        compressionForm->setVerticalSpacing(8);
+        compressionForm->addRow(tr("Default compression &format:"), m_defaultFormatCombo);
+        compressionForm->addRow(tr("Default compression &level:"), m_defaultLevelSpin);
+        compressionForm->addRow(tr("&Overwrite policy:"), m_overwriteCombo);
+        compressionForm->addRow(QString(), m_preservePathsCheck);
+
+        m_openAfterCheck = new QCheckBox(
+            tr("Open destination after extraction"), generalPage);
+        m_openAfterCheck->setChecked(settings.openDestAfterFinish());
+        m_followSymlinksCheck = new QCheckBox(
+            tr("Follow symlinks when compressing"), generalPage);
+        m_followSymlinksCheck->setChecked(settings.followSymlinks());
+        m_rememberPasswordsCheck = new QCheckBox(
+            tr("Remember passwords for the session"), generalPage);
+        m_rememberPasswordsCheck->setChecked(settings.rememberPasswords());
+        m_rememberPasswordsCheck->setToolTip(
+            tr("Passwords are kept in memory only and are never written to disk."));
+
+        m_libArchiveCheck = new QCheckBox(
+            tr("Read archives with libarchive (no external process)"), generalPage);
+        const bool libArchiveUsable = ArchiveManager::isLibArchiveAvailable()
+            && !ArchiveManager::isLibArchiveDisabledByEnvironment();
+        m_libArchiveCheck->setChecked(settings.useLibArchiveBackend()
+                                      && libArchiveUsable);
+        if (libArchiveUsable) {
+            m_libArchiveCheck->setToolTip(
+                tr("zip, tar, 7z and gz/bz2/xz archives are read inside the "
+                   "application. Archives that libarchive cannot open (encrypted "
+                   "7z, split volumes, rar) automatically switch to the command "
+                   "line tools. The change applies to the next archive you open."));
+            m_libArchiveHint = hintLabel(
+                tr("Applies to the next archive you open; the currently open "
+                   "archive keeps the backend it started with."), generalPage);
+        } else {
+            m_libArchiveCheck->setChecked(false);
+            m_libArchiveCheck->setEnabled(false);
+            m_libArchiveCheck->setToolTip(
+                ArchiveManager::isLibArchiveAvailable()
+                    ? tr("Disabled by the QARCHIVER_NO_LIBARCHIVE environment variable.")
+                    : tr("This build was compiled without libarchive."));
+        }
+
+        auto *behaviorGroup = new QGroupBox(tr("Behaviour"), generalPage);
+        auto *behaviorLayout = new QVBoxLayout(behaviorGroup);
+        behaviorLayout->setSpacing(7);
+        behaviorLayout->addWidget(m_openAfterCheck);
+        behaviorLayout->addWidget(m_followSymlinksCheck);
+        behaviorLayout->addWidget(m_rememberPasswordsCheck);
+        behaviorLayout->addWidget(m_libArchiveCheck);
+        if (m_libArchiveHint) {
+            behaviorLayout->addWidget(m_libArchiveHint);
+        }
+
+        generalLayout->addWidget(compressionGroup);
+        generalLayout->addWidget(behaviorGroup);
+        generalLayout->addStretch(1);
     }
 
-    auto *form = new QFormLayout;
-    form->setHorizontalSpacing(10);
-    form->setVerticalSpacing(6);
-    form->addRow(tr("Default compression &format:"), m_defaultFormatCombo);
-    form->addRow(tr("Default compression &level:"), m_defaultLevelSpin);
-    form->addRow(tr("&Overwrite policy:"), m_overwriteCombo);
-    form->addRow(tr("Max preview &size:"), m_maxPreviewSpin);
-    form->addRow(tr("Continuous preview &dialog:"), m_continuousPreviewSpin);
-    form->addRow(tr("&Theme:"), m_themeCombo);
-    form->addRow(tr("Archive content &view:"), m_viewModeCombo);
-    form->addRow(tr("Toolbar button style:"), m_toolbarStyleCombo);
-    form->addRow(QString(), m_preservePathsCheck);
-    form->addRow(QString(), m_openAfterCheck);
-    form->addRow(QString(), m_followSymlinksCheck);
-    form->addRow(QString(), m_rememberPasswordsCheck);
-    form->addRow(QString(), m_libArchiveCheck);
-    if (m_libArchiveHint) {
-        form->addRow(QString(), m_libArchiveHint);
-    }
-    form->addRow(QString(), m_showRecentFilesCheck);
-    form->addRow(tr("Recent files &limit:"), m_recentFilesLimitSpin);
-    form->addRow(tr("Background &image:"), backgroundPathLayout);
-    form->addRow(tr("Image &alignment:"), m_backgroundAlignCombo);
-    form->addRow(tr("Image &size:"), backgroundSizeLayout);
-    form->addRow(tr("Image &opacity:"), m_backgroundOpacitySpin);
+    // --- Extract ---------------------------------------------------------
+    {
+        auto &settings = AppSettings::instance();
+        m_maxPreviewSpin = new QSpinBox(extractPage);
+        m_maxPreviewSpin->setRange(1, 500);
+        m_maxPreviewSpin->setSuffix(tr(" MB"));
+        m_maxPreviewSpin->setValue(
+            static_cast<int>(settings.maxPreviewSize() / (1024 * 1024)));
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+        m_continuousPreviewSpin = new QSpinBox(extractPage);
+        m_continuousPreviewSpin->setRange(0, 9999);
+        m_continuousPreviewSpin->setSpecialValueText(tr("Always"));
+        m_continuousPreviewSpin->setSuffix(tr(" images"));
+        m_continuousPreviewSpin->setValue(
+            settings.continuousImageDialogThreshold());
+        m_continuousPreviewSpin->setToolTip(
+            tr("Show a preparation dialog when a continuous-preview batch "
+               "contains more than this many images. 0 shows it for every "
+               "batch."));
+
+        m_oneClickDestModeCombo = new QComboBox(extractPage);
+        m_oneClickDestModeCombo->addItem(
+            tr("Next to the archive (recommended)"),
+            QStringLiteral("archive"));
+        m_oneClickDestModeCombo->addItem(
+            tr("Custom folder"), QStringLiteral("custom"));
+        const int destModeIndex = m_oneClickDestModeCombo->findData(
+            settings.oneClickExtractDestMode());
+        m_oneClickDestModeCombo->setCurrentIndex(destModeIndex >= 0
+                                                    ? destModeIndex : 0);
+
+        m_oneClickDestEdit = new QLineEdit(settings.oneClickExtractDest(),
+                                           extractPage);
+        const QString documents = QStandardPaths::writableLocation(
+            QStandardPaths::DocumentsLocation);
+        m_oneClickDestEdit->setPlaceholderText(
+            documents.isEmpty() ? QDir::homePath() : documents);
+        m_oneClickBrowseButton = makeBrowseButton(extractPage);
+        auto *destinationRow = new QHBoxLayout;
+        destinationRow->setSpacing(6);
+        destinationRow->addWidget(m_oneClickDestEdit, 1);
+        destinationRow->addWidget(m_oneClickBrowseButton);
+
+        m_oneClickCloseCheck = new QCheckBox(
+            tr("Close QArchiver after one-click extraction"), extractPage);
+        m_oneClickCloseCheck->setChecked(settings.oneClickCloseAfterExtract());
+        m_oneClickCloseCheck->setToolTip(
+            tr("When enabled, the window closes after a successful one-click "
+               "extraction. Failed or cancelled extractions keep the window "
+               "open."));
+
+        auto *oneClickGroup = new QGroupBox(tr("One-click Extract"), extractPage);
+        auto *oneClickForm = new QFormLayout(oneClickGroup);
+        oneClickForm->setHorizontalSpacing(12);
+        oneClickForm->setVerticalSpacing(8);
+        oneClickForm->addRow(tr("Destination:"), m_oneClickDestModeCombo);
+        oneClickForm->addRow(tr("Custom folder:"), destinationRow);
+        oneClickForm->addRow(QString(), m_oneClickCloseCheck);
+        oneClickForm->addRow(QString(), hintLabel(
+            tr("Each archive is extracted into a folder named after it. If that "
+               "folder already exists, a unique name such as \"name (1)\" is "
+               "used, so existing files are never overwritten silently."),
+            oneClickGroup));
+
+        auto *previewGroup = new QGroupBox(tr("Preview"), extractPage);
+        auto *previewForm = new QFormLayout(previewGroup);
+        previewForm->setHorizontalSpacing(12);
+        previewForm->setVerticalSpacing(8);
+        previewForm->addRow(tr("Maximum preview &size:"), m_maxPreviewSpin);
+        previewForm->addRow(tr("Continuous preview threshold:"),
+                            m_continuousPreviewSpin);
+
+        connect(m_oneClickDestModeCombo, &QComboBox::currentIndexChanged,
+                this, [this]() { updateOneClickControls(); });
+        connect(m_oneClickBrowseButton, &QPushButton::clicked, this, [this]() {
+            const QString folder = QFileDialog::getExistingDirectory(
+                this, tr("Select One-click Extract Folder"),
+                m_oneClickDestEdit->text());
+            if (!folder.isEmpty()) {
+                m_oneClickDestEdit->setText(folder);
+                m_oneClickDestModeCombo->setCurrentIndex(
+                    m_oneClickDestModeCombo->findData(QStringLiteral("custom")));
+            }
+        });
+        updateOneClickControls();
+
+        extractLayout->addWidget(oneClickGroup);
+        extractLayout->addWidget(previewGroup);
+        extractLayout->addStretch(1);
+    }
+
+    // --- Interface -------------------------------------------------------
+    {
+        auto &settings = AppSettings::instance();
+        m_layoutModeCombo = new QComboBox(interfacePage);
+        m_layoutModeCombo->addItem(tr("Modern (HaoZip-style)"),
+                                   QStringLiteral("modern"));
+        m_layoutModeCombo->addItem(tr("Classic (previous layout)"),
+                                   QStringLiteral("classic"));
+        const int layoutIndex = m_layoutModeCombo->findData(
+            settings.uiLayoutMode());
+        m_layoutModeCombo->setCurrentIndex(layoutIndex >= 0 ? layoutIndex : 0);
+        m_layoutModeCombo->setToolTip(
+            tr("Modern is the flat HaoZip-style layout with a folder pane and a "
+               "details pane. Classic keeps the previous toolbar and optional "
+               "recent-files sidebar. The change applies immediately."));
+
+        m_themeCombo = new QComboBox(interfacePage);
+        m_themeCombo->addItem(tr("System"), QStringLiteral("system"));
+        m_themeCombo->addItem(tr("Light"), QStringLiteral("light"));
+        m_themeCombo->addItem(tr("Dark"), QStringLiteral("dark"));
+        const int themeIndex = m_themeCombo->findData(settings.theme());
+        m_themeCombo->setCurrentIndex(themeIndex >= 0 ? themeIndex : 0);
+
+        m_viewModeCombo = new QComboBox(interfacePage);
+        m_viewModeCombo->addItem(tr("Grid view (default)"),
+                                 QStringLiteral("grid"));
+        m_viewModeCombo->addItem(tr("List view"), QStringLiteral("list"));
+        m_viewModeCombo->addItem(tr("Tree view"), QStringLiteral("tree"));
+        const int viewModeIndex = m_viewModeCombo->findData(
+            settings.contentViewMode());
+        m_viewModeCombo->setCurrentIndex(viewModeIndex >= 0 ? viewModeIndex : 0);
+
+        m_toolbarStyleCombo = new QComboBox(interfacePage);
+        m_toolbarStyleCombo->addItem(tr("Icons above text"),
+                                     QStringLiteral("textUnderIcon"));
+        m_toolbarStyleCombo->addItem(tr("Icons beside text"),
+                                     QStringLiteral("textBesideIcon"));
+        m_toolbarStyleCombo->addItem(tr("Text only"),
+                                     QStringLiteral("textOnly"));
+        m_toolbarStyleCombo->addItem(tr("Icons only (tooltips)"),
+                                     QStringLiteral("iconOnly"));
+        const int toolbarStyleIndex = m_toolbarStyleCombo->findData(
+            settings.toolButtonStyle());
+        m_toolbarStyleCombo->setCurrentIndex(toolbarStyleIndex >= 0
+                                                 ? toolbarStyleIndex : 0);
+        m_toolbarStyleCombo->setToolTip(
+            tr("Only used by the classic layout; the modern layout always uses "
+               "large icons above text."));
+
+        auto *layoutGroup = new QGroupBox(tr("Layout and appearance"),
+                                          interfacePage);
+        auto *layoutForm = new QFormLayout(layoutGroup);
+        layoutForm->setHorizontalSpacing(12);
+        layoutForm->setVerticalSpacing(8);
+        layoutForm->addRow(tr("&Interface layout:"), m_layoutModeCombo);
+        layoutForm->addRow(tr("&Theme:"), m_themeCombo);
+        layoutForm->addRow(tr("Archive content &view:"), m_viewModeCombo);
+        layoutForm->addRow(tr("Classic toolbar style:"), m_toolbarStyleCombo);
+
+        m_showRecentFilesCheck = new QCheckBox(
+            tr("Show recent files sidebar (classic layout)"), interfacePage);
+        m_showRecentFilesCheck->setChecked(settings.showRecentFiles());
+        m_recentFilesLimitSpin = new QSpinBox(interfacePage);
+        m_recentFilesLimitSpin->setRange(1, 100);
+        m_recentFilesLimitSpin->setValue(settings.recentFilesLimit());
+
+        auto *recentGroup = new QGroupBox(tr("Recent files"), interfacePage);
+        auto *recentForm = new QFormLayout(recentGroup);
+        recentForm->setHorizontalSpacing(12);
+        recentForm->setVerticalSpacing(8);
+        recentForm->addRow(m_showRecentFilesCheck);
+        recentForm->addRow(tr("Recent files &limit:"), m_recentFilesLimitSpin);
+
+        m_backgroundPathEdit = new QLineEdit(settings.backgroundImagePath(),
+                                             interfacePage);
+        m_backgroundPathEdit->setPlaceholderText(tr("No background image"));
+        auto *backgroundBrowse = makeBrowseButton(interfacePage);
+        m_backgroundClearButton = new QPushButton(tr("Clear"), interfacePage);
+        auto *backgroundPathLayout = new QHBoxLayout;
+        backgroundPathLayout->setSpacing(6);
+        backgroundPathLayout->addWidget(m_backgroundPathEdit, 1);
+        backgroundPathLayout->addWidget(backgroundBrowse);
+        backgroundPathLayout->addWidget(m_backgroundClearButton);
+
+        m_backgroundAlignCombo = new QComboBox(interfacePage);
+        m_backgroundAlignCombo->addItem(tr("Top left"), QStringLiteral("topLeft"));
+        m_backgroundAlignCombo->addItem(tr("Top"), QStringLiteral("top"));
+        m_backgroundAlignCombo->addItem(tr("Top right"), QStringLiteral("topRight"));
+        m_backgroundAlignCombo->addItem(tr("Left"), QStringLiteral("left"));
+        m_backgroundAlignCombo->addItem(tr("Center"), QStringLiteral("center"));
+        m_backgroundAlignCombo->addItem(tr("Right"), QStringLiteral("right"));
+        m_backgroundAlignCombo->addItem(tr("Bottom left"), QStringLiteral("bottomLeft"));
+        m_backgroundAlignCombo->addItem(tr("Bottom"), QStringLiteral("bottom"));
+        m_backgroundAlignCombo->addItem(tr("Bottom right"), QStringLiteral("bottomRight"));
+        const int backgroundAlignIndex = m_backgroundAlignCombo->findData(
+            settings.backgroundImageAlignment());
+        m_backgroundAlignCombo->setCurrentIndex(
+            backgroundAlignIndex >= 0 ? backgroundAlignIndex
+                                      : m_backgroundAlignCombo->count() - 1);
+
+        const QSize backgroundSize = settings.backgroundImageSize();
+        m_backgroundWidthSpin = new QSpinBox(interfacePage);
+        m_backgroundWidthSpin->setRange(0, 8192);
+        m_backgroundWidthSpin->setSpecialValueText(tr("Auto"));
+        m_backgroundWidthSpin->setSuffix(tr(" px"));
+        m_backgroundWidthSpin->setValue(backgroundSize.width());
+        m_backgroundHeightSpin = new QSpinBox(interfacePage);
+        m_backgroundHeightSpin->setRange(0, 8192);
+        m_backgroundHeightSpin->setSpecialValueText(tr("Auto"));
+        m_backgroundHeightSpin->setSuffix(tr(" px"));
+        m_backgroundHeightSpin->setValue(backgroundSize.height());
+        auto *backgroundSizeLayout = new QHBoxLayout;
+        backgroundSizeLayout->setSpacing(6);
+        backgroundSizeLayout->addWidget(m_backgroundWidthSpin);
+        backgroundSizeLayout->addWidget(new QLabel(QStringLiteral("×"),
+                                                   interfacePage));
+        backgroundSizeLayout->addWidget(m_backgroundHeightSpin);
+        backgroundSizeLayout->addStretch(1);
+
+        m_backgroundOpacitySpin = new QSpinBox(interfacePage);
+        m_backgroundOpacitySpin->setRange(0, 100);
+        m_backgroundOpacitySpin->setSuffix(QStringLiteral(" %"));
+        m_backgroundOpacitySpin->setValue(
+            qRound(settings.backgroundImageOpacity() * 100.0));
+
+        auto *backgroundGroup = new QGroupBox(tr("Background image (classic)"),
+                                              interfacePage);
+        auto *backgroundForm = new QFormLayout(backgroundGroup);
+        backgroundForm->setHorizontalSpacing(12);
+        backgroundForm->setVerticalSpacing(8);
+        backgroundForm->addRow(tr("Background &image:"), backgroundPathLayout);
+        backgroundForm->addRow(tr("Image &alignment:"), m_backgroundAlignCombo);
+        backgroundForm->addRow(tr("Image &size:"), backgroundSizeLayout);
+        backgroundForm->addRow(tr("Image &opacity:"), m_backgroundOpacitySpin);
+
+        connect(m_backgroundPathEdit, &QLineEdit::textChanged, this,
+                [this](const QString &) { updateBackgroundControls(); });
+        connect(backgroundBrowse, &QPushButton::clicked, this, [this]() {
+            const QString path = QFileDialog::getOpenFileName(
+                this, tr("Select Background Image"),
+                m_backgroundPathEdit->text(),
+                tr("PNG images (*.png);;All images (*.png *.jpg *.jpeg *.bmp "
+                   "*.gif *.webp);;All files (*)"));
+            if (!path.isEmpty()) {
+                m_backgroundPathEdit->setText(path);
+            }
+        });
+        connect(m_backgroundClearButton, &QPushButton::clicked, this,
+                [this]() { m_backgroundPathEdit->clear(); });
+        updateBackgroundControls();
+
+        interfaceLayout->addWidget(layoutGroup);
+        interfaceLayout->addWidget(recentGroup);
+        interfaceLayout->addWidget(backgroundGroup);
+        interfaceLayout->addStretch(1);
+    }
+
+    // --- Tools -----------------------------------------------------------
+    {
+        auto *intro = hintLabel(
+            tr("The 7-Zip benchmark measures compression and decompression "
+               "throughput using the same engine that handles your archives. "
+               "It is a quick way to check CPU performance and thermal "
+               "throttling; no archive data is modified."), toolsPage);
+
+        auto *benchmarkButton = new QPushButton(
+            QIcon(QStringLiteral(":/modern/toolbox.png")),
+            tr("Run 7-Zip Benchmark..."), toolsPage);
+        benchmarkButton->setIconSize(QSize(18, 18));
+        const QString toolPath = SevenZipTool::resolvePath();
+        benchmarkButton->setEnabled(!toolPath.isEmpty());
+        connect(benchmarkButton, &QPushButton::clicked, this, [this]() {
+            BenchmarkDialog dialog(this);
+            dialog.exec();
+        });
+
+        auto *pathLabel = new QLabel(
+            toolPath.isEmpty()
+                ? tr("7-Zip helper: not found. Install 7-Zip or place the bundled "
+                     "helper in the '7zip' directory next to the application.")
+                : tr("7-Zip helper: %1").arg(toolPath),
+            toolsPage);
+        pathLabel->setWordWrap(true);
+        pathLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        pathLabel->setObjectName(QStringLiteral("ModernDetailsValue"));
+
+        auto *toolsGroup = new QGroupBox(tr("Benchmark"), toolsPage);
+        auto *toolsGroupLayout = new QVBoxLayout(toolsGroup);
+        toolsGroupLayout->setSpacing(10);
+        toolsGroupLayout->addWidget(intro);
+        toolsGroupLayout->addWidget(benchmarkButton, 0, Qt::AlignLeft);
+        toolsGroupLayout->addWidget(pathLabel);
+
+        auto *note = hintLabel(
+            tr("The classic layout and the modern layout share the same "
+               "archive engine and settings. Switch layouts at any time under "
+               "Interface."), toolsPage);
+
+        toolsLayout->addWidget(toolsGroup);
+        toolsLayout->addWidget(note);
+        toolsLayout->addStretch(1);
+    }
+
+    tabs->addTab(generalPage, tr("General"));
+    tabs->addTab(extractPage, tr("Extract"));
+    tabs->addTab(interfacePage, tr("Interface"));
+    tabs->addTab(toolsPage, tr("Tools"));
+
+    auto *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     buttons->setCenterButtons(false);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
         ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
@@ -266,23 +491,66 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         cancel->setIconSize(QSize(16, 16));
         cancel->setMinimumWidth(75);
     }
-    connect(buttons, &QDialogButtonBox::accepted, this, &PreferencesDialog::saveSettings);
+    connect(buttons, &QDialogButtonBox::accepted,
+            this, &PreferencesDialog::saveSettings);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(10, 10, 10, 10);
     layout->setSpacing(8);
-    layout->addLayout(form);
+    layout->addWidget(tabs, 1);
     layout->addWidget(buttons);
+}
+
+void PreferencesDialog::updateOneClickControls()
+{
+    const bool custom = m_oneClickDestModeCombo
+        && m_oneClickDestModeCombo->currentData().toString()
+            == QStringLiteral("custom");
+    if (m_oneClickDestEdit) {
+        m_oneClickDestEdit->setEnabled(custom);
+    }
+    if (m_oneClickBrowseButton) {
+        m_oneClickBrowseButton->setEnabled(custom);
+    }
+}
+
+void PreferencesDialog::updateBackgroundControls()
+{
+    const bool hasImage = m_backgroundPathEdit
+        && !m_backgroundPathEdit->text().trimmed().isEmpty();
+    if (m_backgroundClearButton) {
+        m_backgroundClearButton->setEnabled(hasImage);
+    }
+    if (m_backgroundAlignCombo) {
+        m_backgroundAlignCombo->setEnabled(hasImage);
+    }
+    if (m_backgroundWidthSpin) {
+        m_backgroundWidthSpin->setEnabled(hasImage);
+    }
+    if (m_backgroundHeightSpin) {
+        m_backgroundHeightSpin->setEnabled(hasImage);
+    }
+    if (m_backgroundOpacitySpin) {
+        m_backgroundOpacitySpin->setEnabled(hasImage);
+    }
 }
 
 void PreferencesDialog::saveSettings()
 {
     auto &s = AppSettings::instance();
-    s.setDefaultCompressFormat(static_cast<ArchiveFormat>(m_defaultFormatCombo->currentData().toInt()));
+
+    // Layout first: ThemeManager::applyTheme() reads it to choose the modern or
+    // Aero style sheet.
+    // 先保存布局：ThemeManager::applyTheme() 会据此选择现代或 Aero 样式表。
+    s.setUiLayoutMode(m_layoutModeCombo->currentData().toString());
+
+    s.setDefaultCompressFormat(
+        static_cast<ArchiveFormat>(m_defaultFormatCombo->currentData().toInt()));
     s.setDefaultCompressionLevel(m_defaultLevelSpin->value());
-    s.setOverwritePolicy(static_cast<OverwritePolicy>(m_overwriteCombo->currentData().toInt()));
+    s.setOverwritePolicy(
+        static_cast<OverwritePolicy>(m_overwriteCombo->currentData().toInt()));
     s.setPreservePaths(m_preservePathsCheck->isChecked());
     s.setOpenDestAfterFinish(m_openAfterCheck->isChecked());
     s.setMaxPreviewSize(qint64(m_maxPreviewSpin->value()) * 1024 * 1024);
@@ -297,6 +565,19 @@ void PreferencesDialog::saveSettings()
     s.setToolButtonStyle(m_toolbarStyleCombo->currentData().toString());
     s.setShowRecentFiles(m_showRecentFilesCheck->isChecked());
     s.setRecentFilesLimit(m_recentFilesLimitSpin->value());
+
+    const QString oldDestMode = s.oneClickExtractDestMode();
+    const bool oldCloseAfter = s.oneClickCloseAfterExtract();
+    s.setOneClickExtractDestMode(m_oneClickDestModeCombo->currentData().toString());
+    s.setOneClickExtractDest(m_oneClickDestEdit->text().trimmed());
+    s.setOneClickCloseAfterExtract(m_oneClickCloseCheck->isChecked());
+    if (s.oneClickExtractDestMode() != oldDestMode
+        || s.oneClickCloseAfterExtract() != oldCloseAfter) {
+        // An explicit preference change replaces the first-use prompt.
+        // 用户显式修改设置后不再弹出首次提示。
+        s.setOneClickCloseAsked(true);
+    }
+
     s.setBackgroundImageOptions(
         m_backgroundPathEdit->text().trimmed(),
         m_backgroundAlignCombo->currentData().toString(),

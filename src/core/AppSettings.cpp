@@ -133,11 +133,43 @@ QString AppSettings::theme() const
     return value(QStringLiteral("ui/theme"), QStringLiteral("system")).toString();
 }
 
+QString AppSettings::uiLayoutMode() const
+{
+    const QString mode = value(QStringLiteral("ui/layoutMode"),
+                               QStringLiteral("modern")).toString();
+    return mode == QStringLiteral("classic") ? mode : QStringLiteral("modern");
+}
+
+QString AppSettings::oneClickExtractDestMode() const
+{
+    const QString mode = value(QStringLiteral("extract/oneClickDestMode"),
+                               QStringLiteral("archive")).toString();
+    return mode == QStringLiteral("custom") ? mode : QStringLiteral("archive");
+}
+
+QString AppSettings::oneClickExtractDest() const
+{
+    return value(QStringLiteral("extract/oneClickDest"), QString()).toString();
+}
+
+bool AppSettings::oneClickCloseAfterExtract() const
+{
+    return value(QStringLiteral("extract/oneClickCloseAfter"), false).toBool();
+}
+
+bool AppSettings::oneClickCloseAsked() const
+{
+    return value(QStringLiteral("extract/oneClickCloseAsked"), false).toBool();
+}
+
 QString AppSettings::contentViewMode() const
 {
     const QString mode = value(QStringLiteral("ui/contentViewMode"),
-                               QStringLiteral("tree")).toString();
-    return mode == QStringLiteral("list") ? mode : QStringLiteral("tree");
+                               QStringLiteral("grid")).toString();
+    if (mode == QStringLiteral("list") || mode == QStringLiteral("tree")) {
+        return mode;
+    }
+    return QStringLiteral("grid");
 }
 
 QString AppSettings::toolButtonStyle() const
@@ -264,10 +296,39 @@ void AppSettings::setTheme(const QString &theme)
     setValue(QStringLiteral("ui/theme"), theme);
 }
 
+void AppSettings::setUiLayoutMode(const QString &mode)
+{
+    setValue(QStringLiteral("ui/layoutMode"),
+             mode == QStringLiteral("classic") ? mode : QStringLiteral("modern"));
+}
+
+void AppSettings::setOneClickExtractDestMode(const QString &mode)
+{
+    setValue(QStringLiteral("extract/oneClickDestMode"),
+             mode == QStringLiteral("custom") ? mode : QStringLiteral("archive"));
+}
+
+void AppSettings::setOneClickExtractDest(const QString &path)
+{
+    setValue(QStringLiteral("extract/oneClickDest"), path);
+}
+
+void AppSettings::setOneClickCloseAfterExtract(bool closeAfter)
+{
+    setValue(QStringLiteral("extract/oneClickCloseAfter"), closeAfter);
+}
+
+void AppSettings::setOneClickCloseAsked(bool asked)
+{
+    setValue(QStringLiteral("extract/oneClickCloseAsked"), asked);
+}
+
 void AppSettings::setContentViewMode(const QString &mode)
 {
-    setValue(QStringLiteral("ui/contentViewMode"),
-             mode == QStringLiteral("list") ? mode : QStringLiteral("tree"));
+    const QString normalized =
+        (mode == QStringLiteral("list") || mode == QStringLiteral("tree"))
+        ? mode : QStringLiteral("grid");
+    setValue(QStringLiteral("ui/contentViewMode"), normalized);
 }
 
 void AppSettings::setToolButtonStyle(const QString &style)

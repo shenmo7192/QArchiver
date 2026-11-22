@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+# Debian build rules for QArchiver.
+# QArchiver 的 Debian 构建规则。
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DQARCHIVER_USE_LIBARCHIVE=ON \
+		-DBUILD_TESTING=OFF
+
+override_dh_auto_test:
+	# The upstream test suite needs Qt6::Test and a 7-Zip helper; Debian
+	# builds run it in CI instead of during the package build.
+	# 上游测试需要 Qt6::Test 与 7-Zip 辅助程序；Debian 打包在 CI 中运行，
+	# 不在软件包构建阶段执行。
+
+override_dh_auto_install:
+	dh_auto_install --destdir=debian/qarchiver
+	# Installation puts the bundled 7-Zip helper under libexec; keep the
+	# standard Debian lintian override for the extra executable.

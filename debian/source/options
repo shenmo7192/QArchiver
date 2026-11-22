@@ -1,0 +1,7 @@
+# Exclude local build trees from native source packages.
+# 从 native 源码包中排除本地构建目录。
+tar-ignore = build
+tar-ignore = build-windows
+tar-ignore = build-windows-host-qt
+tar-ignore = obj-*
+tar-ignore = .git

@@ -46,6 +46,13 @@ qt_add_lrelease(QArchiver
     QM_FILES_OUTPUT_VARIABLE _qarchiver_qm_files
 )
 
+# rcc embeds the generated .qm files, so lrelease must finish before the
+# application target (and its resource compilation) starts.  Without this,
+# parallel clean builds could embed empty 0-byte catalogs.
+# rcc 会嵌入生成的 .qm 文件，因此 lrelease 必须先于应用目标（及其资源编译）
+# 完成。否则并行全新构建可能嵌入 0 字节的空翻译目录。
+add_dependencies(QArchiver QArchiver_lrelease)
+
 # BASE is the translations build directory, so each alias is just "<lang>.qm"
 # and the resulting paths are exactly :/translations/zh_CN.qm and
 # :/translations/en.qm on every supported Qt version.
@@ -56,3 +63,12 @@ qt_add_resources(QArchiver "QArchiver_translations"
     BASE "${CMAKE_CURRENT_BINARY_DIR}"
     FILES ${_qarchiver_qm_files}
 )
+
+# The generated qrc is compiled by a separate object target.  Make that target
+# wait for lrelease too, otherwise rcc can read 0-byte .qm files in a clean
+# parallel build even though QArchiver itself depends on QArchiver_lrelease.
+# 生成的 qrc 由独立对象目标编译；该目标也必须等待 lrelease，否则并行全新构建
+# 时 rcc 可能读到 0 字节 .qm（即使 QArchiver 已依赖 QArchiver_lrelease）。
+if(TARGET QArchiver_QArchiver_translations)
+    add_dependencies(QArchiver_QArchiver_translations QArchiver_lrelease)
+endif()

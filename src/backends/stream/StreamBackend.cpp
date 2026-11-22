@@ -222,10 +222,91 @@ void StreamBackend::extract(const ExtractOptions &options)
     emit operationFinished(true, tr("Decompression completed"));
 }
 
-void StreamBackend::compress(const CompressOptions &)
+void StreamBackend::compress(const CompressOptions &options)
 {
-    emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
-                       tr("Creating pure compression streams is not supported"));
+    QString typeFlag;
+    switch (m_format) {
+    case ArchiveFormat::Gzip:  typeFlag = QStringLiteral("-tgzip"); break;
+    case ArchiveFormat::Bzip2: typeFlag = QStringLiteral("-tbzip2"); break;
+    case ArchiveFormat::Xz:    typeFlag = QStringLiteral("-txz"); break;
+    default:
+        emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
+                           tr("This format cannot be created here"));
+        return;
+    }
+
+    if (options.sourceFiles.size() != 1) {
+        emit errorOccurred(
+            ArchiveErrorCode::OperationNotSupported,
+            tr("A pure compression stream can contain exactly one file."));
+        return;
+    }
+    const QFileInfo sourceInfo(options.sourceFiles.first());
+    if (!sourceInfo.exists() || sourceInfo.isDir()) {
+        emit errorOccurred(
+            ArchiveErrorCode::OperationNotSupported,
+            tr("Select exactly one regular file for .gz / .bz2 / .xz streams."));
+        return;
+    }
+    if (options.archivePath.trimmed().isEmpty()) {
+        emit errorOccurred(ArchiveErrorCode::Unknown,
+                           tr("No archive name specified"));
+        return;
+    }
+
+    const QString sevenZip = sevenZipPath();
+    if (sevenZip.isEmpty()) {
+        emit errorOccurred(ArchiveErrorCode::ToolNotFound,
+                           tr("7z tool not found"));
+        return;
+    }
+
+    QStringList args;
+    args << QStringLiteral("a") << typeFlag << QStringLiteral("-y")
+         << QStringLiteral("-sccUTF-8");
+    const int level = qBound(0, options.compressionLevel, 9);
+    args << QStringLiteral("-mx=%1").arg(level);
+    args << QStringLiteral("--") << options.archivePath
+         << sourceInfo.absoluteFilePath();
+
+    LOG_DEBUG("StreamBackend", "Compress: %s",
+              ProcessRunner::maskedCommand(sevenZip, args).toUtf8().constData());
+
+    emit progressChanged(0, 100, 0, -1);
+    const ProcessResult result = ProcessRunner::run(
+        sevenZip, args, QString(), QProcessEnvironment(),
+        QString(), 0, &m_cancelRequested,
+        [this](const QString &line, bool isError) {
+            if (!isError && !line.isEmpty()) {
+                emit outputReady(line);
+                emit progressChanged(50, 100, 50, -1);
+            }
+        });
+
+    if (result.cancelled) {
+        emit errorOccurred(ArchiveErrorCode::Cancelled,
+                           tr("Operation cancelled"));
+        return;
+    }
+    if (!result.started) {
+        emit errorOccurred(ArchiveErrorCode::ToolNotFound,
+                           tr("Failed to start 7z"));
+        return;
+    }
+    if (!result.success()) {
+        emit errorOccurred(
+            ArchiveErrorCode::Unknown,
+            tr("Compression failed: %1").arg(result.stdErr.trimmed()));
+        return;
+    }
+    if (!QFileInfo::exists(options.archivePath)) {
+        emit errorOccurred(ArchiveErrorCode::Unknown,
+                           tr("Compression did not produce an output file"));
+        return;
+    }
+
+    emit progressChanged(100, 100, 100, -1);
+    emit operationFinished(true, tr("Compression completed"));
 }
 
 void StreamBackend::addFiles(const AddFilesOptions &)

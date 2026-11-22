@@ -10,6 +10,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QPushButton>
+#include <QSpinBox>
+#include <QPlainTextEdit>
 #include <QSettings>
 
 #include "core/AppSettings.h"
@@ -18,6 +20,7 @@
 #include "ui/FileListModel.h"
 #include "ui/dialogs/PasswordDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
+#include "ui/dialogs/BenchmarkDialog.h"
 
 // The preferences dialog is the only place where the libarchive switch is
 // exposed, so the wiring between the checkbox and AppSettings is tested here.
@@ -34,6 +37,8 @@ private slots:
     void passwordDialogUsesRememberSetting();
     void configurableLimitsAreClamped();
     void recentFilesLimitTrimsImmediately();
+    void newUiSettingsRoundTrip();
+    void benchmarkDialogBuilds();
     void listModeDirectoryIndexPreservesEntries();
 
 private:
@@ -252,6 +257,61 @@ void TestPreferences::recentFilesLimitTrimsImmediately()
     QCOMPARE(settings.recentFiles().size(), 1);
     QCOMPARE(changedSpy.count(), 1);
     QCOMPARE(recent.list().size(), 1);
+}
+
+// Modern/classic layout and one-click settings have stable values.
+// 现代/经典布局与一键解压设置具有稳定的取值。
+void TestPreferences::newUiSettingsRoundTrip()
+{
+    AppSettings &settings = AppSettings::instance();
+    const QString savedLayout = settings.uiLayoutMode();
+    const QString savedDestMode = settings.oneClickExtractDestMode();
+    const QString savedDest = settings.oneClickExtractDest();
+    const bool savedClose = settings.oneClickCloseAfterExtract();
+    const bool savedAsked = settings.oneClickCloseAsked();
+    const QString savedViewMode = settings.contentViewMode();
+
+    settings.setUiLayoutMode(QStringLiteral("classic"));
+    QCOMPARE(settings.uiLayoutMode(), QStringLiteral("classic"));
+    settings.setUiLayoutMode(QStringLiteral("modern"));
+    QCOMPARE(settings.uiLayoutMode(), QStringLiteral("modern"));
+    settings.setUiLayoutMode(QStringLiteral("unsupported"));
+    QCOMPARE(settings.uiLayoutMode(), QStringLiteral("modern"));
+
+    settings.setOneClickExtractDestMode(QStringLiteral("custom"));
+    settings.setOneClickExtractDest(QStringLiteral("/tmp/one-click"));
+    settings.setOneClickCloseAfterExtract(true);
+    settings.setOneClickCloseAsked(true);
+    QCOMPARE(settings.oneClickExtractDestMode(), QStringLiteral("custom"));
+    QCOMPARE(settings.oneClickExtractDest(), QStringLiteral("/tmp/one-click"));
+    QVERIFY(settings.oneClickCloseAfterExtract());
+    QVERIFY(settings.oneClickCloseAsked());
+
+    settings.setContentViewMode(QStringLiteral("grid"));
+    QCOMPARE(settings.contentViewMode(), QStringLiteral("grid"));
+    settings.setContentViewMode(QStringLiteral("list"));
+    QCOMPARE(settings.contentViewMode(), QStringLiteral("list"));
+    settings.setContentViewMode(QStringLiteral("tree"));
+    QCOMPARE(settings.contentViewMode(), QStringLiteral("tree"));
+    settings.setContentViewMode(QStringLiteral("unsupported"));
+    QCOMPARE(settings.contentViewMode(), QStringLiteral("grid"));
+
+    settings.setOneClickExtractDestMode(QStringLiteral("archive"));
+    settings.setOneClickExtractDest(savedDest);
+    settings.setOneClickCloseAfterExtract(savedClose);
+    settings.setOneClickCloseAsked(savedAsked);
+    settings.setUiLayoutMode(savedLayout);
+    settings.setContentViewMode(savedViewMode);
+}
+
+// The benchmark dialog can be created without a display and exposes its
+// thread-count control.
+// 性能测试对话框可在无显示环境下创建，并包含线程数控件。
+void TestPreferences::benchmarkDialogBuilds()
+{
+    BenchmarkDialog dialog;
+    QVERIFY(dialog.findChild<QSpinBox *>() != nullptr);
+    QVERIFY(dialog.findChild<QPlainTextEdit *>() != nullptr);
 }
 
 // List mode uses the directory index: implicit parents, duplicates and the

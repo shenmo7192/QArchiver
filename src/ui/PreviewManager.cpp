@@ -372,8 +372,7 @@ void PreviewManager::cleanupStale()
     for (const QString &entry : entries) {
         bool ok = false;
         const qint64 pid = entry.toLongLong(&ok);
-        if (ok && pid > 0
-            && !QFileInfo::exists(QStringLiteral("/proc/%1").arg(pid))) {
+        if (ok && pid > 0 && !FileUtils::isProcessRunning(pid)) {
             QDir(root.absoluteFilePath(entry)).removeRecursively();
             LOG_DEBUG("PreviewManager", "Removed stale preview dir for PID %lld", pid);
         }

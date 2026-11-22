@@ -76,6 +76,12 @@ public:
     QString currentPath() const { return m_archivePath; }
     // Current format / 当前格式
     ArchiveFormat currentFormat() const { return m_format; }
+    // Whether add/delete can be performed now.  A read-only libarchive
+    // backend is transparently reopened with the CLI backend for zip/7z/plain
+    // tar, so this can be true even when backend()->supportsAppend() is false.
+    // 当前是否可以添加/删除。zip/7z/未压缩 tar 的只读 libarchive 后端会透明地用
+    // 命令行后端重新打开，因此即使 backend()->supportsAppend() 为 false 也可能为真。
+    bool canModifyCurrentArchive() const;
     // Last listed entries (empty before listing) / 最近一次列表结果（列表前为空）
     QList<ArchiveEntry> entries() const { return m_entries; }
 
@@ -138,6 +144,14 @@ private:
 
     void cleanupTempBackend();
     void cleanupCompressSession();
+
+    // libarchive is read-only.  Add/delete on a zip/7z/plain-tar archive is
+    // transparently re-dispatched after reopening the same archive with the
+    // command-line backend, so the modern 添加/删除 buttons keep working.
+    // libarchive 是只读后端。对 zip/7z/未压缩 tar 的添加/删除会先用命令行后端
+    // 重新打开同一压缩包，再重放操作，使现代界面的“添加/删除”按钮可用。
+    bool canReopenForWrite() const;
+    void clearWriteAfterReopen();
     bool promoteCompressedArchive();
     void removeFailedCompressOutput();
 
@@ -160,6 +174,9 @@ private:
     bool m_usingLibArchive = false;
     bool m_fallbackDone = false;
     bool m_fallbackInProgress = false;
+    bool m_forceCliForOpen = false;
+    std::variant<std::monostate, AddFilesOptions, DeleteFilesOptions>
+        m_writeAfterReopen;
 
     // Password retry state. The variant holds the operation that needs a
     // password; std::monostate means there is no pending retry.

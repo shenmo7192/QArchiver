@@ -209,14 +209,19 @@ void ArchiveTreeView::drawBranches(QPainter *painter, const QRect &rect,
     }
 
     const bool dark = qApp->property("aeroDark").toBool();
-    const AeroRowColors colors = selected
-        ? aeroSelectedRowColors(dark, isActiveWindow())
-        : aeroHoverRowColors(dark);
+    const bool modern = qApp->property("modernUi").toBool();
+    const AeroRowColors colors = modern
+        ? (selected ? modernSelectedRowColors(dark, isActiveWindow())
+                    : modernHoverRowColors(dark))
+        : (selected ? aeroSelectedRowColors(dark, isActiveWindow())
+                    : aeroHoverRowColors(dark));
 
     painter->save();
     painter->fillRect(rect, aeroRowGradient(rect, colors));
-    painter->setPen(colors.border);
-    painter->drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom());
+    if (!modern) {
+        painter->setPen(colors.border);
+        painter->drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom());
+    }
 
     if (model() && model()->hasChildren(index)) {
         static const QPixmap openLight(QStringLiteral(":/styles/branch-open.png"));

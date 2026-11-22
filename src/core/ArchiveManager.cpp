@@ -285,6 +285,55 @@ void ArchiveManager::connectBackend(ArchiveBackend *backend, quint64 generation)
                     if (old && old != backend) {
                         destroyBackend(old);
                     }
+
+                    // A read-only libarchive backend was reopened with the CLI
+                    // to replay add/delete.  Dispatch that write now; the UI is
+                    // still showing its progress dialog and will reload the list
+                    // when operationFinished arrives.
+                    // 为执行添加/删除而用命令行后端重新打开了只读的 libarchive
+                    // 后端。现在派发该写操作；界面仍显示进度对话框，并在
+                    // operationFinished 后重新列出内容。
+                    if (!std::holds_alternative<std::monostate>(
+                            m_writeAfterReopen)) {
+                        auto write = std::move(m_writeAfterReopen);
+                        m_writeAfterReopen = std::monostate{};
+                        m_busy = true;
+                        backend->clearCancel();
+                        const bool invoked = std::visit(
+                            Overloaded{
+                                [this, backend](const AddFilesOptions &options) {
+                                    m_pending = options;
+                                    m_retryCount = 0;
+                                    return QMetaObject::invokeMethod(
+                                        backend,
+                                        [backend, options]() {
+                                            backend->addFiles(options);
+                                        },
+                                        Qt::QueuedConnection);
+                                },
+                                [this, backend](const DeleteFilesOptions &options) {
+                                    m_pending = options;
+                                    m_retryCount = 0;
+                                    return QMetaObject::invokeMethod(
+                                        backend,
+                                        [backend, options]() {
+                                            backend->deleteFiles(options);
+                                        },
+                                        Qt::QueuedConnection);
+                                },
+                                [](const std::monostate &) { return false; },
+                            },
+                            write);
+                        if (!invoked) {
+                            m_busy = false;
+                            clearPendingState();
+                            emit errorOccurred(
+                                ArchiveErrorCode::Unknown,
+                                tr("Failed to dispatch the archive operation"));
+                        }
+                        return;
+                    }
+
                     RecentFilesManager::instance().add(filePath);
                     emit archiveOpened(filePath);
                     return;
@@ -443,18 +492,23 @@ void ArchiveManager::finishOpen(const QString &filePath, ArchiveFormat format)
         m_openingPath.clear();
         m_openingFormat = ArchiveFormat::Unknown;
         m_busy = false;
+        clearWriteAfterReopen();
         emit errorOccurred(ArchiveErrorCode::UnsupportedFormat,
                            tr("Unrecognized archive format or file is corrupted: %1")
                                .arg(filePath));
         return;
     }
 
-    ArchiveBackend *backend = createReadBackend(format, filePath);
+    ArchiveBackend *backend = m_forceCliForOpen
+        ? createBackend(format)
+        : createReadBackend(format, filePath);
+    m_forceCliForOpen = false;
     if (!backend) {
         m_opening = false;
         m_openingPath.clear();
         m_openingFormat = ArchiveFormat::Unknown;
         m_busy = false;
+        clearWriteAfterReopen();
         emit errorOccurred(ArchiveErrorCode::UnsupportedFormat,
                            tr("No backend available for format: %1")
                                .arg(formatToString(format)));
@@ -478,6 +532,7 @@ void ArchiveManager::finishOpen(const QString &filePath, ArchiveFormat format)
         m_openingPath.clear();
         m_openingFormat = ArchiveFormat::Unknown;
         m_busy = false;
+        clearWriteAfterReopen();
         ArchiveBackend *failed = m_openingBackend;
         m_openingBackend = nullptr;
         destroyBackend(failed);
@@ -785,6 +840,15 @@ void ArchiveManager::addFiles(const AddFilesOptions &options)
         return;
     }
     if (!m_backend->supportsAppend()) {
+        if (canReopenForWrite()) {
+            LOG_INFO("ArchiveManager",
+                     "Add files requested on a read-only backend; reopening %s with the CLI backend",
+                     m_archivePath.toUtf8().constData());
+            m_writeAfterReopen = options;
+            m_forceCliForOpen = true;
+            openArchive(m_archivePath);
+            return;
+        }
         emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
                            tr("This archive does not support adding files"));
         return;
@@ -807,6 +871,15 @@ void ArchiveManager::deleteFiles(const DeleteFilesOptions &options)
         return;
     }
     if (!m_backend->supportsAppend()) {
+        if (canReopenForWrite()) {
+            LOG_INFO("ArchiveManager",
+                     "Delete files requested on a read-only backend; reopening %s with the CLI backend",
+                     m_archivePath.toUtf8().constData());
+            m_writeAfterReopen = options;
+            m_forceCliForOpen = true;
+            openArchive(m_archivePath);
+            return;
+        }
         emit errorOccurred(ArchiveErrorCode::OperationNotSupported,
                            tr("This archive does not support deleting files"));
         return;
@@ -908,6 +981,9 @@ void ArchiveManager::cancelCurrentOperation()
     if (m_backend) {
         m_backend->requestCancel();
     }
+    if (m_openingBackend) {
+        m_openingBackend->requestCancel();
+    }
     if (m_tempBackend) {
         m_tempBackend->requestCancel();
     }
@@ -920,6 +996,31 @@ void ArchiveManager::cancelPendingOperation()
     m_preTestExtractOptions = ExtractOptions{};
     m_busy = false;
     emit operationFinished(false, tr("Cancelled"));
+}
+
+bool ArchiveManager::canModifyCurrentArchive() const
+{
+    return m_backend
+        && (m_backend->supportsAppend() || canReopenForWrite());
+}
+
+bool ArchiveManager::canReopenForWrite() const
+{
+    if (m_usingLibArchive == false || m_archivePath.isEmpty()) {
+        return false;
+    }
+    if (MimeTypeHelper::isSplitVolume(m_archivePath)) {
+        return false;
+    }
+    return m_format == ArchiveFormat::Zip
+        || m_format == ArchiveFormat::SevenZip
+        || m_format == ArchiveFormat::Tar;
+}
+
+void ArchiveManager::clearWriteAfterReopen()
+{
+    m_writeAfterReopen = std::monostate{};
+    m_forceCliForOpen = false;
 }
 
 void ArchiveManager::handleTerminal(ArchiveBackend *backend, bool success,
@@ -1079,6 +1180,7 @@ void ArchiveManager::handleError(ArchiveBackend *backend, ArchiveErrorCode code,
         m_opening = false;
         m_openingPath.clear();
         m_openingFormat = ArchiveFormat::Unknown;
+        clearWriteAfterReopen();
         disconnect(backend, nullptr, this, nullptr);
         destroyBackend(backend);
         emit errorOccurred(code, msg);
@@ -1121,6 +1223,7 @@ void ArchiveManager::closeArchive()
     m_usingLibArchive = false;
     m_fallbackDone = false;
     m_fallbackInProgress = false;
+    clearWriteAfterReopen();
 
     ArchiveBackend *opening = m_openingBackend;
     m_openingBackend = nullptr;

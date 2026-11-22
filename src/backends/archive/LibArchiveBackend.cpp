@@ -11,6 +11,7 @@
 #include <QSet>
 
 #include <memory>
+#include <string>
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -151,6 +152,30 @@ bool isUnderSkipped(const QString &path, const QSet<QString> &skipped)
     }
     return false;
 }
+
+#ifdef Q_OS_WIN
+#ifndef SYMBOLIC_LINK_FLAG_DIRECTORY
+#define SYMBOLIC_LINK_FLAG_DIRECTORY 0x1
+#endif
+#ifndef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
+#define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
+#endif
+
+bool createSymbolicLink(const QString &target, const QString &linkPath)
+{
+    QFile::remove(linkPath);
+    const QString nativeLink = QDir::toNativeSeparators(linkPath);
+    const QString nativeTarget = QDir::toNativeSeparators(target);
+    const std::wstring linkW = nativeLink.toStdWString();
+    const std::wstring targetW = nativeTarget.toStdWString();
+    const DWORD flags = SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+    if (CreateSymbolicLinkW(linkW.c_str(), targetW.c_str(), flags) != 0) {
+        return true;
+    }
+    return CreateSymbolicLinkW(linkW.c_str(), targetW.c_str(),
+                               flags | SYMBOLIC_LINK_FLAG_DIRECTORY) != 0;
+}
+#endif
 
 bool createHardLink(const QString &target, const QString &linkPath)
 {
@@ -488,7 +513,12 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
                                    tr("Blocked unsafe symbolic link: %1").arg(relative));
                 return;
             }
-            if (!QFile::link(target, outPath)) {
+#ifdef Q_OS_WIN
+            const bool linkCreated = createSymbolicLink(target, outPath);
+#else
+            const bool linkCreated = QFile::link(target, outPath);
+#endif
+            if (!linkCreated) {
                 FileUtils::removeDirectoryRecursively(tempDir);
                 emit errorOccurred(ArchiveErrorCode::PermissionDenied,
                                    tr("Cannot create symbolic link: %1").arg(outPath));

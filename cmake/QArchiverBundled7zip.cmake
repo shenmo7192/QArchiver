@@ -24,22 +24,20 @@ function(qarchiver_select_bundled_7zip)
     endif()
 
     if(WIN32)
-        if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        if(QARCHIVER_WINDOWS_ARCH STREQUAL "arm64")
+            set(_7z_arch "arm64")
+        elseif(QARCHIVER_WINDOWS_ARCH STREQUAL "x64")
+            set(_7z_arch "x64")
+        else()
             message(FATAL_ERROR
-                "The bundled 7-Zip helper is x64-only. Build QArchiver for x64, "
-                "or add third_party/7zip/win/x86 and extend "
-                "cmake/QArchiverBundled7zip.cmake.")
+                "The bundled 7-Zip helper is only available for Windows x64 "
+                "and ARM64. Add third_party/7zip/win/${QARCHIVER_WINDOWS_ARCH} "
+                "and extend cmake/QArchiverBundled7zip.cmake for other targets.")
         endif()
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
-            message(WARNING
-                "Only the x64 7-Zip helper is bundled; Windows ARM64 builds "
-                "will run it through x64 emulation. Add "
-                "third_party/7zip/win/arm64/7z.exe + 7z.dll for a native build.")
-        endif()
-        set(_7z_exe "${QARCHIVER_7ZIP_ROOT}/win/x64/7z.exe")
+        set(_7z_exe "${QARCHIVER_7ZIP_ROOT}/win/${_7z_arch}/7z.exe")
         set(_7z_files
             "${_7z_exe}"
-            "${QARCHIVER_7ZIP_ROOT}/win/x64/7z.dll"
+            "${QARCHIVER_7ZIP_ROOT}/win/${_7z_arch}/7z.dll"
         )
     elseif(APPLE)
         message(FATAL_ERROR

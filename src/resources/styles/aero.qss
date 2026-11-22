@@ -889,3 +889,68 @@ QGroupBox::title {
     left: 8px;
     padding: 0 3px;
 }
+
+/* Archive icon grid and view-mode switch */
+QListView#ArchiveGridView {
+    background: @base@;
+    border: none;
+}
+
+QListView#ArchiveGridView::item {
+    border-radius: 4px;
+    padding: 6px;
+    color: @text@;
+}
+
+QListView#ArchiveGridView::item:hover {
+    background: @listHover@;
+}
+
+QListView#ArchiveGridView::item:selected {
+    background: @selection@;
+    color: @selectionText@;
+}
+
+QToolButton#ViewModeButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 3px 8px;
+}
+
+QToolButton#ViewModeButton:hover {
+    background: @listHover@;
+    border-color: @hoverBorder@;
+}
+
+QToolButton#ViewModeButton:checked {
+    background: @selection@;
+    color: @selectionText@;
+    border-color: @focusBorder@;
+}
+
+QWidget#ModernViewSwitch {
+    background: @base@;
+    border: 1px solid @inputBorder@;
+    border-radius: 4px;
+}
+
+QToolButton#ModernNavViewButton {
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    padding: 3px;
+}
+
+QToolButton#ModernNavViewButton:hover {
+    background: @listHover@;
+}
+
+QToolButton#ModernNavViewButton:checked {
+    background: @selection@;
+}
+
+QLabel#ModernViewLabel {
+    color: @mutedText@;
+    padding: 0 2px 0 8px;
+}

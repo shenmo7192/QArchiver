@@ -23,8 +23,9 @@ QSize FileListViewDelegate::sizeHint(const QStyleOptionViewItem &option,
 {
     QSize size = QStyledItemDelegate::sizeHint(option, index);
     // Slightly taller rows for readability / 行高略增以提升可读性
-    if (size.height() < 24) {
-        size.setHeight(24);
+    const int minimumHeight = qApp->property("modernUi").toBool() ? 26 : 24;
+    if (size.height() < minimumHeight) {
+        size.setHeight(minimumHeight);
     }
     return size;
 }
@@ -37,15 +38,18 @@ void FileListViewDelegate::paint(QPainter *painter,
     initStyleOption(&opt, index);
 
     const bool dark = qApp->property("aeroDark").toBool();
+    const bool modern = qApp->property("modernUi").toBool();
     const auto *view = qobject_cast<const ArchiveTreeView *>(opt.widget);
     const bool selected = opt.state.testFlag(QStyle::State_Selected);
     const bool active = opt.state.testFlag(QStyle::State_Active);
     const bool hovered = view && view->isRowHovered(index);
 
     if (selected || hovered) {
-        const AeroRowColors colors = selected
-            ? aeroSelectedRowColors(dark, active)
-            : aeroHoverRowColors(dark);
+        const AeroRowColors colors = modern
+            ? (selected ? modernSelectedRowColors(dark, active)
+                        : modernHoverRowColors(dark))
+            : (selected ? aeroSelectedRowColors(dark, active)
+                        : aeroHoverRowColors(dark));
 
         QRect paintRect = opt.rect;
         // Extend the last column highlight to the right edge of the viewport,
@@ -60,9 +64,11 @@ void FileListViewDelegate::paint(QPainter *painter,
 
         painter->save();
         painter->fillRect(paintRect, aeroRowGradient(opt.rect, colors));
-        painter->setPen(colors.border);
-        painter->drawLine(paintRect.left(), paintRect.bottom(),
-                          paintRect.right(), paintRect.bottom());
+        if (!modern) {
+            painter->setPen(colors.border);
+            painter->drawLine(paintRect.left(), paintRect.bottom(),
+                              paintRect.right(), paintRect.bottom());
+        }
         painter->restore();
     }
 
@@ -83,7 +89,8 @@ void FileListViewDelegate::paint(QPainter *painter,
 
     // Windows 7 draws a dotted focus rectangle around the current item.
     // Windows 7 会在当前项周围绘制虚线焦点框。
-    if (opt.state.testFlag(QStyle::State_HasFocus)) {
+    if (opt.state.testFlag(QStyle::State_HasFocus)
+        && !qApp->property("modernUi").toBool()) {
         QPen focusPen(dark ? QColor(QStringLiteral("#d0e8ff"))
                            : QColor(QStringLiteral("#1a1a1a")));
         focusPen.setStyle(Qt::DotLine);

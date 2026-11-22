@@ -46,6 +46,11 @@ public:
     // 最近文件列表保留的最大条目数。范围 1..100。
     int recentFilesLimit() const;
     QString theme() const;
+    // UI layout: "modern" (HaoZip-style, default) or "classic" (previous
+    // toolbar + recent-files dock layout).
+    // 界面布局："modern"（好压风格，默认）或 "classic"（原有的工具栏与最近文件
+    // 停靠面板布局）。
+    QString uiLayoutMode() const;
     QString contentViewMode() const;   // "tree" or "list"
     QString toolButtonStyle() const;  // textUnderIcon/textBesideIcon/textOnly/iconOnly
     bool showRecentFiles() const;      // Show the recent-files sidebar
@@ -54,8 +59,18 @@ public:
     // The image path is empty when no background image is configured.
     // 压缩包内容后方的背景图片（设计文档 10.5）。
     // 未配置背景图片时路径为空。
+    // One-click extraction: destination root mode ("archive" = next to the
+    // archive, "custom" = oneClickExtractDest) and whether the application
+    // closes after a successful one-click extraction.
+    // 一键解压：目标根目录模式（"archive" = 压缩包所在目录，
+    // "custom" = oneClickExtractDest），以及成功后是否关闭程序。
+    QString oneClickExtractDestMode() const;
+    QString oneClickExtractDest() const;
+    bool oneClickCloseAfterExtract() const;
+    bool oneClickCloseAsked() const;
+
     QString backgroundImagePath() const;
-    QString backgroundImageAlignment() const;  // topLeft/top/.../bottomRight
+    QString backgroundImageAlignment() const;  // topLeft/.../bottomRight
     QSize backgroundImageSize() const;         // 0 x 0 = natural size
     qreal backgroundImageOpacity() const;      // 0.0 .. 1.0
     // Read archives with the libarchive backend instead of the command line.
@@ -77,10 +92,15 @@ public:
     void setRecentFiles(const QStringList &files);
     void setRecentFilesLimit(int limit);
     void setTheme(const QString &theme);
+    void setUiLayoutMode(const QString &mode);
     void setContentViewMode(const QString &mode);
     void setToolButtonStyle(const QString &style);
     void setShowRecentFiles(bool show);
     void setUseLibArchiveBackend(bool use);
+    void setOneClickExtractDestMode(const QString &mode);
+    void setOneClickExtractDest(const QString &path);
+    void setOneClickCloseAfterExtract(bool closeAfter);
+    void setOneClickCloseAsked(bool asked);
     void setBackgroundImagePath(const QString &path);
     void setBackgroundImageAlignment(const QString &alignment);
     void setBackgroundImageSize(const QSize &size);

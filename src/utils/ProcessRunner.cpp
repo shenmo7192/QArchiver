@@ -5,6 +5,7 @@
 #include "ProcessRunner.h"
 
 #include "EncodingDetector.h"
+#include "PlatformProcess.h"
 #include "SevenZipTool.h"
 
 #include <QDir>
@@ -194,6 +195,7 @@ ProcessResult ProcessRunner::run(const QString &program,
 
     QProcess proc;
     proc.setProcessChannelMode(QProcess::SeparateChannels);
+    qarchiverHideConsoleWindow(proc);
     if (!env.isEmpty()) {
         proc.setProcessEnvironment(env);
     }

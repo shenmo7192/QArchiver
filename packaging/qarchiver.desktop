@@ -9,5 +9,14 @@ Comment[zh_CN]=创建和解压 tar、zip、7z、rar、gz、bz2、xz 归档
 Exec=QArchiver %F
 Icon=qarchiver
 Terminal=false
-Categories=Utility;Archiver;
+StartupNotify=true
+StartupWMClass=QArchiver
+Categories=Utility;Archiving;
+Keywords=archive;compress;extract;zip;7z;rar;tar;压缩;解压;
 MimeType=application/x-7z-compressed;application/zip;application/x-tar;application/gzip;application/x-rar-compressed;application/x-xz;application/x-bzip2;
+Actions=OneClickExtract;
+
+[Desktop Action OneClickExtract]
+Name=One-click Extract
+Name[zh_CN]=一键解压
+Exec=QArchiver --oneclick %F

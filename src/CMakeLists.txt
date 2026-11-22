@@ -20,6 +20,10 @@ target_compile_definitions(QArchiver PRIVATE
     QARCHIVER_VERSION="${PROJECT_VERSION}"
 )
 
+# Windows icon, version resource, manifest and deployment rules.
+# Windows 图标、版本资源、清单与部署规则。
+qarchiver_add_windows_resources(QArchiver)
+
 target_include_directories(QArchiver PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core
@@ -56,6 +60,15 @@ qarchiver_bundle_7zip(QArchiver)
 install(TARGETS QArchiver
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+install(FILES
+    "${PROJECT_SOURCE_DIR}/README.md"
+    "${PROJECT_SOURCE_DIR}/CHANGELOG.md"
+    "${PROJECT_SOURCE_DIR}/LICENSE"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/qarchiver
+)
+
+qarchiver_configure_windows_deploy(QArchiver)
 
 # Install the bundled 7-Zip binaries and their license next to the app target.
 # 安装随程序分发的 7-Zip 二进制及其许可证。
