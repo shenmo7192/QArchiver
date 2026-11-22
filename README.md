@@ -1,5 +1,7 @@
 # QArchiver / 小Q解压
 
+[English](./README_en.md) | 中文
+
 基于 Qt 6 的图形化压缩包管理器：浏览、解压、创建、追加、删除、测试
 7z / zip / tar / gz / bz2 / xz / rar 归档。
 

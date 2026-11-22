@@ -1,0 +1,182 @@
+# QArchiver
+
+English | [中文](./README.md)
+
+A Qt 6–based graphical archive manager: browse, extract, create, append, delete, and test
+7z / zip / tar / gz / bz2 / xz / rar archives.
+
+## Features
+
+- Browse archive contents in tree or list view, with filtering and sorting
+- Extraction: all or selected entries, overwrite strategies (ask/overwrite/skip/rename), password, encoding hints
+- Compression: 7z / zip / tar / tar.gz / tar.bz2 / tar.xz; if `rar` is installed on the system, RAR and RAR volumes can also be created
+- Append and delete entries (7z / zip / tar families)
+- Integrity testing, with optional automatic test before extraction
+- In-archive single-file preview (text/images); images are pre-extracted together with other images in the same directory, supporting continuous viewing in the system viewer.
+  When the number of images in the same directory exceeds a configurable threshold (default 200, 0 means any batch), a cancellable preparation dialog is shown;
+  this threshold only controls whether the prompt appears and does not limit the total batch extraction size
+- Drag-out: drag selected entries directly to a file manager/desktop to extract them while preserving directory structure
+  (extraction happens in the background to a staging directory, cancellable with `Esc`; a second drag of the same selection is zero-latency)
+
+## Security and Reliability
+
+- Zip Slip path traversal protection; extraction first goes to a temporary directory and is then moved, with immediate cleanup of temporary content on failure
+- If only some files succeed during the move phase of extraction, the user is explicitly warned that "moved files were not rolled back" rather than silently treating it as complete success
+- Two layers of symlink protection: pre-check before extraction and prompt "abort/skip/skip all for this task"; re-check actual links before moving;
+  when a directory link is skipped, its entire subtree is skipped as well
+- Hard links read by libarchive are safely recreated; if the target is missing, out of bounds, or itself a symlink, the task aborts with a prompt
+  and does not silently create an empty file
+- Atomic archive replacement: old archives/volumes are backed up first, and only after all new files are in place are they replaced; failures roll back automatically
+- Archive list output is parsed as a stream, avoiding retention of the full command-line text just for listing; size accumulation includes overflow checks
+- Warnings are shown when opening the system viewer or extraction target directory fails, rather than failing silently
+
+## Interface and Personalization
+
+- Frutiger Aero / Windows 7–style light and Aero Dark themes, Chinese and English UI
+- Optional semi-transparent background image: nine alignments (including four corners/four edges/center), custom size and opacity, PNG with alpha supported;
+  the placeholder page is shown in the central area, and archive pages are shown only within the visible area of the content view, without covering headers or scrollbars
+
+## Configuration
+
+The background image is selected in "Preferences → Background Image"; an empty path disables it. Leaving size blank/0 means "automatic"
+(when only one of width/height is filled, the aspect ratio is preserved), and opacity ranges from 0–100%.
+
+Other configurable items (Preferences):
+
+- Continuous image viewing preparation dialog threshold: `preview/continuousImageDialogThreshold`, default 200, range 0–9999;
+- Recent files limit: `history/recentFilesLimit`, default 20, range 1–100; lowering it trims immediately and refreshes the sidebar.
+
+## Dependencies
+
+Build-time (Debian/Ubuntu package names, available from Qt 6.4):
+
+| Dependency | Required | Notes |
+| --- | --- | --- |
+| Qt 6.4+ (Core Gui Widgets Concurrent) | Required | `qt6-base-dev (>= 6.4)` |
+| Qt LinguistTools (lupdate/lrelease) | Required | `qt6-tools-dev (>= 6.4)`, translations are compiled at build time |
+| CMake 3.20+, GCC 12+/Clang 15+ (C++20) | Required | |
+| libarchive 3.4+ (development headers) | Optional (enabled by default) | `libarchive-dev`; if missing, only a WARNING is shown and it automatically falls back to the pure command-line backend |
+
+Runtime:
+
+| Dependency | Required | Notes |
+| --- | --- | --- |
+| 7-Zip CLI | Bundled | `third_party/7zip/` (Linux `7zzs`, Windows `7z.exe + 7z.dll`) distributed with the program; handles 7z/zip/tar read/write, pure stream extraction, and RAR reading |
+| rar command | Optional | Enables RAR creation and RAR volume creation only when installed on the system; `QARCHIVER_RAR_PATH` can specify the path |
+| libarchive13 | Required when libarchive is enabled | The program loads the shared library detected at build time |
+| qt6-translations-l10n | Optional | Provides `qtbase_<lang>.qm` for localizing standard dialog buttons and file dialogs; if missing, the application's own text is still translated |
+
+At build time, the 7-Zip helper for the current architecture is copied next to the executable into the `7zip/`
+directory (on Linux installed to `libexec/qarchiver/7zip/`). At runtime this bundled
+version is preferred, and only if it cannot be found does it fall back to `7z` / `7zzs` in the system PATH.
+
+At startup the fallback toolchain is checked:
+
+1. First look for the 7-Zip command-line tool in program-related directories (`<executable dir>/7zip`, `libexec/qarchiver/7zip`, etc.)
+   and confirm via `--help` that it is indeed 7-Zip;
+2. If the bundled tool is not found, then look for 7-Zip in the system PATH and determine whether it supports RAR extraction
+   via the `Codecs:` section of the `7z i` output;
+3. If a system 7-Zip is being used, a one-time popup is shown after startup with the path used and RAR support status;
+   if none is found at all, the user is prompted to download the official 7-Zip command-line tool into the `7zip/` directory, or
+   on Debian/Ubuntu to install the system package (including `7zip-rar` / `p7zip-rar`).
+   Detection runs in a background thread and does not block window display.
+
+`QARCHIVER_7Z_PATH` can explicitly specify the 7-Zip executable, bypassing the automatic detection above.
+
+## Building
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j"$(nproc)"
+sudo cmake --install build            # optional, installs to /usr/local by default
+```
+
+Common options:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `-DQARCHIVER_USE_LIBARCHIVE=ON|OFF` | `ON` | When off, only the command-line backend is compiled and libarchive is not linked |
+| `-DCMAKE_BUILD_TYPE=Release|Debug|RelWithDebInfo` | empty | |
+| `-DBUILD_TESTING=OFF` | `ON` | Whether to generate `tests/` |
+
+If libarchive only provides a pkg-config file and no CMake config package, the build script automatically
+falls back to `pkg_check_modules`.
+
+## Read Backends and Switches
+
+There are two read paths:
+
+- **libarchive (default)**: zip (including ZipCrypto/AES), unencrypted 7z, tar / tar.gz /
+  tar.bz2 / tar.xz, and single-file gz / bz2 / xz are parsed in-process without launching external programs.
+  Cases it cannot handle (encrypted 7z, 7z/zip volumes, rar) automatically fall back to the command-line backend
+  and replay the pending operation once.
+- **Command line**: 7z/zip/tar/gz/bz2/xz are read/written by the bundled 7-Zip, and RAR reading is done by the bundled 7-Zip,
+  with no further dependency on system `tar` / `unrar`. If `rar` is installed on the system, RAR creation and volume creation use that command.
+  7-Zip calls uniformly use `-sccUTF-8`, `--`, and `-spd`; selected members are passed via UTF-8 or a raw-codepage
+  listfile, avoiding wildcards, `@`, leading `-`, and legacy ZIP encoding issues.
+
+Writing (compression, appending, deletion, volumes) is always done by the command line; the libarchive backend is read-only.
+
+Two-level switch, either of which can disable libarchive:
+
+1. Settings → Preferences → "Use libarchive for reading archives"
+   (config key `backends/useLibArchive`, enabled by default). **Changes take effect the next time an archive is opened**
+   and do not interrupt the currently open archive session.
+2. Environment variable `QARCHIVER_NO_LIBARCHIVE=1`: disables it at startup with higher priority than the config item,
+   suitable for comparative troubleshooting.
+
+## Testing
+
+```bash
+cd build
+ctest --output-on-failure
+QT_QPA_PLATFORM=offscreen ctest --output-on-failure   # headless environment
+```
+
+Test coverage includes: utility functions (path normalization/traversal detection/size overflow/symlink targets), CLI backend,
+manager (dispatch, cancellation, fallback, keeping the current archive on open failure, dangerous symlink decisions),
+libarchive backend (round-trip, AES password, corruption detection, selective extraction, hard link reconstruction),
+preferences dialog and config sync (continuous image threshold, recent files limit), RAR/RAR volume creation and
+old volume replacement, fallback 7-Zip `--help` validation and RAR Codecs detection, continuous viewing of images in the same directory,
+list-mode directory indexing, background image caching. Tests use the bundled 7-Zip via `QARCHIVER_7Z_PATH`;
+RAR creation test cases are automatically skipped when the system has no `rar`, and `QARCHIVER_RAR_PATH` can be used to
+specify the rar executable under test.
+The `tarDotPrefixAndNonAscii` compatibility test case is automatically skipped when the system has no `tar`.
+
+## Debugging and Diagnostics
+
+| Environment Variable | Purpose |
+| --- | --- |
+| `SAM_DEBUG=1` | Output Debug-level logs |
+| `QARCHIVER_NO_LIBARCHIVE=1` | Disable the libarchive backend at startup |
+| `QARCHIVER_7Z_PATH` | Explicitly specify the 7-Zip command-line tool path, skipping automatic detection |
+| `QARCHIVER_RAR_PATH` | Explicitly specify the rar command path, used for RAR creation |
+| `QARCHIVER_DRAG_DEBUG_NO_EXEC=1` | When dragging out, only prepare staging and print URLs, without entering the blocking native drag loop |
+
+For drag-and-drop troubleshooting tools (a drag source that can automatically reproduce/compare under X11 and a logging receiver), see
+`~/.app/ai_tools/dnd-drag-test/`; when drag-out fails, first check "whether the target side requests data",
+which is more reliable than checking the return value of `QDrag::exec()`.
+
+## Known Limitations
+
+- Encrypted 7z cannot be read with libarchive and falls back to the 7z command line (still requires a password)
+- libarchive does not support 7z/zip volumes; volume archives go directly through the command line when opened
+- RAR reading is done by the bundled 7-Zip; creating RAR/RAR volumes requires `rar` installed on the system,
+  and appending/deleting in existing RARs is still unsupported
+- Dangerous symlinks abort extraction by default; when the user chooses "skip", that link (or the entire subtree for directory links) is not extracted
+- Hard links are safely recreated only in the libarchive read backend; if the target is missing/out of bounds/is a symlink, the task aborts with a prompt
+- When no locale is set, libarchive cannot convert non-UTF-8 entry names; such archives require specifying an encoding
+  in the extraction dialog (e.g. GBK/CP936/GB18030)
+- Display/editing of archive comments is no longer provided
+
+## License
+
+AGPL-3.0, see `LICENSE`. At runtime the program invokes external tools and links with libarchive (BSD-2-Clause);
+the bundled 7-Zip is distributed under GNU LGPL (including the unRAR restriction), see
+`third_party/7zip/License.txt`, installed to `share/doc/qarchiver/`.
+The program no longer depends on non-free `unrar`; RAR reading is done by the bundled 7-Zip.
+RAR creation is optional and enabled only when the user's system already has the `rar` command installed; the program itself does not distribute that command.
+
+## Packaging Reference
+
+See `packaging/README.md`.
