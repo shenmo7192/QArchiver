@@ -11,6 +11,8 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
+#include <limits>
+
 #include "core/ArchiveOptions.h"
 #include "utils/FileUtils.h"
 #include "utils/ProcessRunner.h"
@@ -186,6 +188,17 @@ void TestDragOut::selectedUncompressedSizeSumsSelection()
     QCOMPARE(DragOutManager::selectedUncompressedSize(
                  entries, {QStringLiteral("sub"), QStringLiteral("sub/a.txt")}),
              500);
+
+    // Negative sizes and overflow must be rejected, not wrapped or clamped.
+    add(QStringLiteral("huge.bin"), std::numeric_limits<qint64>::max());
+    add(QStringLiteral("one.bin"), 1);
+    add(QStringLiteral("negative.bin"), -1);
+    QCOMPARE(DragOutManager::selectedUncompressedSize(
+                 entries, {QStringLiteral("huge.bin"), QStringLiteral("one.bin")}),
+             -1);
+    QCOMPARE(DragOutManager::selectedUncompressedSize(
+                 entries, {QStringLiteral("negative.bin")}),
+             -1);
 }
 
 // Map archive paths to staged files.

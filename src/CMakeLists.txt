@@ -2,13 +2,6 @@
 # 应用目标所需的 Qt 运行时依赖。
 find_package(Qt6 ${QARCHIVER_MIN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Concurrent)
 
-# Optional Qt modules are probed individually: a missing optional module must
-# not prevent the other modules from being detected.
-# 可选 Qt 模块逐个探测：缺少某个可选模块不应影响其他模块的检测。
-foreach(_qt_component IN ITEMS DBus)
-    find_package(Qt6 ${QARCHIVER_MIN_QT_VERSION} QUIET COMPONENTS ${_qt_component})
-endforeach()
-
 # GNUInstallDirs provides the standard bin/lib/share install destinations.
 # GNUInstallDirs 提供标准的 bin/lib/share 安装目录变量。
 include(GNUInstallDirs)
@@ -55,13 +48,6 @@ add_subdirectory(resources)
 if(QARCHIVER_HAS_LIBARCHIVE)
     target_link_libraries(QArchiver PRIVATE ${QARCHIVER_LIBARCHIVE_TARGET})
     target_compile_definitions(QArchiver PRIVATE QARCHIVER_HAS_LIBARCHIVE)
-endif()
-
-# D-Bus is used for desktop integration when the Qt module is installed.
-# 当系统安装 Qt D-Bus 模块时，用于桌面环境集成。
-if(TARGET Qt6::DBus)
-    target_link_libraries(QArchiver PRIVATE Qt6::DBus)
-    target_compile_definitions(QArchiver PRIVATE QARCHIVER_HAS_DBUS)
 endif()
 
 qarchiver_set_warnings(QArchiver)

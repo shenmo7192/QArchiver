@@ -30,6 +30,7 @@ private:
     QCheckBox *m_preservePathsCheck = nullptr;
     QCheckBox *m_openAfterCheck = nullptr;
     QSpinBox *m_maxPreviewSpin = nullptr;
+    QSpinBox *m_continuousPreviewSpin = nullptr;
     QCheckBox *m_followSymlinksCheck = nullptr;
     QCheckBox *m_rememberPasswordsCheck = nullptr;
     QCheckBox *m_libArchiveCheck = nullptr;
@@ -38,6 +39,7 @@ private:
     QComboBox *m_viewModeCombo = nullptr;
     QComboBox *m_toolbarStyleCombo = nullptr;
     QCheckBox *m_showRecentFilesCheck = nullptr;
+    QSpinBox *m_recentFilesLimitSpin = nullptr;
 
     // Optional semi-transparent background image.
     // 可选的半透明背景图片。

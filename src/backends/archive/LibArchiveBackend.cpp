@@ -15,6 +15,12 @@
 #include <archive.h>
 #include <archive_entry.h>
 
+#ifndef Q_OS_WIN
+#include <unistd.h>
+#else
+#include <windows.h>
+#endif
+
 #include "utils/FileUtils.h"
 #include "utils/Logger.h"
 
@@ -129,23 +135,38 @@ ReaderPtr openReader(const QString &filePath, ArchiveFormat fmt,
     return reader;
 }
 
-bool isSafeSymlinkTarget(const QString &target)
+bool isUnderSkipped(const QString &path, const QSet<QString> &skipped)
 {
-    if (target.isEmpty() || QDir::isAbsolutePath(target)) {
+    if (skipped.isEmpty()) {
         return false;
     }
-    const QStringList parts = target.split(QLatin1Char('/'), Qt::SkipEmptyParts);
-    int depth = 0;
-    for (const QString &part : parts) {
-        if (part == QStringLiteral("..")) {
-            if (--depth < 0) {
-                return false;
-            }
-        } else if (part != QStringLiteral(".")) {
-            ++depth;
+    const QString normalized = FileUtils::normalizeEntryPath(path);
+    if (skipped.contains(normalized)) {
+        return true;
+    }
+    for (const QString &prefix : skipped) {
+        if (normalized.startsWith(prefix + QLatin1Char('/'))) {
+            return true;
         }
     }
-    return true;
+    return false;
+}
+
+bool createHardLink(const QString &target, const QString &linkPath)
+{
+#ifndef Q_OS_WIN
+    QFile::remove(linkPath);
+    const QByteArray nativeTarget = QFile::encodeName(target);
+    const QByteArray nativeLink = QFile::encodeName(linkPath);
+    return ::link(nativeTarget.constData(), nativeLink.constData()) == 0;
+#else
+    QFile::remove(linkPath);
+    return CreateHardLinkW(
+               reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(linkPath).utf16()),
+               reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(target).utf16()),
+               nullptr)
+        != 0;
+#endif
 }
 
 } // namespace
@@ -265,6 +286,15 @@ void LibArchiveBackend::listContents(const ListOptions &options)
         const auto type = archive_entry_filetype(entry);
         item.isDir = (type == AE_IFDIR);
         item.isSymLink = (type == AE_IFLNK);
+        if (item.isSymLink) {
+            if (const char *target = archive_entry_symlink(entry)) {
+                item.linkTarget = QString::fromUtf8(target);
+            }
+        }
+        if (const char *hardTarget = archive_entry_hardlink(entry)) {
+            item.isHardLink = true;
+            item.hardLinkTarget = QString::fromUtf8(hardTarget);
+        }
         if (archive_entry_size_is_set(entry)) {
             item.size = archive_entry_size(entry);
         }
@@ -384,6 +414,15 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
         }
     }
 
+    QSet<QString> skippedSymlinks;
+    for (const QString &path : options.skippedSymlinks) {
+        const QString normalized = FileUtils::normalizeEntryPath(path);
+        if (!normalized.isEmpty()) {
+            skippedSymlinks.insert(normalized);
+        }
+    }
+    QList<QPair<QString, QString>> pendingHardLinks;
+
     int currentEntry = 0;
     qint64 writtenBytes = 0;
     bool cancelled = false;
@@ -403,7 +442,7 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
             archive_read_data_skip(reader.get());
             continue;
         }
-        if (!isSelected(relative)) {
+        if (!isSelected(relative) || isUnderSkipped(relative, skippedSymlinks)) {
             archive_read_data_skip(reader.get());
             continue;
         }
@@ -435,34 +474,62 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
         }
 
         if (type == AE_IFLNK) {
-            // Symlinks are recreated only when they stay inside the archive
-            // root; anything else is skipped instead of being written.
-            // 仅当符号链接目标仍位于压缩包根目录内时才重建；
-            // 其他链接会被跳过，不写入磁盘。
             const char *linkTarget = archive_entry_symlink(entry);
             const QString target = linkTarget ? QString::fromUtf8(linkTarget) : QString();
-            if (isSafeSymlinkTarget(target)) {
-                QFile::link(target, outPath);
-            } else {
-                LOG_INFO("LibArchiveBackend", "Skipped unsafe symlink %s -> %s",
-                         relative.toUtf8().constData(), target.toUtf8().constData());
+            if (isUnderSkipped(relative, skippedSymlinks)) {
+                LOG_INFO("LibArchiveBackend", "Skipped unsafe symlink by user: %s",
+                         relative.toUtf8().constData());
                 emit outputReady(tr("Skipped unsafe symlink: %1").arg(relative));
+                continue;
+            }
+            if (!FileUtils::isSafeSymlinkTarget(relative, target)) {
+                FileUtils::removeDirectoryRecursively(tempDir);
+                emit errorOccurred(ArchiveErrorCode::PathTraversalBlocked,
+                                   tr("Blocked unsafe symbolic link: %1").arg(relative));
+                return;
+            }
+            if (!QFile::link(target, outPath)) {
+                FileUtils::removeDirectoryRecursively(tempDir);
+                emit errorOccurred(ArchiveErrorCode::PermissionDenied,
+                                   tr("Cannot create symbolic link: %1").arg(outPath));
+                return;
+            }
+            continue;
+        }
+
+        if (const char *hardTarget = archive_entry_hardlink(entry)) {
+            const QString target = FileUtils::normalizeEntryPath(
+                QString::fromUtf8(hardTarget));
+            if (target.isEmpty()
+                || FileUtils::isPathTraversal(target, tempDir)
+                || FileUtils::isPathTraversal(relative, tempDir)) {
+                FileUtils::removeDirectoryRecursively(tempDir);
+                emit errorOccurred(ArchiveErrorCode::HardLinkUnsupported,
+                                   tr("Blocked unsafe hard link: %1").arg(relative));
+                return;
+            }
+
+            const QString targetPath = QDir(tempDir).filePath(target);
+            const QFileInfo targetInfo(targetPath);
+            if (targetInfo.exists() && !targetInfo.isSymLink()
+                && targetInfo.isFile()) {
+                if (!createHardLink(targetPath, outPath)) {
+                    FileUtils::removeDirectoryRecursively(tempDir);
+                    emit errorOccurred(
+                        ArchiveErrorCode::HardLinkUnsupported,
+                        tr("Cannot create hard link %1 -> %2")
+                            .arg(relative, target));
+                    return;
+                }
+            } else {
+                // The target may appear later in the archive; defer it.
+                // 目标可能稍后才出现在压缩包中；延迟创建。
+                pendingHardLinks.append({relative, target});
             }
             continue;
         }
 
         QFile outFile(outPath);
-        if (archive_entry_hardlink(entry)) {
-            // Hard links carry no data; keep the entry's own (empty) file.
-            // 硬链接本身没有数据；保留该条目自己的（空）文件。
-            if (!outFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                failure = tr("Cannot write file: %1").arg(outPath);
-                emit errorOccurred(ArchiveErrorCode::PermissionDenied, failure);
-                break;
-            }
-            outFile.close();
-            continue;
-        }
 
         if (!outFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             failure = tr("Cannot write file: %1").arg(outPath);
@@ -535,6 +602,42 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
         }
     }
 
+    if (!pendingHardLinks.isEmpty() && !cancelled && failure.isEmpty()) {
+        QList<QPair<QString, QString>> remaining = pendingHardLinks;
+        while (!remaining.isEmpty()) {
+            QList<QPair<QString, QString>> next;
+            bool progress = false;
+            for (const auto &[relative, target] : remaining) {
+                const QString targetPath = QDir(tempDir).filePath(target);
+                const QFileInfo targetInfo(targetPath);
+                if (!targetInfo.exists() || targetInfo.isSymLink()
+                    || !targetInfo.isFile()) {
+                    next.append({relative, target});
+                    continue;
+                }
+                const QString linkPath = QDir(tempDir).filePath(relative);
+                if (!createHardLink(targetPath, linkPath)) {
+                    FileUtils::removeDirectoryRecursively(tempDir);
+                    emit errorOccurred(
+                        ArchiveErrorCode::HardLinkUnsupported,
+                        tr("Cannot create hard link %1 -> %2")
+                            .arg(relative, target));
+                    return;
+                }
+                progress = true;
+            }
+            if (!progress) {
+                FileUtils::removeDirectoryRecursively(tempDir);
+                emit errorOccurred(
+                    ArchiveErrorCode::HardLinkUnsupported,
+                    tr("Hard link target is missing or unsafe: %1")
+                        .arg(next.first().second));
+                return;
+            }
+            remaining = next;
+        }
+    }
+
     if (cancelled) {
         FileUtils::removeDirectoryRecursively(tempDir);
         emit errorOccurred(ArchiveErrorCode::Cancelled, tr("Operation cancelled"));
@@ -552,12 +655,20 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
         return;
     }
 
+    if (!FileUtils::unsafeExtractedSymlinks(tempDir).isEmpty()) {
+        FileUtils::removeDirectoryRecursively(tempDir);
+        emit errorOccurred(ArchiveErrorCode::PathTraversalBlocked,
+                           tr("Blocked unsafe symbolic link during extraction"));
+        return;
+    }
+
     const int failedMoves = FileUtils::moveExtractedContents(
         tempDir, options.destDir, options.overwrite, options.preservePaths);
     if (failedMoves > 0) {
         FileUtils::removeDirectoryRecursively(tempDir);
-        emit errorOccurred(ArchiveErrorCode::Unknown,
-                           tr("Failed to move %1 extracted entries to %2")
+        emit errorOccurred(ArchiveErrorCode::PartialExtraction,
+                           tr("Failed to move %1 extracted entries to %2. "
+                              "Files already moved were not rolled back.")
                                .arg(failedMoves)
                                .arg(options.destDir));
         return;

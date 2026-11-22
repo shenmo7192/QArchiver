@@ -6,6 +6,7 @@
 // 在工作线程中调度压缩包操作的核心控制器。
 
 #include <QObject>
+#include <QSet>
 #include <QThread>
 
 #include <functional>
@@ -52,6 +53,16 @@ public:
     // Retry the pending operation with a password obtained from the UI
     // 使用界面获取的密码重试待处理操作
     void retryWithPassword(const QString &password);
+
+    enum class SymlinkDecision { Abort, Skip, SkipAll };
+    using SymlinkDecisionCallback =
+        std::function<SymlinkDecision(const QString &entryPath,
+                                      const QString &target)>;
+    // UI hook used during extraction preflight.  Called on the GUI thread;
+    // null means unsafe symlinks abort the operation.
+    // 解压预检期间使用的界面回调。在 GUI 线程调用；为空表示危险符号链接
+    // 会中止操作。
+    void setSymlinkDecisionCallback(SymlinkDecisionCallback callback);
 
     // Cooperative cancellation from the UI. / 来自界面的协作式取消。
     void cancelCurrentOperation();
@@ -111,9 +122,12 @@ private:
     void connectBackend(ArchiveBackend *backend, quint64 generation);
     void connectTempBackend(ArchiveBackend *backend);
 
+    void destroyBackend(ArchiveBackend *backend);
+    void clearPendingState();
     void finishOpen(const QString &filePath, ArchiveFormat format);
     void startExtractOperation(const ExtractOptions &options);
-    bool validateExtraction(const ExtractOptions &options);
+    bool validateExtraction(const ExtractOptions &options,
+                            QSet<QString> *skippedSymlinks);
 
     void handleTerminal(ArchiveBackend *backend, bool success, const QString &msg);
     void handleError(ArchiveBackend *backend, ArchiveErrorCode code, const QString &msg);
@@ -130,7 +144,10 @@ private:
     QThread m_workerThread;
     ArchiveBackend *m_backend = nullptr;
     ArchiveBackend *m_tempBackend = nullptr;
+    ArchiveBackend *m_openingBackend = nullptr;
     QString m_archivePath;
+    QString m_openingPath;
+    ArchiveFormat m_openingFormat = ArchiveFormat::Unknown;
     ArchiveFormat m_format = ArchiveFormat::Unknown;
 
     quint64 m_generation = 0;
@@ -154,10 +171,13 @@ private:
     bool m_preTestPending = false;
     ExtractOptions m_preTestExtractOptions;
 
+    SymlinkDecisionCallback m_symlinkDecisionCallback;
+
     // Compression is written to a temporary location when the target already
     // exists, then promoted atomically on success.
     std::unique_ptr<QTemporaryDir> m_compressTempDir;
     QString m_compressFinalPath;
+    ArchiveFormat m_compressFormat = ArchiveFormat::Unknown;
     bool m_compressTargetExisted = false;
 };
 

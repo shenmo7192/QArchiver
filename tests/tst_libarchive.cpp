@@ -7,7 +7,13 @@
 #include <QDir>
 #include <QFile>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QTemporaryDir>
+
+#ifndef Q_OS_WIN
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 #include "backends/archive/LibArchiveBackend.h"
 #include "core/ArchiveOptions.h"
@@ -31,6 +37,7 @@ private slots:
     void corruptedArchiveIsDetected();
     void selectedExtractionOnly();
     void directorySelectionExtractsSubtree();
+    void hardLinksAreRecreatedSafely();
 
 private:
     struct Result {
@@ -461,6 +468,66 @@ void TestLibArchive::directorySelectionExtractsSubtree()
              QByteArrayLiteral("alpha"));
     QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("src/sub/b.txt"))),
              QByteArrayLiteral("bravo"));
+}
+
+// Hard links are recreated as real hard links, never as empty files.
+// 硬链接会重建为真正的硬链接，绝不再是空文件。
+void TestLibArchive::hardLinksAreRecreatedSafely()
+{
+#ifndef Q_OS_WIN
+    const QString tar = QStandardPaths::findExecutable(QStringLiteral("tar"));
+    if (tar.isEmpty()) {
+        QSKIP("the tar tool is required for this test");
+    }
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString src = temp.filePath(QStringLiteral("src"));
+    QVERIFY(QDir().mkpath(src));
+    const QString original = QDir(src).filePath(QStringLiteral("original.txt"));
+    const QString linked = QDir(src).filePath(QStringLiteral("linked.txt"));
+    QVERIFY(writeFile(original, QByteArrayLiteral("hard-link-data")));
+    QCOMPARE(::link(QFile::encodeName(original).constData(),
+                    QFile::encodeName(linked).constData()), 0);
+
+    const QString archive = temp.filePath(QStringLiteral("hardlinks.tar"));
+    QVERIFY(runTool(tar, {QStringLiteral("-cf"), archive,
+                          QStringLiteral("-C"), src, QStringLiteral(".")}));
+
+    LibArchiveBackend backend(ArchiveFormat::Tar);
+    backend.openArchive(archive);
+    QList<ArchiveEntry> entries;
+    const Result listed = list(backend, {}, &entries);
+    QVERIFY2(listed.success, qPrintable(listed.message));
+    bool sawHardLink = false;
+    for (const ArchiveEntry &entry : entries) {
+        if (entry.isHardLink) {
+            sawHardLink = true;
+            QVERIFY(!entry.hardLinkTarget.isEmpty());
+        }
+    }
+    QVERIFY(sawHardLink);
+
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    ExtractOptions options;
+    options.destDir = dest;
+    options.overwrite = OverwritePolicy::Always;
+    const Result extracted = extract(backend, options);
+    QVERIFY2(extracted.success, qPrintable(extracted.message));
+
+    const QString outOriginal = QDir(dest).filePath(QStringLiteral("original.txt"));
+    const QString outLinked = QDir(dest).filePath(QStringLiteral("linked.txt"));
+    QCOMPARE(readFile(outOriginal), QByteArrayLiteral("hard-link-data"));
+    QCOMPARE(readFile(outLinked), QByteArrayLiteral("hard-link-data"));
+
+    struct stat a {};
+    struct stat b {};
+    QCOMPARE(::stat(QFile::encodeName(outOriginal).constData(), &a), 0);
+    QCOMPARE(::stat(QFile::encodeName(outLinked).constData(), &b), 0);
+    QCOMPARE(a.st_ino, b.st_ino);
+#else
+    QSKIP("hard link assertions are Unix-only");
+#endif
 }
 
 QTEST_GUILESS_MAIN(TestLibArchive)

@@ -109,6 +109,22 @@ void ProgressDialog::appendOutput(const QString &line)
     m_fileLabel->setText(line);
 }
 
+void ProgressDialog::setStatusText(const QString &text)
+{
+    m_fileLabel->setText(text);
+}
+
+void ProgressDialog::setOutputVisible(bool visible)
+{
+    m_output->setVisible(visible);
+    m_statsLabel->setVisible(visible);
+    if (visible) {
+        resize(560, 380);
+    } else {
+        resize(420, 150);
+    }
+}
+
 // Switch between determinate (0..100) and busy (0..0) modes.
 // 在确定进度（0..100）与忙碌模式（0..0）之间切换。
 void ProgressDialog::setIndeterminate(bool indeterminate)

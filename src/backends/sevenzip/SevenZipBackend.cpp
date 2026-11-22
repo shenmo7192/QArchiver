@@ -11,6 +11,8 @@
 
 #include <algorithm>
 
+#include <QSet>
+
 #include "SevenZipListParser.h"
 #include "SevenZipUtils.h"
 #include "utils/EncodingDetector.h"
@@ -18,6 +20,76 @@
 #include "utils/Logger.h"
 #include "utils/MimeTypeHelper.h"
 #include "utils/ProcessRunner.h"
+
+namespace {
+
+// 7-Zip reports missing split volumes on stdout (stderr stays empty for
+// `l -slt`), so inspect both channels before falling back to a generic error.
+// 7-Zip 会把缺失分卷报告到 stdout（`l -slt` 的 stderr 为空），
+// 因此两个通道都要检查后再回退到通用错误。
+bool isMissingVolumeError(const ProcessResult &result)
+{
+    return (result.stdOut + QLatin1Char('\n') + result.stdErr)
+        .contains(QStringLiteral("Missing volume"), Qt::CaseInsensitive);
+}
+
+bool isUnderSkipped(const QString &path, const QSet<QString> &skipped)
+{
+    if (skipped.isEmpty()) {
+        return false;
+    }
+    const QString normalized = FileUtils::normalizeEntryPath(path);
+    if (skipped.contains(normalized)) {
+        return true;
+    }
+    for (const QString &prefix : skipped) {
+        if (normalized.startsWith(prefix + QLatin1Char('/'))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+QStringList buildExtractionSelection(const QList<ArchiveEntry> &entries,
+                                     const ExtractOptions &options)
+{
+    QSet<QString> skipped;
+    for (const QString &path : options.skippedSymlinks) {
+        const QString normalized = FileUtils::normalizeEntryPath(path);
+        if (!normalized.isEmpty()) {
+            skipped.insert(normalized);
+        }
+    }
+
+    QStringList selected;
+    QSet<QString> seen;
+    auto add = [&](const QString &rawPath) {
+        const QString normalized = FileUtils::normalizeEntryPath(rawPath);
+        if (normalized.isEmpty() || isUnderSkipped(normalized, skipped)
+            || seen.contains(normalized)) {
+            return;
+        }
+        seen.insert(normalized);
+        selected << rawPath;
+    };
+
+    if (!options.selectedFiles.isEmpty()) {
+        for (const QString &path : options.selectedFiles) {
+            add(path);
+        }
+        return selected;
+    }
+
+    if (skipped.isEmpty()) {
+        return selected; // empty means "all entries"
+    }
+    for (const ArchiveEntry &entry : entries) {
+        add(entry.path);
+    }
+    return selected;
+}
+
+} // namespace
 
 SevenZipBackend::SevenZipBackend(ArchiveFormat fmt, QObject *parent)
     : ArchiveBackend(parent)
@@ -101,9 +173,21 @@ void SevenZipBackend::listContents(const ListOptions &options)
     appendPassword(args, options.password);
     args << QStringLiteral("--") << targetPath();
 
+    SevenZipListParser parser;
+    ProcessOutputOptions outputOptions;
+    outputOptions.streamStdOut = true;
+    outputOptions.maxStdOutBytes = 256 * 1024;
+    outputOptions.maxRawSampleBytes = 64 * 1024;
+
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
-        QString(), 300000, &m_cancelRequested);
+        QString(), 300000, &m_cancelRequested,
+        [&parser](const QString &line, bool isError) {
+            if (!isError) {
+                parser.feedLine(line);
+            }
+        },
+        outputOptions);
 
     if (result.cancelled) {
         emit errorOccurred(ArchiveErrorCode::Cancelled, tr("Operation cancelled"));
@@ -115,6 +199,12 @@ void SevenZipBackend::listContents(const ListOptions &options)
     }
 
     if (!result.success()) {
+        if (isMissingVolumeError(result)) {
+            emit errorOccurred(ArchiveErrorCode::VolumeMissing,
+                               tr("A required archive volume is missing"));
+            return;
+        }
+
         const QString errorText = result.stdErr;
         // 7-Zip reports encrypted headers as "Cannot open encrypted
         // archive. Wrong password?"; a plain "Can not open" is usually a
@@ -141,7 +231,7 @@ void SevenZipBackend::listContents(const ListOptions &options)
         return;
     }
 
-    m_entries = SevenZipListParser::parse(result.stdOut);
+    m_entries = parser.takeEntries();
     m_nameEncoding = EncodingDetector::detect(result.stdOutRaw);
     m_encrypted = std::any_of(m_entries.cbegin(), m_entries.cend(),
                               [](const ArchiveEntry &entry) { return entry.isEncrypted; });
@@ -187,23 +277,22 @@ void SevenZipBackend::extract(const ExtractOptions &options)
     // 把前导 '-' 当作开关，把前导 '@' 当作嵌套列表文件。
     QTemporaryFile membersFile(
         QDir::tempPath() + QStringLiteral("/qarchiver-7z-members-XXXXXX.txt"));
-    if (!options.selectedFiles.isEmpty()) {
-        QStringList selectedPaths;
-        selectedPaths.reserve(options.selectedFiles.size());
-        for (const QString &selected : options.selectedFiles) {
-            const QString normalized = FileUtils::normalizeEntryPath(selected);
-            if (!normalized.isEmpty()) {
-                selectedPaths << selected;
-            }
-        }
-        if (selectedPaths.isEmpty()
-            || !SevenZipUtils::appendListFileArgs(membersFile, selectedPaths,
-                                   m_nameEncoding, args)) {
+    const QStringList selectedPaths =
+        buildExtractionSelection(m_entries, options);
+    if (!selectedPaths.isEmpty()) {
+        if (!SevenZipUtils::appendListFileArgs(membersFile, selectedPaths,
+                                               m_nameEncoding, args)) {
             FileUtils::removeDirectoryRecursively(tempDir);
             emit errorOccurred(ArchiveErrorCode::Unknown,
                                tr("Could not prepare the selected files for extraction"));
             return;
         }
+    } else if (!options.skippedSymlinks.isEmpty()) {
+        // Every requested entry was an unsafe symlink the user chose to skip.
+        // 所有请求的条目都是用户选择跳过的危险符号链接。
+        FileUtils::removeDirectoryRecursively(tempDir);
+        emit operationFinished(true, tr("No files were extracted"));
+        return;
     }
 
     args << QStringLiteral("--") << targetPath();
@@ -215,6 +304,10 @@ void SevenZipBackend::extract(const ExtractOptions &options)
         ? m_entries.size()
         : options.selectedFiles.size();
     int processed = 0;
+
+    ProcessOutputOptions outputOptions;
+    outputOptions.maxStdOutBytes = 1024 * 1024;
+    outputOptions.maxRawSampleBytes = 0;
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
@@ -233,7 +326,8 @@ void SevenZipBackend::extract(const ExtractOptions &options)
                     : 0;
                 emit progressChanged(percent, total, processed, -1);
             }
-        });
+        },
+        outputOptions);
 
     if (result.cancelled) {
         FileUtils::removeDirectoryRecursively(tempDir);
@@ -247,10 +341,21 @@ void SevenZipBackend::extract(const ExtractOptions &options)
     }
     if (!result.success()) {
         FileUtils::removeDirectoryRecursively(tempDir);
+        if (isMissingVolumeError(result)) {
+            emit errorOccurred(ArchiveErrorCode::VolumeMissing,
+                               tr("A required archive volume is missing"));
+            return;
+        }
         const QString errorText = result.stdErr;
-        if (m_encrypted
-            && (errorText.contains(QStringLiteral("Wrong password"), Qt::CaseInsensitive)
-                || errorText.contains(QStringLiteral("Data Error"), Qt::CaseInsensitive))) {
+        const bool looksLikePassword =
+            errorText.contains(QStringLiteral("Wrong password"), Qt::CaseInsensitive)
+            || errorText.contains(QStringLiteral("password"), Qt::CaseInsensitive)
+            || (m_encrypted
+                && errorText.contains(QStringLiteral("Data Error"),
+                                      Qt::CaseInsensitive));
+        if (looksLikePassword && options.password.isEmpty()) {
+            emit passwordRequested();
+        } else if (looksLikePassword) {
             emit errorOccurred(ArchiveErrorCode::WrongPassword, tr("Wrong password"));
         } else {
             emit errorOccurred(ArchiveErrorCode::Unknown,
@@ -268,11 +373,20 @@ void SevenZipBackend::extract(const ExtractOptions &options)
     }
 #endif
 
+    if (!FileUtils::unsafeExtractedSymlinks(tempDir).isEmpty()) {
+        FileUtils::removeDirectoryRecursively(tempDir);
+        emit errorOccurred(ArchiveErrorCode::PathTraversalBlocked,
+                           tr("Blocked unsafe symbolic link during extraction"));
+        return;
+    }
+
     const int failedMoves = FileUtils::moveExtractedContents(
         tempDir, options.destDir, options.overwrite, options.preservePaths);
     if (failedMoves > 0) {
-        emit operationFinished(false,
-            tr("Extraction completed, but %1 entr%2 could not be moved")
+        FileUtils::removeDirectoryRecursively(tempDir);
+        emit errorOccurred(ArchiveErrorCode::PartialExtraction,
+            tr("Extraction completed, but %1 entr%2 could not be moved. "
+               "Files already moved to the destination were not rolled back.")
                 .arg(failedMoves)
                 .arg(failedMoves == 1 ? QStringLiteral("y") : QStringLiteral("ies")));
         return;
@@ -356,6 +470,10 @@ void SevenZipBackend::compress(const CompressOptions &options)
     const int total = FileUtils::countFiles(options.sourceFiles);
     int processed = 0;
 
+    ProcessOutputOptions outputOptions;
+    outputOptions.maxStdOutBytes = 1024 * 1024;
+    outputOptions.maxRawSampleBytes = 0;
+
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
         QString(), 0, &m_cancelRequested,
@@ -371,7 +489,8 @@ void SevenZipBackend::compress(const CompressOptions &options)
                     : 0;
                 emit progressChanged(percent, total, processed, -1);
             }
-        });
+        },
+        outputOptions);
 
     if (result.cancelled) {
         QFile::remove(options.archivePath);
@@ -420,8 +539,7 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
     args << QStringLiteral("-mx=%1").arg(validateLevel(options.compressionLevel))
          << QStringLiteral("-sccUTF-8");
     if (m_encrypted && options.password.isEmpty()) {
-        emit errorOccurred(ArchiveErrorCode::PasswordRequired,
-                           tr("Password required"));
+        emit passwordRequested();
         return;
     }
     if (!options.password.isEmpty()) {
@@ -455,6 +573,11 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
         return;
     }
     if (!result.success()) {
+        if (options.password.isEmpty()
+            && result.stdErr.contains(QStringLiteral("password"), Qt::CaseInsensitive)) {
+            emit passwordRequested();
+            return;
+        }
         emit errorOccurred(ArchiveErrorCode::Unknown,
                            tr("Add files failed: %1").arg(result.stdErr.trimmed()));
         return;
@@ -488,8 +611,7 @@ void SevenZipBackend::deleteFiles(const DeleteFilesOptions &options)
     }
     args << QStringLiteral("-spd") << QStringLiteral("-sccUTF-8");
     if (m_encrypted && options.password.isEmpty()) {
-        emit errorOccurred(ArchiveErrorCode::PasswordRequired,
-                           tr("Password required"));
+        emit passwordRequested();
         return;
     }
     if (!options.password.isEmpty()) {
@@ -533,6 +655,11 @@ void SevenZipBackend::deleteFiles(const DeleteFilesOptions &options)
         return;
     }
     if (!result.success()) {
+        if (options.password.isEmpty()
+            && result.stdErr.contains(QStringLiteral("password"), Qt::CaseInsensitive)) {
+            emit passwordRequested();
+            return;
+        }
         emit errorOccurred(ArchiveErrorCode::Unknown,
                            tr("Delete files failed: %1").arg(result.stdErr.trimmed()));
         return;
@@ -562,8 +689,19 @@ void SevenZipBackend::testArchive(const TestOptions &options)
         return;
     }
     if (!result.success()) {
-        if (m_encrypted
-            && result.stdErr.contains(QStringLiteral("Wrong password"), Qt::CaseInsensitive)) {
+        if (isMissingVolumeError(result)) {
+            emit errorOccurred(ArchiveErrorCode::VolumeMissing,
+                               tr("A required archive volume is missing"));
+            return;
+        }
+        const bool looksLikePassword =
+            result.stdErr.contains(QStringLiteral("password"), Qt::CaseInsensitive)
+            || (m_encrypted
+                && result.stdErr.contains(QStringLiteral("Data Error"),
+                                          Qt::CaseInsensitive));
+        if (looksLikePassword && options.password.isEmpty()) {
+            emit passwordRequested();
+        } else if (looksLikePassword) {
             emit errorOccurred(ArchiveErrorCode::WrongPassword, tr("Wrong password"));
         } else {
             emit errorOccurred(ArchiveErrorCode::CorruptedArchive,

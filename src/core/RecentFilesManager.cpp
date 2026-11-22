@@ -7,7 +7,11 @@
 #include "AppSettings.h"
 #include <QFileInfo>
 
-RecentFilesManager::RecentFilesManager() = default;
+RecentFilesManager::RecentFilesManager()
+{
+    connect(&AppSettings::instance(), &AppSettings::recentFilesLimitChanged,
+            this, &RecentFilesManager::trimToLimit);
+}
 
 RecentFilesManager &RecentFilesManager::instance()
 {
@@ -21,7 +25,8 @@ void RecentFilesManager::add(const QString &filePath)
     // Dedup: move to front if exists / 去重：已存在则移到最前
     files.removeAll(filePath);
     files.prepend(filePath);
-    while (files.size() > 20) {
+    const int limit = AppSettings::instance().recentFilesLimit();
+    while (files.size() > limit) {
         files.removeLast();
     }
     AppSettings::instance().setRecentFiles(files);
@@ -45,6 +50,16 @@ void RecentFilesManager::remove(const QString &filePath)
 void RecentFilesManager::clear()
 {
     AppSettings::instance().setRecentFiles({});
+    emit changed();
+}
+
+void RecentFilesManager::trimToLimit()
+{
+    const QStringList files = list();
+    const int limit = AppSettings::instance().recentFilesLimit();
+    if (files.size() > limit) {
+        AppSettings::instance().setRecentFiles(files.mid(0, limit));
+    }
     emit changed();
 }
 

@@ -20,6 +20,7 @@
 #include <QDir>
 #include <QMessageBox>
 
+#include "backends/rar/RarBackend.h"
 #include "core/AppSettings.h"
 #include "utils/IconUtils.h"
 
@@ -51,6 +52,11 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     m_formatCombo = new QComboBox(this);
     m_formatCombo->addItem(tr("7z (.7z)"), static_cast<int>(ArchiveFormat::SevenZip));
     m_formatCombo->addItem(tr("Zip (.zip)"), static_cast<int>(ArchiveFormat::Zip));
+    // RAR creation needs the system rar command; hide it when unavailable.
+    // RAR 创建依赖系统 rar 命令；未安装时不显示该选项。
+    if (RarBackend::isCreateAvailable()) {
+        m_formatCombo->addItem(tr("RAR (.rar)"), static_cast<int>(ArchiveFormat::Rar5));
+    }
     m_formatCombo->addItem(tr("Tar (.tar)"), static_cast<int>(ArchiveFormat::Tar));
     m_formatCombo->addItem(tr("Gzip tar (.tar.gz)"), static_cast<int>(ArchiveFormat::TarGz));
     m_formatCombo->addItem(tr("Xz tar (.tar.xz)"), static_cast<int>(ArchiveFormat::TarXz));
@@ -68,7 +74,7 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     m_passwordEdit = new QLineEdit(this);
     m_passwordEdit->setEchoMode(QLineEdit::Password);
     m_passwordEdit->setPlaceholderText(tr("(no encryption)"));
-    m_encryptHeadersCheck = new QCheckBox(tr("Encrypt file names (7z only)"), this);
+    m_encryptHeadersCheck = new QCheckBox(tr("Encrypt file names (7z/RAR)"), this);
 
     // Volume
     m_volumeSpin = new QSpinBox(this);
@@ -81,7 +87,7 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     // Additional options
     m_followSymlinksCheck = new QCheckBox(tr("Follow symlinks"), this);
     m_followSymlinksCheck->setChecked(AppSettings::instance().followSymlinks());
-    m_solidCheck = new QCheckBox(tr("Solid compression (7z only)"), this);
+    m_solidCheck = new QCheckBox(tr("Solid compression (7z/RAR)"), this);
     m_storeFullPathCheck = new QCheckBox(tr("Store full/absolute paths"), this);
 
     m_excludeEdit = new QLineEdit(this);
@@ -168,7 +174,7 @@ void CompressDialog::onFormatChanged()
     // 去掉已知压缩包扩展名，再追加当前选择的扩展名。
     QString current = m_targetEdit->text();
     const QStringList knownExtensions = {
-        QStringLiteral(".7z"), QStringLiteral(".zip"),
+        QStringLiteral(".7z"), QStringLiteral(".zip"), QStringLiteral(".rar"),
         QStringLiteral(".tar.gz"), QStringLiteral(".tar.xz"),
         QStringLiteral(".tar.bz2"), QStringLiteral(".tar")
     };
@@ -187,8 +193,9 @@ void CompressDialog::updateOptionAvailability()
 {
     const ArchiveFormat fmt = selectedFormat();
 
+    const bool rarCreation = isRarFamily(fmt) && RarBackend::isCreateAvailable();
     const bool supportsEncryption =
-        (fmt == ArchiveFormat::Zip || fmt == ArchiveFormat::SevenZip);
+        fmt == ArchiveFormat::Zip || fmt == ArchiveFormat::SevenZip || rarCreation;
     const bool supportsVolumes = supportsEncryption;
 
     m_passwordEdit->setEnabled(supportsEncryption);
@@ -198,7 +205,7 @@ void CompressDialog::updateOptionAvailability()
 
     const bool hasPassword = !m_passwordEdit->text().isEmpty();
     m_encryptHeadersCheck->setEnabled(
-        fmt == ArchiveFormat::SevenZip && hasPassword);
+        (fmt == ArchiveFormat::SevenZip || rarCreation) && hasPassword);
     if (!m_encryptHeadersCheck->isEnabled()) {
         m_encryptHeadersCheck->setChecked(false);
     }
@@ -209,8 +216,8 @@ void CompressDialog::updateOptionAvailability()
         m_volumeSpin->setValue(0);
     }
 
-    m_solidCheck->setEnabled(fmt == ArchiveFormat::SevenZip);
-    if (fmt != ArchiveFormat::SevenZip) {
+    m_solidCheck->setEnabled(fmt == ArchiveFormat::SevenZip || rarCreation);
+    if (fmt != ArchiveFormat::SevenZip && !rarCreation) {
         m_solidCheck->setChecked(false);
     }
 

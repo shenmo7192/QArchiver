@@ -17,6 +17,8 @@
 #include <QTemporaryDir>
 #include <QtConcurrent>
 
+#include <algorithm>
+#include <limits>
 #include <memory>
 
 #include "backends/ArchiveBackend.h"
@@ -109,32 +111,30 @@ QStringList DragOutManager::pruneNestedPaths(const QStringList &paths)
     QSet<QString> seen;
     for (const QString &path : paths) {
         const QString normalized = FileUtils::normalizeEntryPath(path);
-        if (normalized.isEmpty() || normalized == QStringLiteral(".")) {
-            continue;
-        }
-        if (seen.contains(normalized)) {
+        if (normalized.isEmpty() || normalized == QStringLiteral(".")
+            || seen.contains(normalized)) {
             continue;
         }
         seen.insert(normalized);
         items.append({path, normalized});
     }
 
+    std::sort(items.begin(), items.end(), [](const Item &a, const Item &b) {
+        return a.normalized < b.normalized;
+    });
+
+    // Sorted order puts every parent immediately before its descendants, so
+    // one linear pass suffices instead of comparing every pair.
+    // 排序后父项紧邻其所有后代，因此只需一次线性扫描，无需两两比较。
     QStringList result;
-    for (int i = 0; i < items.size(); ++i) {
-        bool coveredByParent = false;
-        for (int j = 0; j < items.size(); ++j) {
-            if (i == j) {
-                continue;
-            }
-            if (items.at(i).normalized.startsWith(items.at(j).normalized
-                                                  + QLatin1Char('/'))) {
-                coveredByParent = true;
-                break;
-            }
+    QString lastKept;
+    for (const Item &item : items) {
+        if (!lastKept.isEmpty()
+            && item.normalized.startsWith(lastKept + QLatin1Char('/'))) {
+            continue;
         }
-        if (!coveredByParent) {
-            result << items.at(i).original;
-        }
+        result << item.original;
+        lastKept = item.normalized;
     }
     return result;
 }
@@ -166,8 +166,19 @@ qint64 DragOutManager::selectedUncompressedSize(const QList<ArchiveEntry> &entri
 
         bool matched = selected.contains(path);
         if (!matched) {
-            for (const QString &candidate : selected) {
-                if (path.startsWith(candidate + QLatin1Char('/'))) {
+            // A selected directory covers all of its descendants.  Checking
+            // the path's ancestors is O(depth) and avoids scanning every
+            // selected item for every entry.
+            // 选中目录覆盖其所有后代。逐级检查祖先只需 O(深度)，
+            // 避免为每个条目扫描全部选中项。
+            const QStringList components =
+                path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+            QString ancestor;
+            for (int i = 0; i + 1 < components.size(); ++i) {
+                ancestor = ancestor.isEmpty()
+                    ? components.at(i)
+                    : ancestor + QLatin1Char('/') + components.at(i);
+                if (selected.contains(ancestor)) {
                     matched = true;
                     break;
                 }
@@ -175,7 +186,9 @@ qint64 DragOutManager::selectedUncompressedSize(const QList<ArchiveEntry> &entri
         }
         if (matched) {
             counted.insert(path);
-            total += qMax<qint64>(0, entry.size);
+            if (!FileUtils::addSizeChecked(total, entry.size)) {
+                return -1;
+            }
         }
     }
     return total;
@@ -386,9 +399,49 @@ DragOutPayload DragOutManager::extractForDrag(const QString &archivePath,
         }
     }
 
-    // 2. Disk space check (the staging holds the unpacked selection).
+    // 2. Reject unsafe symlinks in the selected subtrees before invoking a CLI
+    //    extractor that could otherwise write through them.
+    // 2. 在调用可能通过链接写入的命令行解压器之前，拒绝选中子树中的危险符号链接。
+    for (const ArchiveEntry &entry : entries) {
+        if (!entry.isSymLink
+            || !FileUtils::isSafeSymlinkTarget(entry.path, entry.linkTarget)) {
+            if (entry.isSymLink) {
+                const QString normalized =
+                    FileUtils::normalizeEntryPath(entry.path);
+                for (const QString &path : paths) {
+                    const QString selected =
+                        FileUtils::normalizeEntryPath(path);
+                    if (normalized == selected
+                        || normalized.startsWith(selected + QLatin1Char('/'))
+                        || selected.startsWith(normalized + QLatin1Char('/'))) {
+                        QDir(stagingRoot).removeRecursively();
+                        payload.stagingRoot.clear();
+                        payload.errorCode =
+                            ArchiveErrorCode::PathTraversalBlocked;
+                        payload.errorMessage =
+                            tr("Blocked unsafe symlink: %1").arg(entry.path);
+                        return payload;
+                    }
+                }
+            }
+            continue;
+        }
+    }
+
+    // 3. Disk space check (the staging holds the unpacked selection).
     const qint64 required = selectedUncompressedSize(entries, paths);
     const qint64 available = FileUtils::estimateFreeSpace(stagingRoot);
+    constexpr qint64 maxSize = std::numeric_limits<qint64>::max();
+    if (required < 0
+        || (required > 0
+            && required > (maxSize - kDragSpaceMargin) / kStagingSpaceFactor)) {
+        QDir(stagingRoot).removeRecursively();
+        payload.stagingRoot.clear();
+        payload.errorCode = ArchiveErrorCode::InsufficientDiskSpace;
+        payload.errorMessage =
+            tr("Archive size is abnormal or too large to prepare safely.");
+        return payload;
+    }
     if (required > 0 && available >= 0
         && available < required * kStagingSpaceFactor + kDragSpaceMargin) {
         QDir(stagingRoot).removeRecursively();

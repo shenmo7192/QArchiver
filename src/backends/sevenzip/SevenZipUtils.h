@@ -14,8 +14,10 @@ class QTemporaryFile;
 // Helpers shared by the 7-Zip based backends (7z/zip, tar, rar).
 namespace SevenZipUtils {
 
-// Resolve the bundled 7-Zip executable (or the QARCHIVER_7Z_PATH override).
-// 解析内置 7-Zip 可执行文件（或 QARCHIVER_7Z_PATH 覆盖值）。
+// Resolve the validated 7-Zip executable: QARCHIVER_7Z_PATH override,
+// program-relative helper, then a system PATH fallback.
+// 解析经过校验的 7-Zip 可执行文件：QARCHIVER_7Z_PATH 覆盖值、
+// 程序相关目录中的辅助程序，最后回退系统 PATH。
 QString resolveSevenZip();
 
 // Write @p entries to a UTF-8 or legacy-codepage listfile and append the

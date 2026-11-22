@@ -4,21 +4,40 @@
 
 #include <QtTest>
 
+#include <QDesktopServices>
 #include <QFile>
 #include <QProcess>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QUrl>
 
 #include <memory>
 
 #include "backends/archive/LibArchiveBackend.h"
+#include "backends/rar/RarBackend.h"
 #include "backends/sevenzip/SevenZipBackend.h"
 #include "backends/tar/TarBackend.h"
 #include "backends/zip/ZipBackend.h"
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
 #include "core/ArchiveOptions.h"
+#include "ui/PreviewManager.h"
+#include "ui/PreviewUtils.h"
+#include "utils/FileUtils.h"
 #include "utils/ProcessRunner.h"
+
+class PreviewUrlCapture : public QObject {
+    Q_OBJECT
+public:
+    QList<QUrl> urls;
+
+public slots:
+    void handleUrl(const QUrl &url)
+    {
+        urls << url;
+    }
+};
 
 class TestManager : public QObject {
     Q_OBJECT
@@ -28,6 +47,10 @@ private slots:
     void openListExtract();
     void compressOverwritesExistingTarget();
     void encrypted7zFallsBackToCli();
+    void rarSplitCompressionReplacesVolumes();
+    void continuousPreviewExtractsSiblingImages();
+    void openFailurePreservesCurrentArchive();
+    void unsafeSymlinkRequiresDecision();
     void backendSelectionHonoursPreference();
 };
 
@@ -35,6 +58,7 @@ private slots:
 // 准备管理器测试环境。
 void TestManager::initTestCase()
 {
+    QStandardPaths::setTestModeEnabled(true);
     QCoreApplication::setOrganizationName(QStringLiteral("QArchiverTest"));
     QCoreApplication::setApplicationName(QStringLiteral("QArchiverTest"));
 }
@@ -228,8 +252,272 @@ void TestManager::encrypted7zFallsBackToCli()
 #endif
 }
 
+// Creating RAR volumes through the manager replaces an older volume set.
+// 通过管理器创建 RAR 分卷时，必须替换旧的分卷集。
+void TestManager::rarSplitCompressionReplacesVolumes()
+{
+    if (!RarBackend::isCreateAvailable()) {
+        QSKIP("the rar command is not installed");
+    }
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+
+    const QString source = temp.filePath(QStringLiteral("payload.bin"));
+    QByteArray payload;
+    payload.reserve(12000);
+    for (int i = 0; i < 12000; ++i) {
+        payload.append(static_cast<char>((i * 17 + 3) & 0xff));
+    }
+    {
+        QFile file(source);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(payload), qint64(payload.size()));
+    }
+
+    const QString archive = temp.filePath(QStringLiteral("volumes.rar"));
+    ArchiveManager &manager = ArchiveManager::instance();
+
+    CompressOptions splitOptions;
+    splitOptions.archivePath = archive;
+    splitOptions.sourceFiles = {source};
+    splitOptions.compressionLevel = 0;
+    splitOptions.volumeSize = 3000;
+
+    QSignalSpy splitSpy(&manager, &ArchiveManager::operationFinished);
+    manager.compress(splitOptions, ArchiveFormat::Rar5);
+    QTRY_COMPARE_WITH_TIMEOUT(splitSpy.count(), 1, 30000);
+    QVERIFY2(splitSpy.first().at(0).toBool(),
+             qPrintable(splitSpy.first().at(1).toString()));
+
+    const QString firstVolume = temp.filePath(QStringLiteral("volumes.part1.rar"));
+    const QString secondVolume = temp.filePath(QStringLiteral("volumes.part2.rar"));
+    QVERIFY(QFileInfo::exists(firstVolume));
+    QVERIFY(QFileInfo::exists(secondVolume));
+
+    // Re-create the same target as a single-volume archive: the old part
+    // files must be removed before the new archive is promoted.
+    // 将同一目标重新创建为单卷压缩包：旧分卷必须在新包替换前删除。
+    CompressOptions singleOptions = splitOptions;
+    singleOptions.volumeSize = 0;
+    QSignalSpy singleSpy(&manager, &ArchiveManager::operationFinished);
+    manager.compress(singleOptions, ArchiveFormat::Rar5);
+    QTRY_COMPARE_WITH_TIMEOUT(singleSpy.count(), 1, 30000);
+    QVERIFY2(singleSpy.first().at(0).toBool(),
+             qPrintable(singleSpy.first().at(1).toString()));
+
+    QVERIFY(QFileInfo::exists(archive));
+    const QStringList remaining = QDir(temp.path()).entryList(
+        {QStringLiteral("volumes.part*.rar")}, QDir::Files);
+    QVERIFY2(remaining.isEmpty(), qPrintable(remaining.join(QStringLiteral(", "))));
+
+    QSignalSpy openSpy(&manager, &ArchiveManager::archiveOpened);
+    QSignalSpy listSpy(&manager, &ArchiveManager::fileListReady);
+    manager.openArchive(archive);
+    QTRY_COMPARE_WITH_TIMEOUT(openSpy.count(), 1, 10000);
+    manager.listContents();
+    QTRY_COMPARE_WITH_TIMEOUT(listSpy.count(), 1, 10000);
+    QCOMPARE(manager.currentFormat(), ArchiveFormat::Rar5);
+    QVERIFY(!manager.entries().isEmpty());
+
+    manager.closeArchive();
+}
+
 // The "use libarchive" preference decides which backend serves a plain archive;
 // split volumes and rar always stay on the command line.
+// Opening one image must prepare all same-directory images for the system
+// viewer.  A custom file URL handler stands in for the external viewer.
+// 打开一张图片时必须准备好同目录所有图片，供系统查看器连续切换。
+// 使用自定义 file URL 处理器代替外部查看器。
+void TestManager::continuousPreviewExtractsSiblingImages()
+{
+    const QString fixture = QStringLiteral(QARCHIVER_TEST_DATA_DIR)
+        + QStringLiteral("/连续看图测试.tar.gz");
+    if (!QFileInfo::exists(fixture)) {
+        QSKIP("continuous preview fixture is missing");
+    }
+    if (ProcessRunner::resolveToolPath(QStringLiteral("7z")).isEmpty()) {
+        QSKIP("the 7z tool is required for the preview fixture");
+    }
+
+    ArchiveManager &manager = ArchiveManager::instance();
+    QSignalSpy openedSpy(&manager, &ArchiveManager::archiveOpened);
+    QSignalSpy listSpy(&manager, &ArchiveManager::fileListReady);
+    manager.openArchive(fixture);
+    QTRY_COMPARE_WITH_TIMEOUT(openedSpy.count(), 1, 10000);
+    manager.listContents();
+    QTRY_COMPARE_WITH_TIMEOUT(listSpy.count(), 1, 10000);
+
+    const QString target = QStringLiteral("连续看图测试/1.png");
+    qint64 targetSize = 0;
+    for (const ArchiveEntry &entry : manager.entries()) {
+        if (entry.path == target) {
+            targetSize = entry.size;
+            break;
+        }
+    }
+    QVERIFY(targetSize > 0);
+
+    const QStringList images = PreviewUtils::imageSiblings(manager.entries(), target);
+    QCOMPARE(images.size(), 5);
+
+    PreviewUrlCapture capture;
+    QDesktopServices::setUrlHandler(QStringLiteral("file"), &capture, "handleUrl");
+    PreviewManager::instance().cleanupOwn();
+    PreviewManager::instance().preview(manager.currentPath(),
+                                       manager.currentFormat(), target,
+                                       targetSize, images, QString());
+
+    QTRY_COMPARE_WITH_TIMEOUT(capture.urls.size(), 1, 15000);
+    QDesktopServices::unsetUrlHandler(QStringLiteral("file"));
+
+    const QString opened = capture.urls.first().toLocalFile();
+    QVERIFY2(QFileInfo::exists(opened), qPrintable(opened));
+    const QString previewRoot = QFileInfo(opened).absolutePath();
+    QVERIFY(previewRoot.endsWith(QStringLiteral("连续看图测试")));
+
+    for (const QString &image : images) {
+        const QString extracted = QDir(previewRoot).filePath(
+            QFileInfo(FileUtils::normalizeEntryPath(image)).fileName());
+        QVERIFY2(QFileInfo::exists(extracted), qPrintable(extracted));
+    }
+    QVERIFY(!QFileInfo::exists(QDir(previewRoot).filePath(
+        QStringLiteral("表情、微笑.svg"))));
+
+    PreviewManager::instance().cleanupOwn();
+    manager.closeArchive();
+}
+
+// A failed open must leave the currently open archive intact.
+// 打开失败时必须保留当前已打开的压缩包。
+void TestManager::openFailurePreservesCurrentArchive()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString source = temp.filePath(QStringLiteral("current.txt"));
+    {
+        QFile file(source);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(QByteArrayLiteral("current")), qint64(7));
+    }
+    const QString archive = temp.filePath(QStringLiteral("current.tar"));
+    {
+        TarBackend backend(ArchiveFormat::Tar);
+        CompressOptions options;
+        options.archivePath = archive;
+        options.sourceFiles = {source};
+        bool finished = false;
+        connect(&backend, &ArchiveBackend::operationFinished, &backend,
+                [&finished](bool, const QString &) { finished = true; });
+        backend.compress(options);
+        QVERIFY(finished);
+    }
+
+    ArchiveManager &manager = ArchiveManager::instance();
+    manager.closeArchive();
+    QSignalSpy openedSpy(&manager, &ArchiveManager::archiveOpened);
+    manager.openArchive(archive);
+    QTRY_COMPARE_WITH_TIMEOUT(openedSpy.count(), 1, 10000);
+
+    QSignalSpy errorSpy(&manager, &ArchiveManager::errorOccurred);
+    manager.openArchive(temp.filePath(QStringLiteral("missing.tar")));
+    QTRY_COMPARE_WITH_TIMEOUT(errorSpy.count(), 1, 10000);
+    QCOMPARE(errorSpy.first().at(0).value<ArchiveErrorCode>(),
+             ArchiveErrorCode::FileNotFound);
+    QCOMPARE(manager.currentPath(), archive);
+    QVERIFY(manager.backend() != nullptr);
+
+    manager.closeArchive();
+}
+
+// Unsafe symlinks are detected before the CLI extractor runs; the user can
+// skip them, or abort without creating the destination.
+// 在命令行解压器运行前检测危险符号链接；用户可跳过，或中止且不创建目标目录。
+void TestManager::unsafeSymlinkRequiresDecision()
+{
+    const QString tar = QStandardPaths::findExecutable(QStringLiteral("tar"));
+    if (tar.isEmpty()) {
+        QSKIP("the tar tool is required for this test");
+    }
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString src = temp.filePath(QStringLiteral("src"));
+    QVERIFY(QDir().mkpath(src));
+    {
+        QFile file(QDir(src).filePath(QStringLiteral("safe.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(QByteArrayLiteral("safe")), qint64(4));
+    }
+    QVERIFY(QFile::link(QStringLiteral("/etc/passwd"),
+                        QDir(src).filePath(QStringLiteral("escape"))));
+
+    const QString archive = temp.filePath(QStringLiteral("unsafe.tar"));
+    {
+        QProcess process;
+        process.start(tar, {QStringLiteral("-cf"), archive,
+                            QStringLiteral("-C"), src, QStringLiteral(".")});
+        QVERIFY(process.waitForFinished(30000));
+        QCOMPARE(process.exitCode(), 0);
+    }
+
+    ArchiveManager &manager = ArchiveManager::instance();
+    manager.closeArchive();
+    QSignalSpy openedSpy(&manager, &ArchiveManager::archiveOpened);
+    QSignalSpy listSpy(&manager, &ArchiveManager::fileListReady);
+    manager.openArchive(archive);
+    QTRY_COMPARE_WITH_TIMEOUT(openedSpy.count(), 1, 10000);
+    manager.listContents();
+    QTRY_COMPARE_WITH_TIMEOUT(listSpy.count(), 1, 10000);
+
+    QString linkPath;
+    for (const ArchiveEntry &entry : manager.entries()) {
+        if (entry.isSymLink) {
+            linkPath = entry.path;
+            break;
+        }
+    }
+    QVERIFY2(!linkPath.isEmpty(), "tar did not expose the symlink entry");
+
+    int decisions = 0;
+    manager.setSymlinkDecisionCallback(
+        [&decisions](const QString &, const QString &) {
+            ++decisions;
+            return ArchiveManager::SymlinkDecision::SkipAll;
+        });
+
+    const QString dest = temp.filePath(QStringLiteral("out-skip"));
+    QSignalSpy finishSpy(&manager, &ArchiveManager::operationFinished);
+    ExtractOptions options;
+    options.destDir = dest;
+    options.overwrite = OverwritePolicy::Always;
+    manager.extract(options);
+    QTRY_COMPARE_WITH_TIMEOUT(finishSpy.count(), 1, 20000);
+    QVERIFY2(finishSpy.first().at(0).toBool(),
+             qPrintable(finishSpy.first().at(1).toString()));
+    QCOMPARE(decisions, 1);
+    QVERIFY(QFileInfo::exists(QDir(dest).filePath(QStringLiteral("safe.txt"))));
+    QVERIFY(!QFileInfo::exists(QDir(dest).filePath(linkPath)));
+
+    manager.setSymlinkDecisionCallback(
+        [](const QString &, const QString &) {
+            return ArchiveManager::SymlinkDecision::Abort;
+        });
+    const QString abortDest = temp.filePath(QStringLiteral("out-abort"));
+    QSignalSpy errorSpy(&manager, &ArchiveManager::errorOccurred);
+    ExtractOptions abortOptions;
+    abortOptions.destDir = abortDest;
+    abortOptions.overwrite = OverwritePolicy::Always;
+    manager.extract(abortOptions);
+    QTRY_COMPARE_WITH_TIMEOUT(errorSpy.count(), 1, 10000);
+    QCOMPARE(errorSpy.first().at(0).value<ArchiveErrorCode>(),
+             ArchiveErrorCode::Cancelled);
+    QVERIFY(!QFileInfo::exists(abortDest));
+
+    manager.setSymlinkDecisionCallback(nullptr);
+    manager.closeArchive();
+}
+
 // Backend selection follows preference and split-volume rules.
 // 后端选择遵循偏好设置与分卷规则。
 void TestManager::backendSelectionHonoursPreference()

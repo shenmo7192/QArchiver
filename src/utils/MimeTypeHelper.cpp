@@ -169,10 +169,14 @@ QString MimeTypeHelper::extensionOf(const QString &filePath)
         }
     }
 
-    if (lower.contains(QRegularExpression(QStringLiteral("\\.part\\d+\\.rar$")))) {
+    static const QRegularExpression partRarRe(
+        QStringLiteral("\\.part\\d+\\.rar$"));
+    static const QRegularExpression rarOldVolumeRe(
+        QStringLiteral("\\.r\\d{2,}$"));
+    if (partRarRe.match(lower).hasMatch()) {
         return QStringLiteral(".partNN.rar");
     }
-    if (lower.contains(QRegularExpression(QStringLiteral("\\.r\\d{2,}$")))) {
+    if (rarOldVolumeRe.match(lower).hasMatch()) {
         return lower.mid(lower.lastIndexOf(QLatin1Char('.')));
     }
 

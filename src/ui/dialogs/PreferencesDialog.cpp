@@ -18,6 +18,7 @@
 #include <QApplication>
 #include <QSize>
 
+#include "backends/rar/RarBackend.h"
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
 #include "utils/BackgroundImage.h"
@@ -36,6 +37,9 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     m_defaultFormatCombo = new QComboBox(this);
     m_defaultFormatCombo->addItem(tr("Zip"), static_cast<int>(ArchiveFormat::Zip));
     m_defaultFormatCombo->addItem(tr("7z"), static_cast<int>(ArchiveFormat::SevenZip));
+    if (RarBackend::isCreateAvailable()) {
+        m_defaultFormatCombo->addItem(tr("RAR"), static_cast<int>(ArchiveFormat::Rar5));
+    }
     m_defaultFormatCombo->addItem(tr("Tar"), static_cast<int>(ArchiveFormat::Tar));
     m_defaultFormatCombo->addItem(tr("Tar.gz"), static_cast<int>(ArchiveFormat::TarGz));
     const int formatIndex = m_defaultFormatCombo->findData(
@@ -66,6 +70,15 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     m_maxPreviewSpin->setRange(1, 500);
     m_maxPreviewSpin->setSuffix(tr(" MB"));
     m_maxPreviewSpin->setValue(static_cast<int>(settings.maxPreviewSize() / (1024 * 1024)));
+
+    m_continuousPreviewSpin = new QSpinBox(this);
+    m_continuousPreviewSpin->setRange(0, 9999);
+    m_continuousPreviewSpin->setSpecialValueText(tr("Always"));
+    m_continuousPreviewSpin->setSuffix(tr(" images"));
+    m_continuousPreviewSpin->setValue(settings.continuousImageDialogThreshold());
+    m_continuousPreviewSpin->setToolTip(
+        tr("Show a preparation dialog when a continuous-preview batch contains "
+           "more than this many images. 0 shows it for every batch."));
 
     m_followSymlinksCheck = new QCheckBox(tr("Follow symlinks when compressing"), this);
     m_followSymlinksCheck->setChecked(settings.followSymlinks());
@@ -102,6 +115,10 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
 
     m_showRecentFilesCheck = new QCheckBox(tr("Show recent files sidebar"), this);
     m_showRecentFilesCheck->setChecked(settings.showRecentFiles());
+
+    m_recentFilesLimitSpin = new QSpinBox(this);
+    m_recentFilesLimitSpin->setRange(1, 100);
+    m_recentFilesLimitSpin->setValue(settings.recentFilesLimit());
 
     // Background image: path, alignment, size and opacity. The controls are
     // disabled until a path is selected; an empty path disables the image.
@@ -216,6 +233,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     form->addRow(tr("Default compression &level:"), m_defaultLevelSpin);
     form->addRow(tr("&Overwrite policy:"), m_overwriteCombo);
     form->addRow(tr("Max preview &size:"), m_maxPreviewSpin);
+    form->addRow(tr("Continuous preview &dialog:"), m_continuousPreviewSpin);
     form->addRow(tr("&Theme:"), m_themeCombo);
     form->addRow(tr("Archive content &view:"), m_viewModeCombo);
     form->addRow(tr("Toolbar button style:"), m_toolbarStyleCombo);
@@ -228,6 +246,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         form->addRow(QString(), m_libArchiveHint);
     }
     form->addRow(QString(), m_showRecentFilesCheck);
+    form->addRow(tr("Recent files &limit:"), m_recentFilesLimitSpin);
     form->addRow(tr("Background &image:"), backgroundPathLayout);
     form->addRow(tr("Image &alignment:"), m_backgroundAlignCombo);
     form->addRow(tr("Image &size:"), backgroundSizeLayout);
@@ -267,6 +286,7 @@ void PreferencesDialog::saveSettings()
     s.setPreservePaths(m_preservePathsCheck->isChecked());
     s.setOpenDestAfterFinish(m_openAfterCheck->isChecked());
     s.setMaxPreviewSize(qint64(m_maxPreviewSpin->value()) * 1024 * 1024);
+    s.setContinuousImageDialogThreshold(m_continuousPreviewSpin->value());
     s.setFollowSymlinks(m_followSymlinksCheck->isChecked());
     s.setRememberPasswords(m_rememberPasswordsCheck->isChecked());
     if (m_libArchiveCheck->isEnabled()) {
@@ -276,11 +296,12 @@ void PreferencesDialog::saveSettings()
     s.setContentViewMode(m_viewModeCombo->currentData().toString());
     s.setToolButtonStyle(m_toolbarStyleCombo->currentData().toString());
     s.setShowRecentFiles(m_showRecentFilesCheck->isChecked());
-    s.setBackgroundImagePath(m_backgroundPathEdit->text().trimmed());
-    s.setBackgroundImageAlignment(m_backgroundAlignCombo->currentData().toString());
-    s.setBackgroundImageSize(QSize(m_backgroundWidthSpin->value(),
-                                   m_backgroundHeightSpin->value()));
-    s.setBackgroundImageOpacity(m_backgroundOpacitySpin->value() / 100.0);
+    s.setRecentFilesLimit(m_recentFilesLimitSpin->value());
+    s.setBackgroundImageOptions(
+        m_backgroundPathEdit->text().trimmed(),
+        m_backgroundAlignCombo->currentData().toString(),
+        QSize(m_backgroundWidthSpin->value(), m_backgroundHeightSpin->value()),
+        m_backgroundOpacitySpin->value() / 100.0);
 
     // Apply the theme immediately so the change is visible without restarting.
     // 立即应用主题，无需重启即可看到变化。

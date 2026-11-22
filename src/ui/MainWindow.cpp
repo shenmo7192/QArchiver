@@ -8,6 +8,7 @@
 #include "FilterProxyModel.h"
 #include "FileListViewDelegate.h"
 #include "PreviewManager.h"
+#include "PreviewUtils.h"
 #include "DragOutManager.h"
 #include "widgets/ArchiveTreeView.h"
 #include "widgets/BackgroundWidget.h"
@@ -16,6 +17,9 @@
 #include "dialogs/CompressDialog.h"
 #include "dialogs/PasswordDialog.h"
 #include "utils/Logger.h"
+#include "utils/MimeTypeHelper.h"
+#include "utils/SevenZipTool.h"
+#include "utils/MessageBoxUtils.h"
 #include "dialogs/ProgressDialog.h"
 #include "dialogs/PreferencesDialog.h"
 
@@ -64,6 +68,10 @@
 #include <QIcon>
 #include <QItemSelectionModel>
 #include <QCoreApplication>
+#include <QTimer>
+#include <QFutureWatcher>
+#include <QCheckBox>
+#include <QtConcurrent>
 
 namespace {
 
@@ -74,6 +82,12 @@ QIcon resourceIcon(const QString &fileName)
 
 bool isArchiveFile(const QString &path)
 {
+    // Split RAR volumes may end in .r00/.r01/... instead of .rar.
+    // 分卷 RAR 的后续卷可能以 .r00/.r01/... 结尾，而不是 .rar。
+    if (MimeTypeHelper::isSplitVolume(path)) {
+        return true;
+    }
+
     static const QStringList suffixes = {
         QStringLiteral(".tar"), QStringLiteral(".tar.gz"),
         QStringLiteral(".tgz"), QStringLiteral(".tar.xz"),
@@ -165,18 +179,134 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&manager, &ArchiveManager::operationFinished,
             this, &MainWindow::onOperationFinished);
 
+    manager.setSymlinkDecisionCallback(
+        [this](const QString &path, const QString &target) {
+            QMessageBox box(this);
+            box.setWindowTitle(tr("Unsafe Symbolic Link"));
+            box.setIconPixmap(resourceIcon(QStringLiteral("warning.ico"))
+                                  .pixmap(32, 32));
+            box.setText(tr("The archive contains a symbolic link that points "
+                           "outside the extraction directory."));
+            box.setInformativeText(
+                tr("Link: %1\nTarget: %2\n\n"
+                   "Skipping the link prevents it and its contents from being "
+                   "extracted. Aborting removes the temporary extraction.")
+                    .arg(path, target.isEmpty() ? tr("(empty)") : target));
+            auto *applyAll = new QCheckBox(
+                tr("Apply to the same items in this task"), &box);
+            box.setCheckBox(applyAll);
+            QPushButton *skipButton =
+                box.addButton(tr("Skip Link"), QMessageBox::DestructiveRole);
+            QPushButton *abortButton =
+                box.addButton(tr("Abort Extraction"), QMessageBox::RejectRole);
+            box.setDefaultButton(abortButton);
+            box.exec();
+            if (box.clickedButton() == skipButton) {
+                return applyAll->isChecked()
+                    ? ArchiveManager::SymlinkDecision::SkipAll
+                    : ArchiveManager::SymlinkDecision::Skip;
+            }
+            return ArchiveManager::SymlinkDecision::Abort;
+        });
+
     connect(m_treeView, &ArchiveTreeView::dragOutRequested,
             this, &MainWindow::onEntriesDragOut);
 
     PreviewManager::instance().cleanupStale();
     DragOutManager::instance().cleanupStale();
     updateActionsState();
+
+    // Probe the fallback CLI after the window is visible, so the warning is
+    // shown once without delaying application startup.
+    // 窗口显示后再检测兜底 CLI，只提示一次且不阻塞启动。
+    QTimer::singleShot(0, this, &MainWindow::checkSevenZipFallback);
 }
 
 MainWindow::~MainWindow()
 {
+    ArchiveManager::instance().setSymlinkDecisionCallback(nullptr);
     PreviewManager::instance().cleanupOwn();
     DragOutManager::instance().cleanupOwn();
+}
+
+void MainWindow::checkSevenZipFallback()
+{
+    static bool started = false;
+    if (started) {
+        return;
+    }
+    started = true;
+
+    // Probe the fallback CLI off the GUI thread so --help/codec detection
+    // cannot delay the first paint.
+    // 在 GUI 线程之外探测兜底 CLI，避免 --help/编解码器检测阻塞首帧。
+    auto *watcher = new QFutureWatcher<SevenZipToolInfo>(this);
+    connect(watcher, &QFutureWatcher<SevenZipToolInfo>::finished, this,
+            [this, watcher]() {
+                const SevenZipToolInfo info = watcher->result();
+                watcher->deleteLater();
+                showSevenZipFallbackInfo(info);
+            });
+    watcher->setFuture(QtConcurrent::run([]() { return SevenZipTool::detect(); }));
+}
+
+void MainWindow::showSevenZipFallbackInfo(const SevenZipToolInfo &info)
+{
+    if (info.source == SevenZipToolInfo::Source::Bundled
+        || info.source == SevenZipToolInfo::Source::Override) {
+        return;
+    }
+
+    if (info.source == SevenZipToolInfo::Source::System) {
+        const QString rarStatus = info.supportsRar
+            ? tr("RAR extraction: supported by this system 7-Zip.")
+            : tr("RAR extraction: NOT supported by this system 7-Zip. "
+                 "On Debian/Ubuntu install the '7zip-rar' package "
+                 "(older releases: 'p7zip-rar') to enable it.");
+
+        QStringList dirs = info.bundledDirectories;
+        if (dirs.isEmpty()) {
+            dirs << QDir(QCoreApplication::applicationDirPath())
+                        .filePath(QStringLiteral("7zip"));
+        }
+
+        QMessageBox::warning(
+            this, tr("System 7-Zip Fallback"),
+            tr("The bundled 7-Zip command-line tool was not found in the "
+               "program directories:\n%1\n\n"
+               "QArchiver is using the system 7-Zip instead:\n%2\n\n"
+               "%3\n\n"
+               "For a self-contained installation, download the official "
+               "7-Zip command-line tool and place it in the '7zip' directory "
+               "next to QArchiver.")
+                .arg(dirs.join(QLatin1Char('\n')), info.path, rarStatus));
+        return;
+    }
+
+    QString targetDir = info.bundledDirectories.value(0);
+    if (targetDir.isEmpty()) {
+        targetDir = QDir(QCoreApplication::applicationDirPath())
+                        .filePath(QStringLiteral("7zip"));
+    }
+
+    QMessageBox::critical(
+        this, tr("No 7-Zip Fallback"),
+        tr("No usable 7-Zip command-line tool was found in the program "
+           "directories or in PATH.\n\n"
+           "QArchiver uses 7-Zip as the fallback backend for archive formats "
+           "and operations the built-in backend cannot handle. Without it, "
+           "some archives cannot be opened, extracted or created.\n\n"
+           "Fix this in one of these ways:\n\n"
+           "1. Download the official 7-Zip command-line tool from "
+           "https://www.7-zip.org/download.html and place the executable in:\n"
+           "%1\n\n"
+           "2. On Debian/Ubuntu, install the system packages:\n"
+           "   sudo apt update\n"
+           "   sudo apt install 7zip\n"
+           "   sudo apt install 7zip-rar\n"
+           "   (older releases: sudo apt install p7zip-full p7zip-rar)\n\n"
+           "Then restart QArchiver.")
+            .arg(targetDir));
 }
 
 void MainWindow::setupActions()
@@ -443,14 +573,17 @@ void MainWindow::updateSearchIcon()
 void MainWindow::updateActionsState()
 {
     ArchiveBackend *backend = ArchiveManager::instance().backend();
+    const bool busy = ArchiveManager::instance().isBusy();
     const bool hasArchive = (backend != nullptr);
     const bool canModify = hasArchive && backend->supportsAppend();
     const bool hasSelection = !selectedEntryPaths().isEmpty();
 
-    m_extractAct->setEnabled(hasArchive);
-    m_addAct->setEnabled(canModify);
-    m_deleteAct->setEnabled(canModify && hasSelection);
-    m_closeAct->setEnabled(hasArchive);
+    m_openAct->setEnabled(!busy);
+    m_newAct->setEnabled(!busy);
+    m_extractAct->setEnabled(hasArchive && !busy);
+    m_addAct->setEnabled(canModify && !busy);
+    m_deleteAct->setEnabled(canModify && hasSelection && !busy);
+    m_closeAct->setEnabled(hasArchive && !busy);
 }
 
 void MainWindow::showPlaceholder(const QString &message)
@@ -499,10 +632,12 @@ QStringList MainWindow::chooseSourceItems(const QString &title)
 
 void MainWindow::openFile(const QString &path)
 {
-    m_currentPassword = m_sessionPassword;
-    m_model->setEntries({});
-    m_searchEdit->clear();
+    // Keep the current archive (and its password) until the new one opens
+    // successfully.  onArchiveOpened() switches to the session password.
+    // 在新压缩包成功打开前保留当前压缩包及其密码。
+    // onArchiveOpened() 会切换到会话密码。
     ArchiveManager::instance().openArchive(path);
+    updateActionsState();
 }
 
 void MainWindow::startExtract(const ExtractOptions &opts)
@@ -536,8 +671,15 @@ void MainWindow::startExtract(const ExtractOptions &opts)
     m_openDestAfterExtract = options.openDestAfterFinish;
     m_lastExtractDest = options.destDir;
     m_currentOp = UiOp::Extract;
-    showProgressDialog(tr("Extracting..."));
+
+    // Validation (including the unsafe-symlink prompt) runs synchronously
+    // before dispatch; only show the progress dialog if the task started.
+    // 校验（包括危险符号链接提示）在派发前同步执行；仅在任务真正开始后
+    // 显示进度对话框，避免模态对话框叠加。
     ArchiveManager::instance().extract(options);
+    if (ArchiveManager::instance().isBusy()) {
+        showProgressDialog(tr("Extracting..."));
+    }
 }
 
 void MainWindow::addFilesToCurrentArchive(const QStringList &files)
@@ -570,7 +712,7 @@ void MainWindow::onOpen()
 {
     const QString path = QFileDialog::getOpenFileName(
         this, tr("Open Archive"), QString(),
-        tr("Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.gz *.bz2 *.xz *.001);;All Files (*)"));
+        tr("Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.001);;All Files (*)"));
     if (!path.isEmpty()) {
         openFile(path);
     }
@@ -711,13 +853,17 @@ void MainWindow::onArchiveOpening(const QString &filePath)
     setBusyIndicatorVisible(true,
         tr("Detecting format: %1").arg(QFileInfo(filePath).fileName()));
     statusBar()->showMessage(tr("Detecting archive format..."));
+    updateActionsState();
 }
 
 void MainWindow::onArchiveOpened(const QString &filePath)
 {
+    m_currentPassword = m_sessionPassword;
+
     // A new archive means new content: drop staging prepared for the previous
     // one.  (The staging directories themselves are removed on exit.)
     DragOutManager::instance().clearCache();
+    m_searchEdit->clear();
     setWindowTitle(tr("QArchiver - %1").arg(QFileInfo(filePath).fileName()));
     m_centralStack->setCurrentIndex(1);
     statusBar()->showMessage(tr("Opened: %1").arg(filePath), 3000);
@@ -735,6 +881,9 @@ void MainWindow::onArchiveOpened(const QString &filePath)
 
 void MainWindow::onFileListReady(const QList<ArchiveEntry> &entries)
 {
+    if (m_currentOp == UiOp::List) {
+        m_currentOp = UiOp::None;
+    }
     m_model->setEntries(entries);
     if (!m_model->isFlatMode()) {
         m_treeView->expandToDepth(0);
@@ -786,6 +935,7 @@ void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
         m_progressDialog->close();
         m_progressDialog = nullptr;
     }
+    m_currentOp = UiOp::None;
     setBusyIndicatorVisible(false);
 
     if (code == ArchiveErrorCode::WrongPassword) {
@@ -794,6 +944,18 @@ void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
 
     if (code == ArchiveErrorCode::Cancelled) {
         statusBar()->showMessage(msg.isEmpty() ? tr("Cancelled") : msg, 5000);
+        updateActionsState();
+        return;
+    }
+
+    if (code == ArchiveErrorCode::PartialExtraction
+        || code == ArchiveErrorCode::HardLinkUnsupported) {
+        MessageBoxUtils::showWarning(
+            this,
+            code == ArchiveErrorCode::PartialExtraction
+                ? tr("Extraction Incomplete")
+                : tr("Hard Link Not Supported"),
+            msg);
         updateActionsState();
         return;
     }
@@ -813,6 +975,8 @@ void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
     case ArchiveErrorCode::PermissionDenied:    title = tr("Permission Denied"); break;
     case ArchiveErrorCode::PathTooLong:         title = tr("Path Too Long"); break;
     case ArchiveErrorCode::EncodingError:       title = tr("Encoding Error"); break;
+    case ArchiveErrorCode::PartialExtraction:   title = tr("Extraction Incomplete"); break;
+    case ArchiveErrorCode::HardLinkUnsupported: title = tr("Hard Link Not Supported"); break;
     case ArchiveErrorCode::Unknown:             break;
     case ArchiveErrorCode::Cancelled:           break;
     }
@@ -846,7 +1010,9 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
 
     if (finishedOp == UiOp::Extract && m_openDestAfterExtract
         && !m_lastExtractDest.isEmpty()) {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(m_lastExtractDest));
+        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(m_lastExtractDest))) {
+            MessageBoxUtils::showOpenFailure(this, m_lastExtractDest);
+        }
     }
 
     if (finishedOp == UiOp::Add || finishedOp == UiOp::Delete) {
@@ -893,10 +1059,12 @@ void MainWindow::onEntryDoubleClicked(const QString &path)
         return;
     }
 
+    const QStringList imagePaths =
+        PreviewUtils::imageSiblings(m_model->sourceEntries(), entry->path);
     PreviewManager::instance().preview(
         ArchiveManager::instance().currentPath(),
         ArchiveManager::instance().currentFormat(),
-        entry->path, entry->size, m_currentPassword);
+        entry->path, entry->size, imagePaths, m_currentPassword);
 }
 
 void MainWindow::onTreeContextMenu(const QPoint &pos)
@@ -909,24 +1077,26 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
     }
 
     ArchiveBackend *backend = ArchiveManager::instance().backend();
+    const bool busy = ArchiveManager::instance().isBusy();
     const QStringList selected = selectedEntryPaths();
 
     QMenu menu(this);
     QAction *extractSelected = menu.addAction(
         resourceIcon(QStringLiteral("Extract.png")), tr("Extract Selected..."));
-    extractSelected->setEnabled(backend && !selected.isEmpty());
+    extractSelected->setEnabled(backend && !selected.isEmpty() && !busy);
     connect(extractSelected, &QAction::triggered, this, &MainWindow::onExtractSelected);
 
     menu.addSeparator();
 
     QAction *addFiles = menu.addAction(
         resourceIcon(QStringLiteral("New.png")), tr("Add Files..."));
-    addFiles->setEnabled(backend && backend->supportsAppend());
+    addFiles->setEnabled(backend && backend->supportsAppend() && !busy);
     connect(addFiles, &QAction::triggered, this, &MainWindow::onAddFiles);
 
     QAction *deleteSelected = menu.addAction(
         resourceIcon(QStringLiteral("Close.png")), tr("Delete Selected"));
-    deleteSelected->setEnabled(backend && backend->supportsAppend() && !selected.isEmpty());
+    deleteSelected->setEnabled(backend && backend->supportsAppend()
+                               && !selected.isEmpty() && !busy);
     connect(deleteSelected, &QAction::triggered, this, &MainWindow::onDeleteSelected);
 
     menu.exec(m_treeView->viewport()->mapToGlobal(pos));
@@ -1344,6 +1514,7 @@ void MainWindow::showProgressDialog(const QString &title)
     });
     m_progressDialog = dlg;
     dlg->show();
+    QTimer::singleShot(0, this, &MainWindow::updateActionsState);
 }
 
 QStringList MainWindow::selectedEntryPaths() const

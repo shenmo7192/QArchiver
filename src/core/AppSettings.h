@@ -35,8 +35,16 @@ public:
     bool rememberPasswords() const;
     bool openDestAfterFinish() const;
     qint64 maxPreviewSize() const;
+    // Number of same-directory images above which continuous preview shows a
+    // preparation dialog.  0 means any image batch.  Range 0..9999.
+    // 同目录图片数量超过该值时，连续看图显示准备对话框。0 表示任意图片批次。
+    // 范围 0..9999。
+    int continuousImageDialogThreshold() const;
     bool followSymlinks() const;
     QStringList recentFiles() const;
+    // Maximum entries kept in the recent-files list. Range 1..100.
+    // 最近文件列表保留的最大条目数。范围 1..100。
+    int recentFilesLimit() const;
     QString theme() const;
     QString contentViewMode() const;   // "tree" or "list"
     QString toolButtonStyle() const;  // textUnderIcon/textBesideIcon/textOnly/iconOnly
@@ -64,8 +72,10 @@ public:
     void setRememberPasswords(bool remember);
     void setOpenDestAfterFinish(bool open);
     void setMaxPreviewSize(qint64 size);
+    void setContinuousImageDialogThreshold(int count);
     void setFollowSymlinks(bool follow);
     void setRecentFiles(const QStringList &files);
+    void setRecentFilesLimit(int limit);
     void setTheme(const QString &theme);
     void setContentViewMode(const QString &mode);
     void setToolButtonStyle(const QString &style);
@@ -75,11 +85,19 @@ public:
     void setBackgroundImageAlignment(const QString &alignment);
     void setBackgroundImageSize(const QSize &size);
     void setBackgroundImageOpacity(qreal opacity);
+    // Persist all background image options with one sync and one change signal.
+    // 一次性持久化全部背景图片选项，只 sync 并发出一次变更信号。
+    void setBackgroundImageOptions(const QString &path, const QString &alignment,
+                                   const QSize &size, qreal opacity);
 
 signals:
     // Emitted whenever one of the background image options changes.
     // 任一背景图片选项变化时发出。
     void backgroundImageChanged();
+    // Emitted after the recent-files limit was persisted and the stored list
+    // was trimmed.  RecentFilesManager refreshes the sidebar in response.
+    // 最近文件上限持久化并裁剪列表后发出；RecentFilesManager 据此刷新侧边栏。
+    void recentFilesLimitChanged();
 
 private:
     AppSettings();

@@ -21,6 +21,9 @@ public:
     void clear();
     // Remove entries that no longer exist on disk / 移除磁盘上已不存在的条目
     QStringList validatedList() const;
+    // Apply the configured history limit immediately and notify the sidebar.
+    // 立即应用配置的历史记录上限并通知侧边栏。
+    void trimToLimit();
 
 signals:
     void changed();

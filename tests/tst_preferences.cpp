@@ -14,6 +14,8 @@
 
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
+#include "core/RecentFilesManager.h"
+#include "ui/FileListModel.h"
 #include "ui/dialogs/PasswordDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 
@@ -30,6 +32,9 @@ private slots:
     void libArchiveCheckboxPersistsChoice();
     void libArchiveCheckboxDisabledWithoutLibrary();
     void passwordDialogUsesRememberSetting();
+    void configurableLimitsAreClamped();
+    void recentFilesLimitTrimsImmediately();
+    void listModeDirectoryIndexPreservesEntries();
 
 private:
     static QCheckBox *passwordRememberCheck(PasswordDialog &dialog)
@@ -204,6 +209,83 @@ void TestPreferences::passwordDialogUsesRememberSetting()
     }
 
     settings.setRememberPasswords(saved);
+}
+
+// New configurable limits have stable defaults and strict ranges.
+// 新增可配置上限具有稳定默认值并严格限制范围。
+void TestPreferences::configurableLimitsAreClamped()
+{
+    AppSettings &settings = AppSettings::instance();
+
+    settings.setContinuousImageDialogThreshold(-1);
+    QCOMPARE(settings.continuousImageDialogThreshold(), 0);
+    settings.setContinuousImageDialogThreshold(10000);
+    QCOMPARE(settings.continuousImageDialogThreshold(), 9999);
+    settings.setContinuousImageDialogThreshold(150);
+    QCOMPARE(settings.continuousImageDialogThreshold(), 150);
+
+    settings.setRecentFilesLimit(0);
+    QCOMPARE(settings.recentFilesLimit(), 1);
+    settings.setRecentFilesLimit(101);
+    QCOMPARE(settings.recentFilesLimit(), 100);
+    settings.setRecentFilesLimit(7);
+    QCOMPARE(settings.recentFilesLimit(), 7);
+}
+
+// Reducing the recent-files limit trims the stored history without waiting
+// for the next "add", and the sidebar notification is emitted.
+// 降低最近文件上限时立即裁剪已保存历史，无需等待下一次“添加”，
+// 并发出侧边栏通知。
+void TestPreferences::recentFilesLimitTrimsImmediately()
+{
+    AppSettings &settings = AppSettings::instance();
+    RecentFilesManager &recent = RecentFilesManager::instance();
+
+    settings.setRecentFilesLimit(3);
+    settings.setRecentFiles({QStringLiteral("a"), QStringLiteral("b"),
+                             QStringLiteral("c"), QStringLiteral("d"),
+                             QStringLiteral("e")});
+    QCOMPARE(settings.recentFiles().size(), 3);
+
+    QSignalSpy changedSpy(&recent, &RecentFilesManager::changed);
+    settings.setRecentFilesLimit(1);
+    QCOMPARE(settings.recentFiles().size(), 1);
+    QCOMPARE(changedSpy.count(), 1);
+    QCOMPARE(recent.list().size(), 1);
+}
+
+// List mode uses the directory index: implicit parents, duplicates and the
+// original member spelling survive navigation.
+// 列表模式使用目录索引：隐式父目录、重复项和原始成员名在导航后仍保留。
+void TestPreferences::listModeDirectoryIndexPreservesEntries()
+{
+    FileListModel model;
+    QList<ArchiveEntry> entries;
+    auto add = [&entries](const QString &path, qint64 size = 0) {
+        ArchiveEntry entry;
+        entry.path = path;
+        entry.size = size;
+        entries.append(entry);
+    };
+    add(QStringLiteral("./root.txt"), 1);
+    add(QStringLiteral("dir/a.txt"), 2);
+    add(QStringLiteral("dir/a.txt"), 3);
+    add(QStringLiteral("dir/sub/b.txt"), 4);
+
+    model.setEntries(entries);
+    model.setFlatMode(true);
+
+    QCOMPARE(model.rowCount(), 2); // implicit "dir" + root.txt
+    QVERIFY(model.enterDirectory(QStringLiteral("dir")));
+    QCOMPARE(model.rowCount(), 4); // ".." + two duplicate a.txt rows + sub
+    QVERIFY(model.enterDirectory(QStringLiteral("sub")));
+    QCOMPARE(model.rowCount(), 2); // ".." + b.txt
+    QCOMPARE(model.index(1, FileListModel::NameColumn)
+                 .data(FileListModel::PathRole).toString(),
+             QStringLiteral("dir/sub/b.txt"));
+    QVERIFY(model.goUp());
+    QVERIFY(model.goUp());
+    QCOMPARE(model.rowCount(), 2);
 }
 
 QTEST_MAIN(TestPreferences)

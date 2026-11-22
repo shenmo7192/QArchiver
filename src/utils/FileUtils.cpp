@@ -8,12 +8,60 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QStorageInfo>
 #include <QUuid>
 
+#include <limits>
+
 #include "ArchiveEntry.h"
 
+#ifndef Q_OS_WIN
+#include <unistd.h>
+#endif
+
 namespace {
+
+QString rawSymlinkTarget(const QString &path)
+{
+#ifndef Q_OS_WIN
+    const QByteArray nativePath = QFile::encodeName(path);
+    QByteArray buffer(4096, Qt::Uninitialized);
+    for (;;) {
+        const ssize_t size = ::readlink(nativePath.constData(), buffer.data(),
+                                        static_cast<size_t>(buffer.size()));
+        if (size < 0) {
+            return QString();
+        }
+        if (size < buffer.size()) {
+            buffer.truncate(static_cast<int>(size));
+            return QString::fromLocal8Bit(buffer);
+        }
+        buffer.resize(buffer.size() * 2);
+    }
+#else
+    return QFileInfo(path).symLinkTarget();
+#endif
+}
+
+bool isAbsoluteLinkTarget(const QString &target)
+{
+    if (target.isEmpty()) {
+        return true;
+    }
+    if (QDir::isAbsolutePath(target)
+        || target.startsWith(QLatin1Char('/'))
+        || target.startsWith(QLatin1Char('\\'))) {
+        return true;
+    }
+    static const QRegularExpression driveRe(QStringLiteral("^[A-Za-z]:"));
+    return driveRe.match(target).hasMatch();
+}
+
+QStringList pathComponents(const QString &path)
+{
+    return path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+}
 
 bool copyMetadata(const QString &src, const QString &dest)
 {
@@ -92,15 +140,49 @@ int FileUtils::countFiles(const QStringList &paths)
     return count;
 }
 
+bool FileUtils::addSizeChecked(qint64 &total, qint64 value)
+{
+    if (value < 0) {
+        return false;
+    }
+    if (total > std::numeric_limits<qint64>::max() - value) {
+        return false;
+    }
+    total += value;
+    return true;
+}
+
 qint64 FileUtils::totalUnpackedSize(const QList<ArchiveEntry> &entries)
 {
     qint64 total = 0;
     for (const ArchiveEntry &entry : entries) {
-        if (!entry.isDir) {
-            total += entry.size;
+        if (entry.isDir) {
+            continue;
+        }
+        if (!addSizeChecked(total, entry.size)) {
+            return std::numeric_limits<qint64>::max();
         }
     }
     return total;
+}
+
+bool FileUtils::totalUnpackedSizeChecked(const QList<ArchiveEntry> &entries,
+                                         qint64 *total)
+{
+    if (!total) {
+        return false;
+    }
+    qint64 sum = 0;
+    for (const ArchiveEntry &entry : entries) {
+        if (entry.isDir) {
+            continue;
+        }
+        if (!addSizeChecked(sum, entry.size)) {
+            return false;
+        }
+    }
+    *total = sum;
+    return true;
 }
 
 bool FileUtils::removeDirectoryRecursively(const QString &path)
@@ -154,7 +236,9 @@ int FileUtils::moveExtractedContents(const QString &srcDir, const QString &destD
     };
     QList<Item> items;
 
-    QDirIterator it(srcDir, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot,
+    QDirIterator it(srcDir,
+                    QDir::Files | QDir::Dirs | QDir::System
+                        | QDir::NoDotAndDotDot,
                     QDirIterator::Subdirectories);
     while (it.hasNext()) {
         it.next();
@@ -289,6 +373,87 @@ bool FileUtils::isPathTraversal(const QString &entryPath, const QString &destDir
     }
 
     return false;
+}
+
+
+bool FileUtils::isSafeSymlinkTarget(const QString &entryPath,
+                                    const QString &target)
+{
+    if (isAbsoluteLinkTarget(target)) {
+        return false;
+    }
+
+    const QString normalizedEntry = normalizeEntryPath(entryPath);
+    const int slash = normalizedEntry.lastIndexOf(QLatin1Char('/'));
+    const QString parent = slash < 0 ? QString() : normalizedEntry.left(slash);
+
+    // A relative link resolves from its parent directory.  Walk the target's
+    // components and reject any ".." that would climb above the archive root.
+    int depth = pathComponents(parent).size();
+    QString normalizedTarget = target;
+    normalizedTarget.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    const QStringList components = pathComponents(normalizedTarget);
+    for (const QString &component : components) {
+        if (component == QStringLiteral("..")) {
+            if (--depth < 0) {
+                return false;
+            }
+        } else if (component != QStringLiteral(".")) {
+            ++depth;
+        }
+    }
+    return true;
+}
+
+QStringList FileUtils::unsafeExtractedSymlinks(const QString &srcDir)
+{
+    QStringList unsafe;
+    const QString root = QDir(srcDir).absolutePath();
+    const QString canonicalRoot = QFileInfo(root).canonicalFilePath();
+    if (canonicalRoot.isEmpty()) {
+        return unsafe;
+    }
+
+    QDirIterator it(root,
+                    QDir::AllEntries | QDir::Hidden | QDir::System
+                        | QDir::NoDotAndDotDot,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        const QString path = it.next();
+        const QFileInfo info(path);
+        if (!info.isSymLink()) {
+            continue;
+        }
+
+        const QString relative = QDir(root).relativeFilePath(path);
+        const QString target = rawSymlinkTarget(path);
+        if (!isSafeSymlinkTarget(relative, target)) {
+            unsafe << normalizeEntryPath(relative);
+            continue;
+        }
+
+        // Follow an existing target chain and compare canonical paths.  A
+        // dangling target is allowed: it may be extracted later in the archive.
+        const QString targetPath = QDir::cleanPath(
+            QDir(info.absolutePath()).absoluteFilePath(target));
+        const QString resolvedRelative = QDir(root).relativeFilePath(targetPath);
+        if (resolvedRelative == QStringLiteral("..")
+            || resolvedRelative.startsWith(QStringLiteral("../"))) {
+            unsafe << normalizeEntryPath(relative);
+            continue;
+        }
+
+        const QFileInfo targetInfo(targetPath);
+        if (targetInfo.exists() || targetInfo.isSymLink()) {
+            const QString canonicalTarget = targetInfo.canonicalFilePath();
+            if (!canonicalTarget.isEmpty()
+                && canonicalTarget != canonicalRoot
+                && !canonicalTarget.startsWith(canonicalRoot + QLatin1Char('/'))) {
+                unsafe << normalizeEntryPath(relative);
+            }
+        }
+    }
+    return unsafe;
 }
 
 QString FileUtils::uniqueDestinationPath(const QString &path)

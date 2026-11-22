@@ -110,6 +110,8 @@ public:
     // 暂存目录的顶层文件；用于后端忽略 selectedFiles 的纯流格式
     // （.gz/.bz2/.xz）。
     static QStringList topLevelStagedPaths(const QString &stagingRoot);
+    // Returns -1 when an entry has a negative size or the sum overflows.
+    // 条目大小为负或总和溢出时返回 -1。
     static qint64 selectedUncompressedSize(const QList<ArchiveEntry> &entries,
                                            const QStringList &paths);
     // Only errors that the command line tools can plausibly fix are retried.

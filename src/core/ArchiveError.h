@@ -26,6 +26,8 @@ enum class ArchiveErrorCode {
     PermissionDenied,       // Insufficient permissions
     PathTooLong,            // Exceeds PATH_MAX
     EncodingError,          // Filename encoding unparseable
+    PartialExtraction,      // Extraction partially moved to the destination
+    HardLinkUnsupported,    // A required hard link cannot be created safely
     Cancelled,              // User cancelled
 };
 

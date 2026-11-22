@@ -9,7 +9,8 @@
 
 #include <algorithm>
 
-static constexpr int kMaxRecentFiles = 10;
+static constexpr int kDefaultRecentFilesLimit = 20;
+static constexpr int kMaxRecentFilesLimit = 100;
 
 AppSettings::AppSettings()
 {
@@ -102,6 +103,13 @@ qint64 AppSettings::maxPreviewSize() const
     return value(QStringLiteral("preview/maxSize"), qint64(52428800)).toLongLong();
 }
 
+int AppSettings::continuousImageDialogThreshold() const
+{
+    return std::clamp(
+        value(QStringLiteral("preview/continuousImageDialogThreshold"), 200).toInt(),
+        0, 9999);
+}
+
 bool AppSettings::followSymlinks() const
 {
     return value(QStringLiteral("compress/followSymlinks"), false).toBool();
@@ -110,6 +118,14 @@ bool AppSettings::followSymlinks() const
 QStringList AppSettings::recentFiles() const
 {
     return value(QStringLiteral("history/recentFiles")).toStringList();
+}
+
+int AppSettings::recentFilesLimit() const
+{
+    return std::clamp(
+        value(QStringLiteral("history/recentFilesLimit"),
+              kDefaultRecentFilesLimit).toInt(),
+        1, kMaxRecentFilesLimit);
 }
 
 QString AppSettings::theme() const
@@ -206,6 +222,12 @@ void AppSettings::setMaxPreviewSize(qint64 size)
     setValue(QStringLiteral("preview/maxSize"), size);
 }
 
+void AppSettings::setContinuousImageDialogThreshold(int count)
+{
+    setValue(QStringLiteral("preview/continuousImageDialogThreshold"),
+             std::clamp(count, 0, 9999));
+}
+
 void AppSettings::setFollowSymlinks(bool follow)
 {
     setValue(QStringLiteral("compress/followSymlinks"), follow);
@@ -214,10 +236,27 @@ void AppSettings::setFollowSymlinks(bool follow)
 void AppSettings::setRecentFiles(const QStringList &files)
 {
     QStringList capped = files;
-    while (capped.size() > kMaxRecentFiles) {
+    while (capped.size() > recentFilesLimit()) {
         capped.removeLast();
     }
     setValue(QStringLiteral("history/recentFiles"), capped);
+}
+
+void AppSettings::setRecentFilesLimit(int limit)
+{
+    const int clamped = std::clamp(limit, 1, kMaxRecentFilesLimit);
+    setValue(QStringLiteral("history/recentFilesLimit"), clamped);
+
+    // Shrink the stored list immediately; RecentFilesManager::trimToLimit()
+    // refreshes the sidebar after the preference dialog is accepted.
+    // 立即缩短已保存列表；偏好对话框接受后由
+    // RecentFilesManager::trimToLimit() 刷新侧边栏。
+    QStringList files = recentFiles();
+    if (files.size() > clamped) {
+        files = files.mid(0, clamped);
+        setValue(QStringLiteral("history/recentFiles"), files);
+    }
+    emit recentFilesLimitChanged();
 }
 
 void AppSettings::setTheme(const QString &theme)
@@ -280,6 +319,34 @@ void AppSettings::setBackgroundImageOpacity(qreal opacity)
 {
     setValue(QStringLiteral("ui/backgroundImageOpacity"),
              std::clamp(opacity, 0.0, 1.0));
+    emit backgroundImageChanged();
+}
+
+void AppSettings::setBackgroundImageOptions(const QString &path,
+                                            const QString &alignment,
+                                            const QSize &size, qreal opacity)
+{
+    static const QStringList supported = {
+        QStringLiteral("topLeft"), QStringLiteral("top"),
+        QStringLiteral("topRight"), QStringLiteral("left"),
+        QStringLiteral("center"), QStringLiteral("right"),
+        QStringLiteral("bottomLeft"), QStringLiteral("bottom"),
+        QStringLiteral("bottomRight")
+    };
+    const QString storedAlignment = supported.contains(alignment)
+        ? alignment
+        : QStringLiteral("bottomRight");
+
+    m_settings->setValue(QStringLiteral("ui/backgroundImage"), path);
+    m_settings->setValue(QStringLiteral("ui/backgroundImageAlignment"),
+                         storedAlignment);
+    m_settings->setValue(QStringLiteral("ui/backgroundImageWidth"),
+                         std::max(0, size.width()));
+    m_settings->setValue(QStringLiteral("ui/backgroundImageHeight"),
+                         std::max(0, size.height()));
+    m_settings->setValue(QStringLiteral("ui/backgroundImageOpacity"),
+                         std::clamp(opacity, 0.0, 1.0));
+    m_settings->sync();
     emit backgroundImageChanged();
 }
 

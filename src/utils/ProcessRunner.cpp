@@ -5,8 +5,8 @@
 #include "ProcessRunner.h"
 
 #include "EncodingDetector.h"
+#include "SevenZipTool.h"
 
-#include <QCoreApplication>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
@@ -79,24 +79,6 @@ QStringList toolCandidates(const QString &toolName)
     return candidates;
 }
 
-QStringList bundledSearchDirectories()
-{
-    QStringList dirs;
-    const QString appDir = QCoreApplication::applicationDirPath();
-    if (appDir.isEmpty()) {
-        return dirs;
-    }
-
-    const QDir base(appDir);
-    dirs << base.filePath(QStringLiteral("7zip"));
-    dirs << appDir;
-    dirs << QDir::cleanPath(base.filePath(QStringLiteral("../lib/qarchiver/7zip")));
-    dirs << QDir::cleanPath(base.filePath(QStringLiteral("../libexec/qarchiver/7zip")));
-    dirs << QDir::cleanPath(base.filePath(QStringLiteral("../lib/qarchiver")));
-    dirs << QDir::cleanPath(base.filePath(QStringLiteral("../libexec/qarchiver")));
-    return dirs;
-}
-
 } // namespace
 
 bool ProcessRunner::isToolAvailable(const QString &toolName)
@@ -106,6 +88,14 @@ bool ProcessRunner::isToolAvailable(const QString &toolName)
 
 QString ProcessRunner::resolveToolPath(const QString &toolName)
 {
+    // 7z is special: a program-relative candidate must pass --help before it
+    // is accepted, so a stray/invalid file cannot shadow a working system 7z.
+    // 7z 特殊处理：程序相关目录中的候选必须通过 --help 校验，
+    // 避免无效文件遮蔽可用的系统 7z。
+    if (toolName == QLatin1String("7z")) {
+        return SevenZipTool::resolvePath();
+    }
+
     // 1. Explicit override, primarily used by the test suite and packagers.
     // 1. 显式覆盖，主要供测试套件和打包者使用。
     const QByteArray overrideName = environmentOverrideName(toolName).toUtf8();
@@ -117,29 +107,58 @@ QString ProcessRunner::resolveToolPath(const QString &toolName)
         return QDir::cleanPath(QFileInfo(overridePath).absoluteFilePath());
     }
 
-    const QStringList candidates = toolCandidates(toolName);
-
     // 2. Bundled helper next to the executable / in libexec.
     // 2. 可执行文件旁或 libexec 中随程序分发的辅助程序。
-    const QStringList bundledDirs = bundledSearchDirectories();
-    for (const QString &dir : bundledDirs) {
-        const QDir candidateDir(dir);
-        for (const QString &candidate : candidates) {
-            const QString path = candidateDir.filePath(candidate);
-            if (isExecutableFile(path)) {
-                return QDir::cleanPath(QFileInfo(path).absoluteFilePath());
-            }
-        }
+    const QStringList bundled = bundledToolPaths(toolName);
+    if (!bundled.isEmpty()) {
+        return bundled.first();
     }
 
     // 3. System PATH as the final fallback. / 3. 最后回退到系统 PATH。
+    const QStringList system = systemToolPaths(toolName);
+    return system.isEmpty() ? QString() : system.first();
+}
+
+QStringList ProcessRunner::bundledDirectories()
+{
+    return SevenZipTool::bundledDirectories();
+}
+
+QStringList ProcessRunner::bundledToolPaths(const QString &toolName)
+{
+    QStringList paths;
+    const QStringList candidates = toolCandidates(toolName);
+    const QStringList dirs = bundledDirectories();
+    for (const QString &dir : dirs) {
+        const QDir candidateDir(dir);
+        for (const QString &candidate : candidates) {
+            const QString path = candidateDir.filePath(candidate);
+            if (!isExecutableFile(path)) {
+                continue;
+            }
+            const QString absolute = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+            if (!paths.contains(absolute)) {
+                paths << absolute;
+            }
+        }
+    }
+    return paths;
+}
+
+QStringList ProcessRunner::systemToolPaths(const QString &toolName)
+{
+    QStringList paths;
+    const QStringList candidates = toolCandidates(toolName);
     for (const QString &candidate : candidates) {
         const QString path = QStandardPaths::findExecutable(candidate);
         if (!path.isEmpty()) {
-            return path;
+            const QString clean = QFileInfo(path).absoluteFilePath();
+            if (!paths.contains(clean)) {
+                paths << clean;
+            }
         }
     }
-    return QString();
+    return paths;
 }
 
 QString ProcessRunner::maskedCommand(const QString &program, const QStringList &args)
@@ -147,8 +166,13 @@ QString ProcessRunner::maskedCommand(const QString &program, const QStringList &
     QStringList masked;
     masked.reserve(args.size());
     for (const QString &arg : args) {
-        if (arg.startsWith(QStringLiteral("-p")) && arg.size() > 2) {
-            masked << QStringLiteral("-p***");
+        // 7-Zip: -p<pwd>; rar: -p<pwd> and -hp<pwd> (encrypted headers).
+        // 7-Zip：-p<密码>；rar：-p<密码> 与 -hp<密码>（加密文件头）。
+        if ((arg.startsWith(QStringLiteral("-p"))
+             || arg.startsWith(QStringLiteral("-hp")))
+            && arg.size() > 2) {
+            const int prefix = arg.startsWith(QStringLiteral("-hp")) ? 3 : 2;
+            masked << arg.left(prefix) + QStringLiteral("***");
         } else {
             masked << arg;
         }
@@ -163,7 +187,8 @@ ProcessResult ProcessRunner::run(const QString &program,
                                  const QString &workingDir,
                                  int timeoutMs,
                                  const std::atomic_bool *cancel,
-                                 const LineCallback &onLine)
+                                 const LineCallback &onLine,
+                                 const ProcessOutputOptions &outputOptions)
 {
     ProcessResult result;
 
@@ -196,17 +221,38 @@ ProcessResult ProcessRunner::run(const QString &program,
         if (text.isEmpty()) {
             return;
         }
-        if (isError) {
-            result.stdErrRaw += line;
-            result.stdErrRaw += '\n';
-            result.stdErr += text;
-            result.stdErr += QLatin1Char('\n');
-        } else {
-            result.stdOutRaw += line;
-            result.stdOutRaw += '\n';
-            result.stdOut += text;
-            result.stdOut += QLatin1Char('\n');
+
+        const qint64 textLimit = isError ? outputOptions.maxStdErrBytes
+                                         : outputOptions.maxStdOutBytes;
+        const qint64 rawLimit = isError ? outputOptions.maxStdErrBytes
+                                        : outputOptions.maxRawSampleBytes;
+        QString &textTarget = isError ? result.stdErr : result.stdOut;
+        QByteArray &rawTarget = isError ? result.stdErrRaw : result.stdOutRaw;
+
+        if (textLimit < 0 || textTarget.size() < textLimit) {
+            QString piece = text;
+            if (textLimit > 0) {
+                const qint64 remaining = textLimit - textTarget.size();
+                if (piece.size() > remaining) {
+                    piece.truncate(static_cast<qsizetype>(remaining));
+                }
+            }
+            textTarget += piece;
+            textTarget += QLatin1Char('\n');
         }
+
+        if (rawLimit < 0 || rawTarget.size() < rawLimit) {
+            QByteArray piece = line;
+            if (rawLimit > 0) {
+                const qint64 remaining = rawLimit - rawTarget.size();
+                if (piece.size() > remaining) {
+                    piece.truncate(static_cast<qsizetype>(remaining));
+                }
+            }
+            rawTarget += piece;
+            rawTarget += '\n';
+        }
+
         if (onLine) {
             onLine(text, isError);
         }

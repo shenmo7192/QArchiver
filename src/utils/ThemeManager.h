@@ -17,11 +17,11 @@ class QApplication;
 // 并应用到整个应用。
 class ThemeManager {
 public:
-    // Query the FreeDesktop portal setting org.freedesktop.appearance
-    // color-scheme via Qt DBus. Returns "dark" when the system prefers a
-    // dark appearance, otherwise "light" (including when the query fails).
-    // 通过 Qt DBus 查询 FreeDesktop 门户的 org.freedesktop.appearance
-    // color-scheme。系统偏好深色时返回 "dark"，否则返回 "light"（查询失败亦然）。
+    // Query the platform color-scheme hint without blocking startup (no
+    // synchronous DBus call).  Returns "dark" when the system prefers a dark
+    // appearance, otherwise "light"; Qt 6.4 falls back to palette lightness.
+    // 查询平台颜色方案提示，且不阻塞启动（不同步调用 DBus）。
+    // 系统偏好深色时返回 "dark"，否则返回 "light"；Qt 6.4 使用调色板明度回退。
     static QString systemColorScheme();
 
     // Resolve a configured theme value ("system" / "light" / "dark") to the

@@ -65,7 +65,13 @@ public:
     static QRect targetRect(const QSize &imageSize, const QRect &target,
                             Qt::Alignment alignment);
 
+    // Load a background image, caching by absolute path + mtime + size.
+    // The cache is bounded and shared by every caller (archive tree and
+    // placeholder widget).
+    // 按绝对路径 + mtime + 大小缓存背景图片。缓存有界，并由所有调用方
+    // （归档树与占位页控件）共享。
     static QPixmap loadPixmap(const QString &path);
+    static void clearPixmapCache();
 
     // Draw the image into target with the configured opacity/alignment.
     // 按配置的透明度与对齐方式把图片绘制到 target。

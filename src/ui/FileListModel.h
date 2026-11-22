@@ -8,6 +8,7 @@
 #include <QAbstractItemModel>
 #include <QHash>
 #include <QList>
+#include <QSet>
 
 #include "core/ArchiveEntry.h"
 
@@ -84,12 +85,18 @@ private:
     Node *m_root = nullptr;
     QHash<QString, Node *> m_nodes;
     QList<ArchiveEntry> m_sourceEntries;
+    // List-mode directory index: normalized directory -> direct children.
+    // 列表模式目录索引：规范化目录 -> 直接子项。
+    QHash<QString, QList<ArchiveEntry>> m_childrenByDir;
+    QSet<QString> m_directoryPaths;
+    QSet<QString> m_implicitDirectoryPaths;
     bool m_flatMode = false;
     QString m_currentDir;
     int m_flatSortColumn = NameColumn;
     Qt::SortOrder m_flatSortOrder = Qt::AscendingOrder;
 
     void clear();
+    void buildDirectoryIndex();
     void rebuild();
     void sortFlatNodes();
     static void deleteNode(Node *node);

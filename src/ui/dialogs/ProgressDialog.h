@@ -24,6 +24,8 @@ public:
     void updateProgress(int percent, int total, int current, int etaSec);
     void appendOutput(const QString &line);
     void setIndeterminate(bool indeterminate);
+    void setStatusText(const QString &text);
+    void setOutputVisible(bool visible);
 
 signals:
     void cancelled();

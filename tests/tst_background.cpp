@@ -8,6 +8,7 @@
 #include <QImage>
 #include <QPainter>
 #include <QPixmap>
+#include <QTemporaryDir>
 
 #include "utils/BackgroundImage.h"
 
@@ -23,6 +24,7 @@ private slots:
     void targetRect_data();
     void targetRect();
     void paintHonorsOpacityAndAlignment();
+    void loadPixmapIsCachedAndBounded();
 };
 
 // All supported alignment tokens must survive a string round-trip.
@@ -147,6 +149,31 @@ void TestBackground::paintHonorsOpacityAndAlignment()
     QCOMPARE(inside.blue(), 0);
     QVERIFY(qAbs(inside.alpha() - 128) <= 1);
     QCOMPARE(target.pixelColor(0, 0).alpha(), 0);
+}
+
+// The shared background cache returns the same decoded pixmap for an
+// unchanged file and can be cleared.
+// 共享背景缓存对未变化的文件返回同一 pixmap，并支持清空。
+void TestBackground::loadPixmapIsCachedAndBounded()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString path = temp.filePath(QStringLiteral("background.png"));
+
+    QImage image(4, 4, QImage::Format_ARGB32);
+    image.fill(QColor(12, 34, 56, 128));
+    QVERIFY(image.save(path));
+
+    BackgroundImage::clearPixmapCache();
+    const QPixmap first = BackgroundImage::loadPixmap(path);
+    const QPixmap second = BackgroundImage::loadPixmap(path);
+    QVERIFY(!first.isNull());
+    QVERIFY(!second.isNull());
+    QCOMPARE(first.cacheKey(), second.cacheKey());
+
+    BackgroundImage::clearPixmapCache();
+    QVERIFY(BackgroundImage::loadPixmap(QString()).isNull());
+    QVERIFY(BackgroundImage::loadPixmap(temp.filePath(QStringLiteral("missing.png"))).isNull());
 }
 
 QTEST_MAIN(TestBackground)

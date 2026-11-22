@@ -41,7 +41,33 @@ void FilterProxyModel::setFilterWildcard(const QString &pattern)
         return;
     }
     m_pattern = pattern;
+    rebuildPatternRegex();
     invalidateFilter();
+}
+
+void FilterProxyModel::rebuildPatternRegex()
+{
+    m_hasPatternRegex = false;
+    m_patternRegex = QRegularExpression();
+    if (m_pattern.isEmpty()) {
+        return;
+    }
+
+    // Treat a plain search term as a substring match.  Previously the
+    // wildcard expression required an exact match, so typing "file" matched
+    // neither "file.txt" nor "dir/file.txt" and the view became empty.
+    // 将普通搜索词视为子串匹配。此前通配符表达式要求精确匹配，
+    // 输入 "file" 无法匹配 "file.txt" 或 "dir/file.txt"，导致视图为空。
+    QString wildcard = m_pattern;
+    if (!wildcard.contains(QLatin1Char('*')) && !wildcard.contains(QLatin1Char('?'))) {
+        wildcard = QLatin1Char('*') + wildcard + QLatin1Char('*');
+    }
+    const QRegularExpression::PatternOptions options = m_caseSensitive
+        ? QRegularExpression::NoPatternOption
+        : QRegularExpression::CaseInsensitiveOption;
+    m_patternRegex = QRegularExpression(
+        QRegularExpression::wildcardToRegularExpression(wildcard), options);
+    m_hasPatternRegex = m_patternRegex.isValid();
 }
 
 void FilterProxyModel::setCaseSensitive(bool enabled)
@@ -51,6 +77,7 @@ void FilterProxyModel::setCaseSensitive(bool enabled)
     }
     m_caseSensitive = enabled;
     setFilterCaseSensitivity(enabled ? Qt::CaseSensitive : Qt::CaseInsensitive);
+    rebuildPatternRegex();
     invalidateFilter();
 }
 
@@ -103,25 +130,10 @@ bool FilterProxyModel::filterAcceptsRow(int sourceRow,
         }
     }
 
-    if (!m_pattern.isEmpty()) {
-        // Treat a plain search term as a substring match.  Previously the
-        // wildcard expression required an exact match, so typing "file"
-        // matched neither "file.txt" nor "dir/file.txt" and the view became
-        // empty.
-        // 将普通搜索词视为子串匹配。此前通配符表达式要求精确匹配，
-        // 输入 "file" 无法匹配 "file.txt" 或 "dir/file.txt"，导致视图为空。
-        QString pattern = m_pattern;
-        if (!pattern.contains(QLatin1Char('*')) && !pattern.contains(QLatin1Char('?'))) {
-            pattern = QLatin1Char('*') + pattern + QLatin1Char('*');
-        }
-        const QRegularExpression::PatternOptions options = m_caseSensitive
-            ? QRegularExpression::NoPatternOption
-            : QRegularExpression::CaseInsensitiveOption;
-        const QRegularExpression re(
-            QRegularExpression::wildcardToRegularExpression(pattern), options);
-        if (!re.match(path).hasMatch() && !re.match(name).hasMatch()) {
-            return false;
-        }
+    if (m_hasPatternRegex
+        && !m_patternRegex.match(path).hasMatch()
+        && !m_patternRegex.match(name).hasMatch()) {
+        return false;
     }
 
     // Qt's recursive filtering accepts a parent if any descendant matches.

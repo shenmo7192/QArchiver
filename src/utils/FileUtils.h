@@ -28,9 +28,37 @@ public:
     // 递归统计指定路径下的所有文件
     static int countFiles(const QStringList &paths);
 
-    // Estimate the total uncompressed size of an archive's entries
-    // 估算压缩包条目的解压后总大小
+    // Add @p value to @p total, rejecting negative values and qint64 overflow.
+    // 将 @p value 累加到 @p total，拒绝负值与 qint64 溢出。
+    static bool addSizeChecked(qint64 &total, qint64 value);
+
+    // Estimate the total uncompressed size of an archive's entries.  The
+    // returned value saturates at qint64 max on overflow.
+    // 估算压缩包条目的解压后总大小；溢出时饱和到 qint64 最大值。
     static qint64 totalUnpackedSize(const QList<ArchiveEntry> &entries);
+
+    // Checked variant used by extraction/drag preflight.  Returns false when
+    // an entry size is negative or the sum exceeds qint64.
+    // 解压/拖出预检使用的带检查版本；条目大小为负或总和溢出时返回 false。
+    static bool totalUnpackedSizeChecked(const QList<ArchiveEntry> &entries,
+                                         qint64 *total);
+
+    // Whether a symlink stored at @p entryPath may point to @p target without
+    // escaping the archive root.  Targets are interpreted relative to the
+    // symlink's parent directory.
+    // 位于 @p entryPath 的符号链接指向 @p target 时是否不会逃逸压缩包根目录。
+    // 目标相对于符号链接所在目录解释。
+    static bool isSafeSymlinkTarget(const QString &entryPath,
+                                    const QString &target);
+
+    // Inspect an extracted tree and return normalized paths of symlinks whose
+    // final target escapes the tree (absolute targets, ".." escapes, or
+    // existing symlink chains resolving outside).  This is the move-time
+    // defence after pre-extraction validation.
+    // 检查解压后的目录树，返回最终目标逃逸目录的符号链接规范化路径
+    // （绝对目标、".." 逃逸或已存在的链接链解析到外部）。
+    // 这是解压前预检之后的移动前复查防线。
+    static QStringList unsafeExtractedSymlinks(const QString &srcDir);
 
     // Recursively remove a directory and all contents
     // 递归删除目录及其全部内容

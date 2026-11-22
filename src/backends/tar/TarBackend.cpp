@@ -12,6 +12,8 @@
 
 #include <memory>
 
+#include <QSet>
+
 #include "backends/sevenzip/SevenZipListParser.h"
 #include "backends/sevenzip/SevenZipUtils.h"
 #include "utils/EncodingDetector.h"
@@ -56,6 +58,61 @@ QString compressionSwitch(ArchiveFormat fmt)
     case ArchiveFormat::TarXz:  return QStringLiteral("-txz");
     default:                    return QString();
     }
+}
+
+bool isUnderSkipped(const QString &path, const QSet<QString> &skipped)
+{
+    if (skipped.isEmpty()) {
+        return false;
+    }
+    const QString normalized = FileUtils::normalizeEntryPath(path);
+    if (skipped.contains(normalized)) {
+        return true;
+    }
+    for (const QString &prefix : skipped) {
+        if (normalized.startsWith(prefix + QLatin1Char('/'))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+QStringList buildExtractionSelection(const QList<ArchiveEntry> &entries,
+                                     const ExtractOptions &options)
+{
+    QSet<QString> skipped;
+    for (const QString &path : options.skippedSymlinks) {
+        const QString normalized = FileUtils::normalizeEntryPath(path);
+        if (!normalized.isEmpty()) {
+            skipped.insert(normalized);
+        }
+    }
+
+    QStringList selected;
+    QSet<QString> seen;
+    auto add = [&](const QString &rawPath) {
+        const QString normalized = FileUtils::normalizeEntryPath(rawPath);
+        if (normalized.isEmpty() || isUnderSkipped(normalized, skipped)
+            || seen.contains(normalized)) {
+            return;
+        }
+        seen.insert(normalized);
+        selected << rawPath;
+    };
+
+    if (!options.selectedFiles.isEmpty()) {
+        for (const QString &path : options.selectedFiles) {
+            add(path);
+        }
+        return selected;
+    }
+    if (skipped.isEmpty()) {
+        return selected;
+    }
+    for (const ArchiveEntry &entry : entries) {
+        add(entry.path);
+    }
+    return selected;
 }
 
 bool looksLikeCorruption(const QString &errorText)
@@ -237,9 +294,21 @@ void TarBackend::listContents(const ListOptions &options)
          << QStringLiteral("-sccUTF-8")
          << QStringLiteral("--") << target;
 
+    SevenZipListParser parser;
+    ProcessOutputOptions outputOptions;
+    outputOptions.streamStdOut = true;
+    outputOptions.maxStdOutBytes = 256 * 1024;
+    outputOptions.maxRawSampleBytes = 64 * 1024;
+
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
-        QString(), 300000, &m_cancelRequested);
+        QString(), 300000, &m_cancelRequested,
+        [&parser](const QString &line, bool isError) {
+            if (!isError) {
+                parser.feedLine(line);
+            }
+        },
+        outputOptions);
 
     if (result.cancelled) {
         emit errorOccurred(ArchiveErrorCode::Cancelled, tr("Operation cancelled"));
@@ -258,7 +327,7 @@ void TarBackend::listContents(const ListOptions &options)
         return;
     }
 
-    m_entries = SevenZipListParser::parse(result.stdOut);
+    m_entries = parser.takeEntries();
     m_nameEncoding = EncodingDetector::detect(result.stdOutRaw);
     emit fileListReady(m_entries);
 }
@@ -328,22 +397,20 @@ void TarBackend::extract(const ExtractOptions &options)
 
     QTemporaryFile membersFile(
         QDir::tempPath() + QStringLiteral("/qarchiver-tar-members-XXXXXX.txt"));
-    if (!options.selectedFiles.isEmpty()) {
-        QStringList selectedPaths;
-        selectedPaths.reserve(options.selectedFiles.size());
-        for (const QString &selected : options.selectedFiles) {
-            if (!FileUtils::normalizeEntryPath(selected).isEmpty()) {
-                selectedPaths << selected;
-            }
-        }
-        if (selectedPaths.isEmpty()
-            || !SevenZipUtils::appendListFileArgs(
+    const QStringList selectedPaths =
+        buildExtractionSelection(m_entries, options);
+    if (!selectedPaths.isEmpty()) {
+        if (!SevenZipUtils::appendListFileArgs(
                 membersFile, selectedPaths, m_nameEncoding, args)) {
             FileUtils::removeDirectoryRecursively(tempDir);
             emit errorOccurred(ArchiveErrorCode::Unknown,
                                tr("Could not prepare the selected files for extraction"));
             return;
         }
+    } else if (!options.skippedSymlinks.isEmpty()) {
+        FileUtils::removeDirectoryRecursively(tempDir);
+        emit operationFinished(true, tr("No files were extracted"));
+        return;
     }
 
     args << QStringLiteral("--") << target;
@@ -355,6 +422,10 @@ void TarBackend::extract(const ExtractOptions &options)
         ? m_entries.size()
         : options.selectedFiles.size();
     int processed = 0;
+
+    ProcessOutputOptions outputOptions;
+    outputOptions.maxStdOutBytes = 1024 * 1024;
+    outputOptions.maxRawSampleBytes = 0;
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
@@ -373,7 +444,8 @@ void TarBackend::extract(const ExtractOptions &options)
                     : 0;
                 emit progressChanged(percent, total, processed, -1);
             }
-        });
+        },
+        outputOptions);
 
     if (result.cancelled) {
         FileUtils::removeDirectoryRecursively(tempDir);
@@ -397,11 +469,20 @@ void TarBackend::extract(const ExtractOptions &options)
             QFile::encodeName(tempDir), m_nameEncoding);
     }
 
+    if (!FileUtils::unsafeExtractedSymlinks(tempDir).isEmpty()) {
+        FileUtils::removeDirectoryRecursively(tempDir);
+        emit errorOccurred(ArchiveErrorCode::PathTraversalBlocked,
+                           tr("Blocked unsafe symbolic link during extraction"));
+        return;
+    }
+
     const int failedMoves = FileUtils::moveExtractedContents(
         tempDir, options.destDir, options.overwrite, options.preservePaths);
     if (failedMoves > 0) {
-        emit operationFinished(false,
-            tr("Extraction completed, but %1 entr%2 could not be moved")
+        FileUtils::removeDirectoryRecursively(tempDir);
+        emit errorOccurred(ArchiveErrorCode::PartialExtraction,
+            tr("Extraction completed, but %1 entr%2 could not be moved. "
+               "Files already moved to the destination were not rolled back.")
                 .arg(failedMoves)
                 .arg(failedMoves == 1 ? QStringLiteral("y") : QStringLiteral("ies")));
         return;
@@ -499,6 +580,10 @@ void TarBackend::compress(const CompressOptions &options)
         LOG_DEBUG("TarBackend", "Create inner tar: %s",
                   ProcessRunner::maskedCommand(sevenZip, tarArgs).toUtf8().constData());
 
+        ProcessOutputOptions outputOptions;
+        outputOptions.maxStdOutBytes = 1024 * 1024;
+        outputOptions.maxRawSampleBytes = 0;
+
         const ProcessResult tarResult = ProcessRunner::run(
             sevenZip, tarArgs, QString(), QProcessEnvironment(),
             baseDir, 0, &m_cancelRequested,
@@ -514,7 +599,8 @@ void TarBackend::compress(const CompressOptions &options)
                         : 0;
                     emit progressChanged(percent, total, processed, -1);
                 }
-            });
+            },
+            outputOptions);
 
         if (tarResult.cancelled) {
             emit errorOccurred(ArchiveErrorCode::Cancelled, tr("Operation cancelled"));
@@ -553,7 +639,8 @@ void TarBackend::compress(const CompressOptions &options)
                 if (!isError && !line.isEmpty()) {
                     emit outputReady(line);
                 }
-            });
+            },
+            outputOptions);
 
         if (compressResult.cancelled || !compressResult.success()) {
             QFile::remove(options.archivePath);
@@ -575,6 +662,10 @@ void TarBackend::compress(const CompressOptions &options)
         LOG_DEBUG("TarBackend", "Compress: %s",
                   ProcessRunner::maskedCommand(sevenZip, args).toUtf8().constData());
 
+        ProcessOutputOptions outputOptions;
+        outputOptions.maxStdOutBytes = 1024 * 1024;
+        outputOptions.maxRawSampleBytes = 0;
+
         const ProcessResult result = ProcessRunner::run(
             sevenZip, args, QString(), QProcessEnvironment(),
             baseDir, 0, &m_cancelRequested,
@@ -590,7 +681,8 @@ void TarBackend::compress(const CompressOptions &options)
                         : 0;
                     emit progressChanged(percent, total, processed, -1);
                 }
-            });
+            },
+            outputOptions);
 
         if (result.cancelled) {
             QFile::remove(options.archivePath);

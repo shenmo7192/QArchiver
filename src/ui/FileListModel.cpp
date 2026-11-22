@@ -257,11 +257,80 @@ void FileListModel::setEntries(const QList<ArchiveEntry> &entries)
 {
     beginResetModel();
     m_sourceEntries = entries;
+    buildDirectoryIndex();
     if (!m_currentDir.isEmpty() && !directoryExists(m_currentDir)) {
         m_currentDir.clear();
     }
     rebuild();
     endResetModel();
+}
+
+void FileListModel::buildDirectoryIndex()
+{
+    m_childrenByDir.clear();
+    m_directoryPaths.clear();
+    m_implicitDirectoryPaths.clear();
+
+    QSet<QString> explicitPaths;
+    QSet<QString> explicitDirectories;
+    for (const ArchiveEntry &entry : m_sourceEntries) {
+        QString originalPath = entry.path;
+        while (originalPath.endsWith(QLatin1Char('/'))) {
+            originalPath.chop(1);
+        }
+        const QString path = FileUtils::normalizeEntryPath(originalPath);
+        if (path.isEmpty() || path == QStringLiteral(".")) {
+            continue;
+        }
+        explicitPaths.insert(path);
+        if (entry.isDir) {
+            explicitDirectories.insert(path);
+        }
+
+        const QStringList components =
+            path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        QString ancestor;
+        for (int i = 0; i + 1 < components.size(); ++i) {
+            ancestor = ancestor.isEmpty()
+                ? components.at(i)
+                : ancestor + QLatin1Char('/') + components.at(i);
+            m_directoryPaths.insert(ancestor);
+        }
+    }
+    m_directoryPaths.unite(explicitDirectories);
+
+    // Direct children, preserving duplicates and the original member path.
+    for (const ArchiveEntry &entry : m_sourceEntries) {
+        QString originalPath = entry.path;
+        while (originalPath.endsWith(QLatin1Char('/'))) {
+            originalPath.chop(1);
+        }
+        const QString path = FileUtils::normalizeEntryPath(originalPath);
+        if (path.isEmpty() || path == QStringLiteral(".")) {
+            continue;
+        }
+        ArchiveEntry copy = entry;
+        copy.path = originalPath;
+        const int slash = path.lastIndexOf(QLatin1Char('/'));
+        const QString parent = slash < 0 ? QString() : path.left(slash);
+        m_childrenByDir[parent].append(copy);
+    }
+
+    // Synthetic directory rows for implicit parents.
+    QSet<QString> added;
+    for (const QString &dir : m_directoryPaths) {
+        if (dir.isEmpty() || explicitPaths.contains(dir) || added.contains(dir)) {
+            continue;
+        }
+        added.insert(dir);
+        m_implicitDirectoryPaths.insert(dir);
+        ArchiveEntry synthetic;
+        synthetic.path = dir;
+        synthetic.isDir = true;
+        const int slash = dir.lastIndexOf(QLatin1Char('/'));
+        const QString parent = slash < 0 ? QString() : dir.left(slash);
+        m_childrenByDir[parent].append(synthetic);
+    }
 }
 
 void FileListModel::setFlatMode(bool flat)
@@ -284,21 +353,7 @@ bool FileListModel::directoryExists(const QString &dir) const
     if (dir.isEmpty()) {
         return true;
     }
-    const QString prefix = dir + QLatin1Char('/');
-    for (ArchiveEntry entry : m_sourceEntries) {
-        while (entry.path.endsWith(QLatin1Char('/'))) {
-            entry.path.chop(1);
-        }
-        const QString path = FileUtils::normalizeEntryPath(entry.path);
-        if (path == dir) {
-            if (entry.isDir) {
-                return true;
-            }
-        } else if (path.startsWith(prefix)) {
-            return true;
-        }
-    }
-    return false;
+    return m_directoryPaths.contains(FileUtils::normalizeEntryPath(dir));
 }
 
 bool FileListModel::enterDirectory(const QString &path)
@@ -366,77 +421,20 @@ void FileListModel::rebuild()
             m_root->children.append(up);
         }
 
-        QHash<QString, Node *> visible;
-        const QString prefix = m_currentDir.isEmpty()
-            ? QString()
-            : m_currentDir + QLatin1Char('/');
-
-        for (ArchiveEntry entry : m_sourceEntries) {
-            QString originalPath = entry.path;
-            while (originalPath.endsWith(QLatin1Char('/'))) {
-                originalPath.chop(1);
-            }
-            if (originalPath.isEmpty()) {
+        const QList<ArchiveEntry> children =
+            m_childrenByDir.value(m_currentDir);
+        for (const ArchiveEntry &entry : children) {
+            if (entry.path.isEmpty()) {
                 continue;
             }
-            const QString path = FileUtils::normalizeEntryPath(originalPath);
-            if (path.isEmpty() || path == QStringLiteral(".")) {
-                continue;
-            }
-            if (!m_currentDir.isEmpty()) {
-                if (path == m_currentDir) {
-                    continue;
-                }
-                if (!path.startsWith(prefix)) {
-                    continue;
-                }
-            }
-
-            const QString relative = prefix.isEmpty() ? path : path.mid(prefix.size());
-            if (relative.isEmpty()) {
-                continue;
-            }
-            const int slash = relative.indexOf(QLatin1Char('/'));
-            const QString childName = slash >= 0 ? relative.left(slash) : relative;
-            const QString childPath = prefix.isEmpty()
-                ? childName
-                : prefix + childName;
-
-            auto it = visible.find(childPath);
-            if (slash >= 0) {
-                // Deeper entries imply this child is a directory even if the
-                // archive does not contain an explicit directory entry.
-                // 更深的条目说明该子项是目录，即使压缩包没有显式目录条目。
-                if (it == visible.end()) {
-                    auto *node = new Node;
-                    node->parent = m_root;
-                    node->entry.path = childPath;
-                    node->entry.isDir = true;
-                    node->synthetic = true;
-                    m_root->children.append(node);
-                    visible.insert(childPath, node);
-                    m_nodes.insert(childPath, node);
-                }
-                continue;
-            }
-
-            // Keep the original member name for extraction; the normalized
-            // path is only the navigation key.
-            // 解压时保留原始成员名；规范化路径仅作为导航键。
-            entry.path = originalPath;
-            if (it != visible.end()) {
-                Node *node = it.value();
-                node->entry = entry;
-                node->synthetic = false;
-                m_nodes.insert(childPath, node);
-            } else {
-                auto *node = new Node;
-                node->parent = m_root;
-                node->entry = entry;
-                m_root->children.append(node);
-                visible.insert(childPath, node);
-                m_nodes.insert(childPath, node);
-            }
+            auto *node = new Node;
+            node->parent = m_root;
+            node->entry = entry;
+            const QString normalized = FileUtils::normalizeEntryPath(entry.path);
+            node->synthetic = entry.isDir
+                && m_implicitDirectoryPaths.contains(normalized);
+            m_root->children.append(node);
+            m_nodes.insert(normalized, node);
         }
         sortFlatNodes();
         return;

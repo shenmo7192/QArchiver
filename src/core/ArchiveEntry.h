@@ -20,6 +20,9 @@ struct ArchiveEntry {
     bool        isDir = false; // Whether the entry is a directory
     bool        isEncrypted = false; // Whether the entry is encrypted
     bool        isSymLink = false;   // Whether the entry is a symlink
+    QString     linkTarget;          // Symlink target (symbolic link entries)
+    bool        isHardLink = false;  // Whether the entry is a hard link
+    QString     hardLinkTarget;      // Hard link target (hard link entries)
 };
 
 Q_DECLARE_METATYPE(ArchiveEntry)

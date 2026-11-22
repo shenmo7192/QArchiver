@@ -5,6 +5,8 @@ target_sources(QArchiver PRIVATE
     # 外部进程执行与压缩工具查找。
     ProcessRunner.cpp
     ProcessRunner.h
+    SevenZipTool.cpp
+    SevenZipTool.h
 
     # Filesystem and archive path helpers.
     # 文件系统与压缩包路径辅助函数。

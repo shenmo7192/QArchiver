@@ -29,6 +29,8 @@
 #include <QTemporaryDir>
 #include <QtConcurrent>
 
+#include <algorithm>
+
 ArchiveManager::ArchiveManager()
 {
     m_workerThread.setObjectName(QStringLiteral("ArchiveWorker"));
@@ -71,6 +73,39 @@ bool supportsLibArchiveRead(ArchiveFormat fmt)
 }
 #endif // QARCHIVER_HAS_LIBARCHIVE
 
+// Pattern matching the target archive and any volumes produced next to it.
+// RAR split archives are named archive.partN.rar instead of archive.rar.001,
+// so replacing an existing set must remove those siblings as well.
+// 匹配目标压缩包及其相邻分卷的模式。
+// RAR 分卷命名为 archive.partN.rar 而不是 archive.rar.001，
+// 因此替换已有分卷集时必须一并清理这些文件。
+QRegularExpression compressedOutputPattern(const QFileInfo &finalInfo,
+                                          ArchiveFormat format)
+{
+    if (isRarFamily(format)) {
+        const QString stem = QRegularExpression::escape(finalInfo.completeBaseName());
+        return QRegularExpression(
+            QStringLiteral("^%1(?:\\.part\\d+\\.rar|\\.rar|\\.r\\d{2,}|\\.\\d{3,})$")
+                .arg(stem),
+            QRegularExpression::CaseInsensitiveOption);
+    }
+
+    return QRegularExpression(
+        QStringLiteral("^%1(?:\\.\\d{3,})?$")
+            .arg(QRegularExpression::escape(finalInfo.fileName())),
+        QRegularExpression::CaseInsensitiveOption);
+}
+
+bool compressedOutputExists(const QFileInfo &finalInfo, ArchiveFormat format)
+{
+    const QRegularExpression pattern = compressedOutputPattern(finalInfo, format);
+    const QDir dir(finalInfo.absolutePath());
+    const QStringList files = dir.entryList(QDir::Files);
+    return std::any_of(files.cbegin(), files.cend(), [&pattern](const QString &name) {
+        return pattern.match(name).hasMatch();
+    });
+}
+
 } // namespace
 
 ArchiveManager::~ArchiveManager()
@@ -85,6 +120,10 @@ ArchiveManager::~ArchiveManager()
         m_tempBackend->requestCancel();
         disconnect(m_tempBackend, nullptr, this, nullptr);
     }
+    if (m_openingBackend) {
+        m_openingBackend->requestCancel();
+        disconnect(m_openingBackend, nullptr, this, nullptr);
+    }
 
     m_workerThread.quit();
     if (!m_workerThread.wait(5000)) {
@@ -96,6 +135,8 @@ ArchiveManager::~ArchiveManager()
     m_backend = nullptr;
     delete m_tempBackend;
     m_tempBackend = nullptr;
+    delete m_openingBackend;
+    m_openingBackend = nullptr;
 
     cleanupCompressSession();
 }
@@ -104,6 +145,11 @@ ArchiveManager &ArchiveManager::instance()
 {
     static ArchiveManager manager;
     return manager;
+}
+
+void ArchiveManager::setSymlinkDecisionCallback(SymlinkDecisionCallback callback)
+{
+    m_symlinkDecisionCallback = std::move(callback);
 }
 
 ArchiveBackend *ArchiveManager::createBackend(ArchiveFormat fmt)
@@ -207,10 +253,43 @@ void ArchiveManager::connectBackend(ArchiveBackend *backend, quint64 generation)
     const auto isCurrent = [this, generation]() { return generation == m_generation; };
 
     connect(backend, &ArchiveBackend::archiveOpened, this,
-            [this, isCurrent](const QString &filePath) {
+            [this, backend, isCurrent](const QString &filePath) {
                 if (!isCurrent()) {
                     return;
                 }
+                if (backend == m_openingBackend) {
+                    // The new archive opened successfully; only now replace
+                    // the previously open archive, so a failure leaves it
+                    // untouched.
+                    // 新压缩包成功打开后才替换旧压缩包；失败时旧包保持不变。
+                    ArchiveBackend *old = m_backend;
+                    m_backend = backend;
+                    m_openingBackend = nullptr;
+                    m_archivePath = m_openingPath;
+                    m_format = m_openingFormat;
+                    m_openingPath.clear();
+                    m_openingFormat = ArchiveFormat::Unknown;
+                    m_opening = false;
+                    m_busy = false;
+                    m_entries.clear();
+                    m_pending = std::monostate{};
+                    m_retryCount = 0;
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+                    m_usingLibArchive =
+                        qobject_cast<LibArchiveBackend *>(backend) != nullptr;
+#else
+                    m_usingLibArchive = false;
+#endif
+                    m_fallbackDone = false;
+                    m_fallbackInProgress = false;
+                    if (old && old != backend) {
+                        destroyBackend(old);
+                    }
+                    RecentFilesManager::instance().add(filePath);
+                    emit archiveOpened(filePath);
+                    return;
+                }
+
                 m_opening = false;
                 if (m_fallbackInProgress) {
                     // Re-opening on the CLI backend after a fallback: the UI
@@ -304,7 +383,11 @@ void ArchiveManager::connectTempBackend(ArchiveBackend *backend)
 
 void ArchiveManager::openArchive(const QString &filePath)
 {
-    closeArchive();
+    if (m_busy) {
+        emit errorOccurred(ArchiveErrorCode::Unknown,
+                           tr("Another operation is already in progress"));
+        return;
+    }
 
     const QFileInfo info(filePath);
     if (!info.exists()) {
@@ -321,13 +404,13 @@ void ArchiveManager::openArchive(const QString &filePath)
     ++m_generation;
     const quint64 generation = m_generation;
 
-    m_archivePath = filePath;
-    m_format = ArchiveFormat::Unknown;
+    m_openingPath = filePath;
+    m_openingFormat = ArchiveFormat::Unknown;
     m_opening = true;
     m_busy = true;
-    m_usingLibArchive = false;
-    m_fallbackDone = false;
-    m_fallbackInProgress = false;
+    m_pending = std::monostate{};
+    m_retryCount = 0;
+    m_preTestPending = false;
 
     emit archiveOpening(filePath);
 
@@ -357,18 +440,21 @@ void ArchiveManager::finishOpen(const QString &filePath, ArchiveFormat format)
 {
     if (format == ArchiveFormat::Unknown) {
         m_opening = false;
-        m_archivePath.clear();
+        m_openingPath.clear();
+        m_openingFormat = ArchiveFormat::Unknown;
+        m_busy = false;
         emit errorOccurred(ArchiveErrorCode::UnsupportedFormat,
                            tr("Unrecognized archive format or file is corrupted: %1")
                                .arg(filePath));
         return;
     }
 
-    m_format = format;
     ArchiveBackend *backend = createReadBackend(format, filePath);
     if (!backend) {
         m_opening = false;
-        m_archivePath.clear();
+        m_openingPath.clear();
+        m_openingFormat = ArchiveFormat::Unknown;
+        m_busy = false;
         emit errorOccurred(ArchiveErrorCode::UnsupportedFormat,
                            tr("No backend available for format: %1")
                                .arg(formatToString(format)));
@@ -376,15 +462,10 @@ void ArchiveManager::finishOpen(const QString &filePath, ArchiveFormat format)
     }
 
     backend->moveToThread(&m_workerThread);
-    m_backend = backend;
+    m_openingBackend = backend;
+    m_openingFormat = format;
     m_opening = true;
-#ifdef QARCHIVER_HAS_LIBARCHIVE
-    m_usingLibArchive = qobject_cast<LibArchiveBackend *>(backend) != nullptr;
-#else
-    m_usingLibArchive = false;
-#endif
-    m_fallbackDone = false;
-    m_fallbackInProgress = false;
+    m_busy = true;
     connectBackend(backend, m_generation);
 
     const bool invoked = QMetaObject::invokeMethod(
@@ -394,7 +475,12 @@ void ArchiveManager::finishOpen(const QString &filePath, ArchiveFormat format)
 
     if (!invoked) {
         m_opening = false;
-        closeArchive();
+        m_openingPath.clear();
+        m_openingFormat = ArchiveFormat::Unknown;
+        m_busy = false;
+        ArchiveBackend *failed = m_openingBackend;
+        m_openingBackend = nullptr;
+        destroyBackend(failed);
         emit errorOccurred(ArchiveErrorCode::Unknown,
                            tr("Failed to open archive: %1").arg(filePath));
     }
@@ -410,12 +496,15 @@ void ArchiveManager::listContents(const ListOptions &options)
     m_pending = options;
     m_retryCount = 0;
 
-    startOperation(m_backend, [options](ArchiveBackend *backend) {
-        backend->listContents(options);
-    });
+    if (!startOperation(m_backend, [options](ArchiveBackend *backend) {
+            backend->listContents(options);
+        })) {
+        clearPendingState();
+    }
 }
 
-bool ArchiveManager::validateExtraction(const ExtractOptions &options)
+bool ArchiveManager::validateExtraction(const ExtractOptions &options,
+                                         QSet<QString> *skippedSymlinks)
 {
     if (options.destDir.trimmed().isEmpty()) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
@@ -423,12 +512,43 @@ bool ArchiveManager::validateExtraction(const ExtractOptions &options)
         return false;
     }
 
-    const QStringList pathsToCheck = options.selectedFiles.isEmpty()
-        ? QStringList()
-        : options.selectedFiles;
+    const auto isSelected = [&options](const QString &entryPath) {
+        if (options.selectedFiles.isEmpty()) {
+            return true;
+        }
+        const QString normalized = FileUtils::normalizeEntryPath(entryPath);
+        for (const QString &selected : options.selectedFiles) {
+            const QString selectedPath = FileUtils::normalizeEntryPath(selected);
+            if (selectedPath.isEmpty()) {
+                continue;
+            }
+            if (normalized == selectedPath
+                || normalized.startsWith(selectedPath + QLatin1Char('/'))) {
+                return true;
+            }
+        }
+        return false;
+    };
+    // A symlink must also be inspected when the user selected a child that
+    // would be reached through it.
+    // 用户选中符号链接下的子项时，也必须检查该符号链接本身。
+    const auto isSelectedOrAncestor = [&options, &isSelected](const QString &entryPath) {
+        if (isSelected(entryPath)) {
+            return true;
+        }
+        const QString normalized = FileUtils::normalizeEntryPath(entryPath);
+        for (const QString &selected : options.selectedFiles) {
+            const QString selectedPath = FileUtils::normalizeEntryPath(selected);
+            if (!selectedPath.isEmpty()
+                && selectedPath.startsWith(normalized + QLatin1Char('/'))) {
+                return true;
+            }
+        }
+        return false;
+    };
 
-    if (!pathsToCheck.isEmpty()) {
-        for (const QString &path : pathsToCheck) {
+    if (!options.selectedFiles.isEmpty()) {
+        for (const QString &path : options.selectedFiles) {
             if (FileUtils::isPathTraversal(path, options.destDir)) {
                 emit errorOccurred(ArchiveErrorCode::PathTraversalBlocked,
                                    tr("Blocked unsafe path: %1").arg(path));
@@ -445,9 +565,77 @@ bool ArchiveManager::validateExtraction(const ExtractOptions &options)
         }
     }
 
-    const qint64 required = FileUtils::totalUnpackedSize(m_entries);
+    // Pre-extraction symlink preflight.  The CLI tools must never be allowed
+    // to create an escaping link and then write through it.
+    // 解压前符号链接预检。绝不能让命令行工具创建逃逸链接后再通过它写入。
+    if (!options.symlinkPreflightDone) {
+        struct UnsafeLink {
+            QString path;
+            QString normalized;
+            QString target;
+        };
+        QList<UnsafeLink> unsafe;
+        for (const ArchiveEntry &entry : m_entries) {
+            if (!entry.isSymLink || !isSelectedOrAncestor(entry.path)) {
+                continue;
+            }
+            if (!FileUtils::isSafeSymlinkTarget(entry.path, entry.linkTarget)) {
+                unsafe.append({entry.path,
+                               FileUtils::normalizeEntryPath(entry.path),
+                               entry.linkTarget});
+            }
+        }
+
+        if (!unsafe.isEmpty()) {
+            if (!m_symlinkDecisionCallback) {
+                emit errorOccurred(
+                    ArchiveErrorCode::PathTraversalBlocked,
+                    tr("Blocked unsafe symbolic link: %1").arg(unsafe.first().path));
+                return false;
+            }
+
+            bool skipAll = false;
+            for (const UnsafeLink &link : unsafe) {
+                SymlinkDecision decision = SymlinkDecision::Abort;
+                if (!skipAll) {
+                    decision = m_symlinkDecisionCallback(link.path, link.target);
+                }
+                if (decision == SymlinkDecision::Abort) {
+                    emit errorOccurred(
+                        ArchiveErrorCode::Cancelled,
+                        tr("Extraction cancelled because of an unsafe symbolic link: %1")
+                            .arg(link.path));
+                    return false;
+                }
+                if (skippedSymlinks) {
+                    skippedSymlinks->insert(link.normalized);
+                }
+                if (decision == SymlinkDecision::SkipAll) {
+                    skipAll = true;
+                }
+            }
+        }
+    } else if (skippedSymlinks) {
+        *skippedSymlinks = options.skippedSymlinks;
+    }
+
+    qint64 required = 0;
+    for (const ArchiveEntry &entry : m_entries) {
+        if (entry.isDir || !isSelected(entry.path)) {
+            continue;
+        }
+        if (!FileUtils::addSizeChecked(required, entry.size)) {
+            emit errorOccurred(
+                ArchiveErrorCode::InsufficientDiskSpace,
+                tr("Archive size is abnormal or too large to extract safely"));
+            return false;
+        }
+    }
+
     const qint64 available = FileUtils::estimateFreeSpace(options.destDir);
-    if (required > 0 && available >= 0 && available < required + 1024 * 1024) {
+    constexpr qint64 kMargin = 1024 * 1024;
+    if (required > 0 && available >= 0
+        && (available < required || available - required < kMargin)) {
         emit errorOccurred(ArchiveErrorCode::InsufficientDiskSpace,
                            tr("Insufficient disk space: %1 required, %2 available")
                                .arg(QLocale().formattedDataSize(required),
@@ -465,41 +653,51 @@ void ArchiveManager::extract(const ExtractOptions &options)
         return;
     }
 
-    if (!validateExtraction(options)) {
+    ExtractOptions effective = options;
+    QSet<QString> rejected;
+    if (!validateExtraction(options, &rejected)) {
         return;
     }
+    effective.skippedSymlinks.unite(rejected);
+    effective.symlinkPreflightDone = true;
 
-    if (!QDir().mkpath(options.destDir)) {
+    if (!QDir().mkpath(effective.destDir)) {
         emit errorOccurred(ArchiveErrorCode::PermissionDenied,
-                           tr("Cannot create destination directory: %1").arg(options.destDir));
+                           tr("Cannot create destination directory: %1")
+                               .arg(effective.destDir));
         return;
     }
 
-    m_pending = options;
-    m_retryCount = 0;
-
-    if (options.testBeforeExtract) {
+    if (effective.testBeforeExtract) {
         m_preTestPending = true;
-        m_preTestExtractOptions = options;
+        m_preTestExtractOptions = effective;
+        m_pending = effective;
+        m_retryCount = 0;
 
         TestOptions testOptions;
-        testOptions.password = options.password;
-        startOperation(m_backend, [testOptions](ArchiveBackend *backend) {
-            backend->testArchive(testOptions);
-        });
+        testOptions.password = effective.password;
+        if (!startOperation(m_backend, [testOptions](ArchiveBackend *backend) {
+                backend->testArchive(testOptions);
+            })) {
+            m_preTestPending = false;
+            clearPendingState();
+        }
         return;
     }
 
-    startExtractOperation(options);
+    startExtractOperation(effective);
 }
 
 void ArchiveManager::startExtractOperation(const ExtractOptions &options)
 {
     m_pending = options;
+    m_retryCount = 0;
 
-    startOperation(m_backend, [options](ArchiveBackend *backend) {
-        backend->extract(options);
-    });
+    if (!startOperation(m_backend, [options](ArchiveBackend *backend) {
+            backend->extract(options);
+        })) {
+        clearPendingState();
+    }
 }
 
 void ArchiveManager::compress(const CompressOptions &options, ArchiveFormat format)
@@ -533,6 +731,7 @@ void ArchiveManager::compress(const CompressOptions &options, ArchiveFormat form
     connectTempBackend(backend);
 
     m_compressFinalPath = QFileInfo(options.archivePath).absoluteFilePath();
+    m_compressFormat = format;
     const QFileInfo finalInfo(m_compressFinalPath);
     if (!QDir().mkpath(finalInfo.absolutePath())) {
         emit errorOccurred(ArchiveErrorCode::PermissionDenied,
@@ -543,7 +742,7 @@ void ArchiveManager::compress(const CompressOptions &options, ArchiveFormat form
         return;
     }
 
-    m_compressTargetExisted = finalInfo.exists();
+    m_compressTargetExisted = compressedOutputExists(finalInfo, format);
     CompressOptions effectiveOptions = options;
     effectiveOptions.archivePath = m_compressFinalPath;
 
@@ -594,9 +793,11 @@ void ArchiveManager::addFiles(const AddFilesOptions &options)
     m_pending = options;
     m_retryCount = 0;
 
-    startOperation(m_backend, [options](ArchiveBackend *backend) {
-        backend->addFiles(options);
-    });
+    if (!startOperation(m_backend, [options](ArchiveBackend *backend) {
+            backend->addFiles(options);
+        })) {
+        clearPendingState();
+    }
 }
 
 void ArchiveManager::deleteFiles(const DeleteFilesOptions &options)
@@ -614,9 +815,11 @@ void ArchiveManager::deleteFiles(const DeleteFilesOptions &options)
     m_pending = options;
     m_retryCount = 0;
 
-    startOperation(m_backend, [options](ArchiveBackend *backend) {
-        backend->deleteFiles(options);
-    });
+    if (!startOperation(m_backend, [options](ArchiveBackend *backend) {
+            backend->deleteFiles(options);
+        })) {
+        clearPendingState();
+    }
 }
 
 void ArchiveManager::testArchive(const TestOptions &options)
@@ -629,9 +832,11 @@ void ArchiveManager::testArchive(const TestOptions &options)
     m_pending = options;
     m_retryCount = 0;
 
-    startOperation(m_backend, [options](ArchiveBackend *backend) {
-        backend->testArchive(options);
-    });
+    if (!startOperation(m_backend, [options](ArchiveBackend *backend) {
+            backend->testArchive(options);
+        })) {
+        clearPendingState();
+    }
 }
 
 void ArchiveManager::retryWithPassword(const QString &password)
@@ -641,8 +846,9 @@ void ArchiveManager::retryWithPassword(const QString &password)
     }
 
     if (m_retryCount >= 3) {
-        m_pending = std::monostate{};
-        m_retryCount = 0;
+        clearPendingState();
+        m_preTestPending = false;
+        m_preTestExtractOptions = ExtractOptions{};
         emit errorOccurred(ArchiveErrorCode::WrongPassword,
                            tr("Too many failed password attempts."));
         return;
@@ -653,9 +859,11 @@ void ArchiveManager::retryWithPassword(const QString &password)
     if (auto *options = std::get_if<ListOptions>(&m_pending)) {
         options->password = password;
         const ListOptions opts = *options;
-        startOperation(m_backend, [opts](ArchiveBackend *backend) {
-            backend->listContents(opts);
-        });
+        if (!startOperation(m_backend, [opts](ArchiveBackend *backend) {
+                backend->listContents(opts);
+            })) {
+            clearPendingState();
+        }
         return;
     }
     if (auto *options = std::get_if<ExtractOptions>(&m_pending)) {
@@ -666,25 +874,31 @@ void ArchiveManager::retryWithPassword(const QString &password)
     if (auto *options = std::get_if<TestOptions>(&m_pending)) {
         options->password = password;
         const TestOptions opts = *options;
-        startOperation(m_backend, [opts](ArchiveBackend *backend) {
-            backend->testArchive(opts);
-        });
+        if (!startOperation(m_backend, [opts](ArchiveBackend *backend) {
+                backend->testArchive(opts);
+            })) {
+            clearPendingState();
+        }
         return;
     }
     if (auto *options = std::get_if<AddFilesOptions>(&m_pending)) {
         options->password = password;
         const AddFilesOptions opts = *options;
-        startOperation(m_backend, [opts](ArchiveBackend *backend) {
-            backend->addFiles(opts);
-        });
+        if (!startOperation(m_backend, [opts](ArchiveBackend *backend) {
+                backend->addFiles(opts);
+            })) {
+            clearPendingState();
+        }
         return;
     }
     if (auto *options = std::get_if<DeleteFilesOptions>(&m_pending)) {
         options->password = password;
         const DeleteFilesOptions opts = *options;
-        startOperation(m_backend, [opts](ArchiveBackend *backend) {
-            backend->deleteFiles(opts);
-        });
+        if (!startOperation(m_backend, [opts](ArchiveBackend *backend) {
+                backend->deleteFiles(opts);
+            })) {
+            clearPendingState();
+        }
         return;
     }
 }
@@ -701,8 +915,9 @@ void ArchiveManager::cancelCurrentOperation()
 
 void ArchiveManager::cancelPendingOperation()
 {
-    m_pending = std::monostate{};
-    m_retryCount = 0;
+    clearPendingState();
+    m_preTestPending = false;
+    m_preTestExtractOptions = ExtractOptions{};
     m_busy = false;
     emit operationFinished(false, tr("Cancelled"));
 }
@@ -732,8 +947,8 @@ void ArchiveManager::handleTerminal(ArchiveBackend *backend, bool success,
     if (m_preTestPending) {
         m_preTestPending = false;
         if (!success) {
-            m_pending = std::monostate{};
-            m_retryCount = 0;
+            clearPendingState();
+            m_preTestExtractOptions = ExtractOptions{};
             emit operationFinished(false, msg);
             return;
         }
@@ -764,6 +979,8 @@ bool ArchiveManager::tryLibArchiveFallback(ArchiveBackend *backend,
     case ArchiveErrorCode::ToolNotFound:
     case ArchiveErrorCode::FileNotFound:
     case ArchiveErrorCode::PermissionDenied:
+    case ArchiveErrorCode::PartialExtraction:
+    case ArchiveErrorCode::HardLinkUnsupported:
         return false;
     default:
         break;
@@ -794,6 +1011,8 @@ bool ArchiveManager::tryLibArchiveFallback(ArchiveBackend *backend,
 
     ArchiveBackend *cli = createBackend(m_format);
     if (!cli) {
+        m_busy = false;
+        clearPendingState();
         emit errorOccurred(code, msg);
         return true;
     }
@@ -855,6 +1074,17 @@ void ArchiveManager::handleError(ArchiveBackend *backend, ArchiveErrorCode code,
 
     m_busy = false;
 
+    if (backend == m_openingBackend) {
+        m_openingBackend = nullptr;
+        m_opening = false;
+        m_openingPath.clear();
+        m_openingFormat = ArchiveFormat::Unknown;
+        disconnect(backend, nullptr, this, nullptr);
+        destroyBackend(backend);
+        emit errorOccurred(code, msg);
+        return;
+    }
+
     if (backend == m_tempBackend) {
         removeFailedCompressOutput();
         emit errorOccurred(code, msg);
@@ -865,16 +1095,12 @@ void ArchiveManager::handleError(ArchiveBackend *backend, ArchiveErrorCode code,
 
     if (m_preTestPending) {
         m_preTestPending = false;
-        m_pending = std::monostate{};
-        m_retryCount = 0;
+        m_preTestExtractOptions = ExtractOptions{};
+        clearPendingState();
     }
 
-    if (m_opening) {
-        m_opening = false;
-        closeArchive();
-    } else {
-        m_pending = std::monostate{};
-        m_retryCount = 0;
+    if (!m_opening) {
+        clearPendingState();
     }
 
     emit errorOccurred(code, msg);
@@ -885,34 +1111,20 @@ void ArchiveManager::closeArchive()
     ++m_generation;
     m_busy = false;
     m_opening = false;
-    m_pending = std::monostate{};
-    m_retryCount = 0;
+    clearPendingState();
     m_preTestPending = false;
+    m_preTestExtractOptions = ExtractOptions{};
     m_archivePath.clear();
+    m_openingPath.clear();
     m_format = ArchiveFormat::Unknown;
+    m_openingFormat = ArchiveFormat::Unknown;
     m_usingLibArchive = false;
     m_fallbackDone = false;
     m_fallbackInProgress = false;
 
-    auto destroyBackend = [this](ArchiveBackend *backend) {
-        if (!backend) {
-            return;
-        }
-        backend->requestCancel();
-        disconnect(backend, nullptr, this, nullptr);
-        if (m_workerThread.isRunning()) {
-            QMetaObject::invokeMethod(
-                backend,
-                [backend]() {
-                    backend->closeArchive();
-                    delete backend;
-                },
-                Qt::QueuedConnection);
-        } else {
-            backend->closeArchive();
-            delete backend;
-        }
-    };
+    ArchiveBackend *opening = m_openingBackend;
+    m_openingBackend = nullptr;
+    destroyBackend(opening);
 
     ArchiveBackend *current = m_backend;
     m_backend = nullptr;
@@ -948,6 +1160,33 @@ void ArchiveManager::closeArchive()
     m_compressTargetExisted = false;
 }
 
+void ArchiveManager::destroyBackend(ArchiveBackend *backend)
+{
+    if (!backend) {
+        return;
+    }
+    backend->requestCancel();
+    disconnect(backend, nullptr, this, nullptr);
+    if (m_workerThread.isRunning()) {
+        QMetaObject::invokeMethod(
+            backend,
+            [backend]() {
+                backend->closeArchive();
+                delete backend;
+            },
+            Qt::QueuedConnection);
+    } else {
+        backend->closeArchive();
+        delete backend;
+    }
+}
+
+void ArchiveManager::clearPendingState()
+{
+    m_pending = std::monostate{};
+    m_retryCount = 0;
+}
+
 void ArchiveManager::cleanupTempBackend()
 {
     ArchiveBackend *backend = m_tempBackend;
@@ -981,37 +1220,75 @@ bool ArchiveManager::promoteCompressedArchive()
     QDir finalDir(finalInfo.absolutePath());
     QDir tempDir(m_compressTempDir->path());
 
-    const QString baseName = finalInfo.fileName();
-    const QRegularExpression targetRe(
-        QStringLiteral("^%1(?:\\.\\d{3,})?$").arg(QRegularExpression::escape(baseName)),
-        QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression targetRe =
+        compressedOutputPattern(finalInfo, m_compressFormat);
+    const QStringList produced = tempDir.entryList(QDir::Files);
+    if (produced.isEmpty()) {
+        return false;
+    }
+
+    // Stage the old archive set aside instead of deleting it.  Only after all
+    // new files are in place is the backup dropped; on any failure the old
+    // files are restored and the partial new output removed.
+    // 将旧压缩包集移入备份目录而不是直接删除。仅在全部新文件就位后才丢弃
+    // 备份；任何失败都会恢复旧文件并删除不完整的新输出。
+    QTemporaryDir backupDir(
+        finalDir.filePath(QStringLiteral(".qarchiver_backup_XXXXXX")));
+    if (!backupDir.isValid()) {
+        return false;
+    }
+
+    QStringList backedUp;
+    QStringList installed;
+    auto rollback = [&]() {
+        for (const QString &name : installed) {
+            QFile::remove(finalDir.filePath(name));
+        }
+        for (const QString &name : backedUp) {
+            const QString source = QDir(backupDir.path()).filePath(name);
+            const QString destination = finalDir.filePath(name);
+            if (QFileInfo::exists(source) && !QFileInfo::exists(destination)) {
+                if (!QFile::rename(source, destination)) {
+                    QFile::copy(source, destination);
+                }
+            }
+        }
+    };
 
     if (m_compressTargetExisted) {
         const QStringList existing = finalDir.entryList(QDir::Files);
         for (const QString &name : existing) {
-            if (targetRe.match(name).hasMatch()) {
-                QFile::remove(finalDir.filePath(name));
+            if (!targetRe.match(name).hasMatch()) {
+                continue;
             }
+            const QString source = finalDir.filePath(name);
+            const QString destination = QDir(backupDir.path()).filePath(name);
+            if (!QFile::rename(source, destination)) {
+                rollback();
+                return false;
+            }
+            backedUp << name;
         }
-    }
-
-    const QStringList produced = tempDir.entryList(QDir::Files);
-    if (produced.isEmpty()) {
-        return false;
     }
 
     for (const QString &name : produced) {
         const QString source = tempDir.filePath(name);
         const QString destination = finalDir.filePath(name);
         if (QFileInfo::exists(destination)) {
-            QFile::remove(destination);
+            rollback();
+            return false;
         }
         if (!QFile::rename(source, destination)) {
-            if (!QFile::copy(source, destination) || !QFile::remove(source)) {
+            if (!QFile::copy(source, destination)) {
+                rollback();
                 return false;
             }
+            QFile::remove(source);
         }
+        installed << name;
     }
+
+    // Success: the QTemporaryDir destructor removes the old backup set.
     return true;
 }
 
@@ -1026,10 +1303,7 @@ void ArchiveManager::removeFailedCompressOutput()
 
     const QFileInfo finalInfo(m_compressFinalPath);
     QDir finalDir(finalInfo.absolutePath());
-    const QRegularExpression targetRe(
-        QStringLiteral("^%1(?:\\.\\d{3,})?$")
-            .arg(QRegularExpression::escape(finalInfo.fileName())),
-        QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression targetRe = compressedOutputPattern(finalInfo, m_compressFormat);
 
     const QStringList existing = finalDir.entryList(QDir::Files);
     for (const QString &name : existing) {
@@ -1043,5 +1317,6 @@ void ArchiveManager::cleanupCompressSession()
 {
     m_compressTempDir.reset();
     m_compressFinalPath.clear();
+    m_compressFormat = ArchiveFormat::Unknown;
     m_compressTargetExisted = false;
 }

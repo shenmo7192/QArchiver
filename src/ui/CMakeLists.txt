@@ -13,6 +13,8 @@ target_sources(QArchiver PRIVATE
     FileListViewDelegate.h
     PreviewManager.cpp
     PreviewManager.h
+    PreviewUtils.cpp
+    PreviewUtils.h
     DragOutManager.cpp
     DragOutManager.h
 

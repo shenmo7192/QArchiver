@@ -38,6 +38,25 @@ struct ProcessResult {
     }
 };
 
+// Bounds for captured process output.  Line callbacks always receive every
+// line; these limits only control the copies retained in ProcessResult.
+// 进程输出的保留上限。行回调始终收到所有行；这些上限只控制
+// ProcessResult 中保留的副本。
+struct ProcessOutputOptions {
+    // Do not accumulate the complete stdout stream.  A small sample can still
+    // be retained for encoding detection via maxStdOutBytes/maxRawSampleBytes.
+    // 不累计完整 stdout；仍可通过 maxStdOutBytes/maxRawSampleBytes
+    // 保留用于编码检测的小样本。
+    bool streamStdOut = false;
+    // -1 = unlimited, 0 = discard, >0 = keep at most this many characters.
+    // -1 = 不限制，0 = 丢弃，>0 = 最多保留这么多字符。
+    qint64 maxStdOutBytes = -1;
+    qint64 maxStdErrBytes = -1;
+    // -1 = unlimited, 0 = discard, >0 = raw stdout sample limit in bytes.
+    // -1 = 不限制，0 = 丢弃，>0 = 原始 stdout 样本字节上限。
+    qint64 maxRawSampleBytes = -1;
+};
+
 // Central wrapper around QProcess for the bundled 7-Zip helper.
 //
 // It drains stdout and stderr concurrently, so verbose tools cannot deadlock
@@ -47,18 +66,29 @@ struct ProcessResult {
 // resolveToolPath() prefers the bundled helper shipped in <exe dir>/7zip/
 // (or the installed libexec directory) and only falls back to PATH, so the
 // fallback backends keep working without a system-wide 7z installation.
+// For "7z", candidates are additionally validated through --help by
+// SevenZipTool before they are accepted.
 //
 // 内置 7-Zip 辅助程序的 QProcess 中心封装。
 // 同时排空 stdout 与 stderr，避免输出较多的工具因管道写满而死锁；
 // 支持超时、协作式取消，并按显式编码提示解码输出。
 // resolveToolPath() 优先使用 <exe 目录>/7zip/ 或安装后的 libexec 目录中
 // 随程序分发的辅助程序，最后才回退到 PATH，因此没有系统 7z 也能工作。
+// 对 "7z"，候选还会由 SevenZipTool 通过 --help 校验后才会被接受。
 class ProcessRunner {
 public:
     using LineCallback = std::function<void(const QString &line, bool isError)>;
 
     static bool isToolAvailable(const QString &toolName);
     static QString resolveToolPath(const QString &toolName);
+
+    // Program-relative and PATH candidates, in search order.  For 7z the
+    // candidates are also validated as an actual 7-Zip CLI by SevenZipTool.
+    // 按搜索顺序返回程序相关目录与 PATH 中的候选程序。
+    // 对 7z，SevenZipTool 还会用 --help 校验其确实是 7-Zip CLI。
+    static QStringList bundledDirectories();
+    static QStringList bundledToolPaths(const QString &toolName);
+    static QStringList systemToolPaths(const QString &toolName);
 
     // Mask "-p<password>" arguments for logging. / 日志输出时隐藏 "-p<密码>" 参数
     static QString maskedCommand(const QString &program, const QStringList &args);
@@ -82,7 +112,8 @@ public:
                              const QString &workingDir = QString(),
                              int timeoutMs = 0,
                              const std::atomic_bool *cancel = nullptr,
-                             const LineCallback &onLine = {});
+                             const LineCallback &onLine = {},
+                             const ProcessOutputOptions &outputOptions = {});
 };
 
 #endif // PROCESSRUNNER_H

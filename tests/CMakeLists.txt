@@ -35,6 +35,32 @@ target_link_libraries(tst_utils PRIVATE
 
 add_test(NAME tst_utils COMMAND tst_utils)
 
+# Toolchain discovery: --help validation, system fallback and RAR codec probe.
+# 工具链发现：--help 校验、系统回退与 RAR 编解码器探测。
+qt_add_executable(tst_toolchain
+    tst_toolchain.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.h
+    ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.h
+    ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.h
+    ${CMAKE_SOURCE_DIR}/src/utils/Logger.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/Logger.h
+)
+
+target_include_directories(tst_toolchain PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/utils
+)
+
+target_link_libraries(tst_toolchain PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+add_test(NAME tst_toolchain COMMAND tst_toolchain)
+
 # Background image helpers: alignment, scaling, target rectangles and painting.
 # 背景图片辅助函数：对齐、缩放、目标矩形与绘制。
 qt_add_executable(tst_background
@@ -78,6 +104,8 @@ qt_add_executable(tst_backends
     ${CMAKE_SOURCE_DIR}/src/backends/zip/ZipBackend.h
     ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.h
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.h
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.h
     ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.cpp
@@ -103,12 +131,69 @@ target_link_libraries(tst_backends PRIVATE
     Qt6::Test
 )
 
+# Fixture directory for split-volume tests and other binary archives.
+# 分卷测试及其他二进制压缩包样例的目录。
+target_compile_definitions(tst_backends PRIVATE
+    QARCHIVER_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test_files")
+
 add_test(NAME tst_backends COMMAND tst_backends)
+
+# Continuous image preview: same-directory image selection and batch extraction.
+# 连续看图：同目录图片选取与批量解压。
+qt_add_executable(tst_preview
+    tst_preview.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/PreviewUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/PreviewUtils.h
+    ${CMAKE_SOURCE_DIR}/src/backends/ArchiveBackend.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/ArchiveBackend.h
+    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/tar/TarBackend.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipListParser.h
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/backends/sevenzip/SevenZipUtils.h
+    ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.h
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.h
+    ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.h
+    ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.h
+    ${CMAKE_SOURCE_DIR}/src/utils/Logger.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/Logger.h
+    ${CMAKE_SOURCE_DIR}/src/core/ArchiveError.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ArchiveError.h
+)
+
+target_include_directories(tst_preview PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/backends
+    ${CMAKE_SOURCE_DIR}/src/ui
+    ${CMAKE_SOURCE_DIR}/src/utils
+)
+
+target_link_libraries(tst_preview PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+target_compile_definitions(tst_preview PRIVATE
+    QARCHIVER_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test_files")
+
+add_test(NAME tst_preview COMMAND tst_preview)
 
 # ArchiveManager tests: async open/list/extract, fallback and preferences.
 # ArchiveManager 测试：异步打开/列表/解压、回退与偏好设置。
 qt_add_executable(tst_manager
     tst_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/PreviewManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/PreviewManager.h
+    ${CMAKE_SOURCE_DIR}/src/ui/PreviewUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/PreviewUtils.h
+    ${CMAKE_SOURCE_DIR}/src/ui/dialogs/ProgressDialog.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/dialogs/ProgressDialog.h
     ${CMAKE_SOURCE_DIR}/src/core/ArchiveManager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/ArchiveManager.h
     ${CMAKE_SOURCE_DIR}/src/core/AppSettings.cpp
@@ -134,6 +219,8 @@ qt_add_executable(tst_manager
     ${CMAKE_SOURCE_DIR}/src/backends/zip/ZipBackend.h
     ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.h
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.h
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.h
     ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.cpp
@@ -154,9 +241,14 @@ target_include_directories(tst_manager PRIVATE
 
 target_link_libraries(tst_manager PRIVATE
     Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
     Qt6::Concurrent
     Qt6::Test
 )
+
+target_compile_definitions(tst_manager PRIVATE
+    QARCHIVER_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test_files")
 
 add_test(NAME tst_manager COMMAND tst_manager)
 
@@ -173,6 +265,8 @@ if(QARCHIVER_HAS_LIBARCHIVE)
         ${CMAKE_SOURCE_DIR}/src/backends/archive/LibArchiveBackend.h
         ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.h
+        ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.cpp
+        ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.h
         ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.h
         ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.cpp
@@ -250,6 +344,8 @@ qt_add_executable(tst_dragout
     ${CMAKE_SOURCE_DIR}/src/backends/zip/ZipBackend.h
     ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.h
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.h
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.h
     ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.cpp
@@ -297,6 +393,8 @@ qt_add_executable(tst_preferences
     ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PasswordDialog.h
     ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PreferencesDialog.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/dialogs/PreferencesDialog.h
+    ${CMAKE_SOURCE_DIR}/src/ui/FileListModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/FileListModel.h
     ${CMAKE_SOURCE_DIR}/src/core/ArchiveManager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/ArchiveManager.h
     ${CMAKE_SOURCE_DIR}/src/core/AppSettings.cpp
@@ -322,6 +420,8 @@ qt_add_executable(tst_preferences
     ${CMAKE_SOURCE_DIR}/src/backends/zip/ZipBackend.h
     ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/ProcessRunner.h
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/SevenZipTool.h
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/FileUtils.h
     ${CMAKE_SOURCE_DIR}/src/utils/EncodingDetector.cpp
@@ -374,8 +474,8 @@ endif()
 if(QARCHIVER_BUNDLE_7ZIP)
     set(_qarchiver_test_7z_env "QARCHIVER_7Z_PATH=${QARCHIVER_7ZIP_EXE}")
     foreach(_qarchiver_test IN ITEMS
-            tst_utils tst_backends tst_manager tst_libarchive tst_dragout
-            tst_preferences)
+            tst_utils tst_toolchain tst_backends tst_preview tst_manager
+            tst_libarchive tst_dragout tst_preferences)
         if(TEST ${_qarchiver_test})
             set_tests_properties(${_qarchiver_test} PROPERTIES
                 ENVIRONMENT "${_qarchiver_test_7z_env}")

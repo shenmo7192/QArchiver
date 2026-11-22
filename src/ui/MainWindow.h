@@ -22,6 +22,8 @@ class QStackedWidget;
 class QDockWidget;
 class QToolBar;
 
+struct SevenZipToolInfo;
+
 class QAction;
 class QLabel;
 class QLineEdit;
@@ -52,6 +54,8 @@ private slots:
     void onPreferences();
     void onCloseArchive();
     void onAbout();
+    void checkSevenZipFallback();
+    void showSevenZipFallbackInfo(const SevenZipToolInfo &info);
 
     void onArchiveOpening(const QString &filePath);
     void onArchiveOpened(const QString &filePath);

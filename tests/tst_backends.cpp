@@ -6,6 +6,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -116,7 +117,13 @@ private slots:
     void tarAddDelete();
     void tarStreamDetection();
     void tarDotPrefixAndNonAscii();
+    void tarUnsafeSymlinkCleansTemporaryTree();
     void rarBackendCapabilities();
+    void rarCreateArchive();
+    void rarCreateSplitVolumes();
+    void rarSplitVolumes_data();
+    void rarSplitVolumes();
+    void rarSplitMissingVolume();
     void zipRoundTrip();
     void sevenZipRoundTrip();
     void sevenZipSpecialNames();
@@ -259,6 +266,15 @@ private:
             return QString();
         }
         return QString::fromUtf8(file.readAll());
+    }
+
+    static QByteArray readBytes(const QString &path)
+    {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            return QByteArray();
+        }
+        return file.readAll();
     }
 
     static bool writeFile(const QString &path, const QByteArray &data)
@@ -528,6 +544,49 @@ void TestBackends::tarDotPrefixAndNonAscii()
 
 // RAR is read-only, supports RAR4/RAR5 and rejects writes.
 // RAR 为只读，支持 RAR4/RAR5，并拒绝写操作。
+// The backend-level move-time check rejects an escaping symlink and removes
+// the temporary extraction tree.
+// 后端在移动前拒绝逃逸符号链接，并删除临时解压目录。
+void TestBackends::tarUnsafeSymlinkCleansTemporaryTree()
+{
+    const QString tar = QStandardPaths::findExecutable(QStringLiteral("tar"));
+    if (tar.isEmpty()) {
+        QSKIP("the tar tool is required for this test");
+    }
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString src = temp.filePath(QStringLiteral("src"));
+    QVERIFY(QDir().mkpath(src));
+    QVERIFY(writeFile(QDir(src).filePath(QStringLiteral("safe.txt")),
+                      QByteArrayLiteral("safe")));
+    QVERIFY(QFile::link(QStringLiteral("../outside.txt"),
+                        QDir(src).filePath(QStringLiteral("escape"))));
+
+    const QString archive = temp.filePath(QStringLiteral("unsafe.tar"));
+    {
+        QProcess process;
+        process.start(tar, {QStringLiteral("-cf"), archive,
+                            QStringLiteral("-C"), src, QStringLiteral(".")});
+        QVERIFY(process.waitForFinished(30000));
+        QCOMPARE(process.exitCode(), 0);
+    }
+
+    TarBackend backend(ArchiveFormat::Tar);
+    backend.openArchive(archive);
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    ExtractOptions options;
+    options.destDir = dest;
+    options.overwrite = OverwritePolicy::Always;
+    const OperationResult result = extract(backend, options);
+    QVERIFY(result.finished);
+    QVERIFY(!result.success);
+    QVERIFY(!QFileInfo::exists(QDir(dest).filePath(QStringLiteral("escape"))));
+    const QStringList temporary = QDir(dest).entryList(
+        {QStringLiteral(".tmp_extract_*")}, QDir::Dirs | QDir::Hidden);
+    QVERIFY2(temporary.isEmpty(), qPrintable(temporary.join(QStringLiteral(", "))));
+}
+
 void TestBackends::rarBackendCapabilities()
 {
     RarBackend rar4(ArchiveFormat::Rar4);
@@ -540,12 +599,214 @@ void TestBackends::rarBackendCapabilities()
     RarBackend rar5(ArchiveFormat::Rar5);
     QCOMPARE(rar5.format(), ArchiveFormat::Rar5);
 
+    if (!RarBackend::isCreateAvailable()) {
+        CompressOptions options;
+        options.archivePath = QStringLiteral("/tmp/qarchiver-unused.rar");
+        options.sourceFiles = {QStringLiteral("/tmp/qarchiver-unused.txt")};
+        const auto result = compress(rar5, options);
+        QVERIFY(result.finished);
+        QVERIFY(!result.success);
+    }
+}
+
+// Creating RAR archives needs the system rar command; skip when absent.
+// 创建 RAR 压缩包需要系统 rar 命令；未安装时跳过。
+void TestBackends::rarCreateArchive()
+{
+    if (!RarBackend::isCreateAvailable()) {
+        QSKIP("the rar command is not installed");
+    }
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString source = temp.filePath(QStringLiteral("created 中文.txt"));
+    const QByteArray payload = QByteArrayLiteral("created by the rar command");
+    QVERIFY(writeFile(source, payload));
+
+    const QString archive = temp.filePath(QStringLiteral("created.rar"));
+    RarBackend writer(ArchiveFormat::Rar5);
     CompressOptions options;
-    options.archivePath = QStringLiteral("/tmp/qarchiver-unused.rar");
-    options.sourceFiles = {QStringLiteral("/tmp/qarchiver-unused.txt")};
-    const auto result = compress(rar5, options);
-    QVERIFY(result.finished);
-    QVERIFY(!result.success);
+    options.archivePath = archive;
+    options.sourceFiles = {source};
+    options.compressionLevel = 6;
+    const auto compressed = compress(writer, options);
+    QVERIFY2(compressed.finished && compressed.success,
+             qPrintable(compressed.message));
+    QVERIFY(QFileInfo::exists(archive));
+    QCOMPARE(MimeTypeHelper::detect(archive), ArchiveFormat::Rar5);
+    QVERIFY(!MimeTypeHelper::isSplitVolume(archive));
+
+    RarBackend reader(ArchiveFormat::Rar5);
+    reader.openArchive(archive);
+    bool listed = false;
+    const auto entries = list(reader, &listed);
+    QVERIFY2(listed, "created RAR list failed");
+    QCOMPARE(entries.size(), 1);
+    QCOMPARE(entries.first().path, QStringLiteral("created 中文.txt"));
+
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    ExtractOptions extractOptions;
+    extractOptions.destDir = dest;
+    extractOptions.overwrite = OverwritePolicy::Always;
+    const auto extracted = extract(reader, extractOptions);
+    QVERIFY2(extracted.finished && extracted.success,
+             qPrintable(extracted.message));
+    QCOMPARE(readBytes(QDir(dest).filePath(QStringLiteral("created 中文.txt"))),
+             payload);
+}
+
+// RAR volumes must use the part1.rar / part2.rar naming and stay readable.
+// RAR 分卷必须使用 part1.rar / part2.rar 命名，并且可正常读取。
+void TestBackends::rarCreateSplitVolumes()
+{
+    if (!RarBackend::isCreateAvailable()) {
+        QSKIP("the rar command is not installed");
+    }
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString source = temp.filePath(QStringLiteral("volume-payload.bin"));
+    QByteArray payload;
+    payload.reserve(10000);
+    for (int i = 0; i < 10000; ++i) {
+        payload.append(static_cast<char>((i * 29 + 7) & 0xff));
+    }
+    QVERIFY(writeFile(source, payload));
+
+    const QString archive = temp.filePath(QStringLiteral("split.rar"));
+    RarBackend writer(ArchiveFormat::Rar5);
+    CompressOptions options;
+    options.archivePath = archive;
+    options.sourceFiles = {source};
+    options.compressionLevel = 0;
+    options.volumeSize = 3000;
+    const auto compressed = compress(writer, options);
+    QVERIFY2(compressed.finished && compressed.success,
+             qPrintable(compressed.message));
+
+    const QString first = temp.filePath(QStringLiteral("split.part1.rar"));
+    const QString second = temp.filePath(QStringLiteral("split.part2.rar"));
+    QVERIFY(QFileInfo::exists(first));
+    QVERIFY(QFileInfo::exists(second));
+    QVERIFY(!QFileInfo::exists(archive));
+    QVERIFY(MimeTypeHelper::isSplitVolume(second));
+    QCOMPARE(QFileInfo(MimeTypeHelper::resolveFirstVolume(second)).canonicalFilePath(),
+             QFileInfo(first).canonicalFilePath());
+
+    RarBackend reader(ArchiveFormat::Rar5);
+    reader.openArchive(second);
+    bool listed = false;
+    const auto entries = list(reader, &listed);
+    QVERIFY2(listed, "created split RAR list failed");
+    QCOMPARE(entries.size(), 1);
+
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    ExtractOptions extractOptions;
+    extractOptions.destDir = dest;
+    extractOptions.overwrite = OverwritePolicy::Always;
+    const auto extracted = extract(reader, extractOptions);
+    QVERIFY2(extracted.finished && extracted.success,
+             qPrintable(extracted.message));
+    QCOMPARE(readBytes(QDir(dest).filePath(QStringLiteral("volume-payload.bin"))),
+             payload);
+}
+
+void TestBackends::rarSplitVolumes_data()
+{
+    QTest::addColumn<QString>("volume");
+    QTest::addColumn<QString>("firstVolume");
+    QTest::addColumn<ArchiveFormat>("format");
+
+    QTest::newRow("rar5-part") << QStringLiteral("rar5_split/data.part2.rar")
+                                << QStringLiteral("rar5_split/data.part1.rar")
+                                << ArchiveFormat::Rar5;
+    QTest::newRow("rar4-r00") << QStringLiteral("rar4_split/data.r01")
+                               << QStringLiteral("rar4_split/data.rar")
+                               << ArchiveFormat::Rar4;
+}
+
+// Split RAR volumes: opening a non-first volume resolves the first one and
+// then lists/extracts through the bundled 7-Zip helper.
+// RAR 分卷：从非首卷打开时解析首卷，再经内置 7-Zip 列出/解压。
+void TestBackends::rarSplitVolumes()
+{
+    QFETCH(QString, volume);
+    QFETCH(QString, firstVolume);
+    QFETCH(ArchiveFormat, format);
+
+#ifndef QARCHIVER_TEST_DATA_DIR
+#define QARCHIVER_TEST_DATA_DIR "test_files"
+#endif
+    const QDir dataDir(QStringLiteral(QARCHIVER_TEST_DATA_DIR));
+    const QString volumePath = dataDir.filePath(volume);
+    const QString firstPath = dataDir.filePath(firstVolume);
+    QVERIFY2(QFileInfo::exists(volumePath), qPrintable(volumePath));
+    QVERIFY2(QFileInfo::exists(firstPath), qPrintable(firstPath));
+
+    QCOMPARE(MimeTypeHelper::detect(volumePath), format);
+    QVERIFY(MimeTypeHelper::isSplitVolume(volumePath));
+    QCOMPARE(QFileInfo(MimeTypeHelper::resolveFirstVolume(volumePath)).canonicalFilePath(),
+             QFileInfo(firstPath).canonicalFilePath());
+
+    RarBackend reader(format);
+    reader.openArchive(volumePath);
+    bool listed = false;
+    const auto entries = list(reader, &listed);
+    QVERIFY2(listed, "split RAR list failed");
+    QCOMPARE(entries.size(), 1);
+    QCOMPARE(entries.first().path, QStringLiteral("payload.bin"));
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    ExtractOptions options;
+    options.destDir = temp.filePath(QStringLiteral("out"));
+    options.overwrite = OverwritePolicy::Always;
+    const auto extracted = extract(reader, options);
+    QVERIFY2(extracted.finished && extracted.success,
+             qPrintable(extracted.message));
+
+    QByteArray expected;
+    expected.reserve(8000);
+    for (int i = 0; i < 8000; ++i) {
+        expected.append(static_cast<char>((i * 37 + 11) & 0xff));
+    }
+    QCOMPARE(readBytes(QDir(options.destDir).filePath(QStringLiteral("payload.bin"))),
+             expected);
+}
+
+// A missing middle volume must surface as VolumeMissing, not Unknown.
+// 缺失中间分卷时必须报告 VolumeMissing，而不是 Unknown。
+void TestBackends::rarSplitMissingVolume()
+{
+#ifndef QARCHIVER_TEST_DATA_DIR
+#define QARCHIVER_TEST_DATA_DIR "test_files"
+#endif
+    const QDir dataDir(QStringLiteral(QARCHIVER_TEST_DATA_DIR) +
+                       QStringLiteral("/rar5_split"));
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+
+    for (const QString &name : {QStringLiteral("data.part1.rar"),
+                                QStringLiteral("data.part3.rar")}) {
+        QVERIFY(QFile::copy(dataDir.filePath(name), temp.filePath(name)));
+    }
+
+    RarBackend reader(ArchiveFormat::Rar5);
+    reader.openArchive(temp.filePath(QStringLiteral("data.part1.rar")));
+
+    bool finished = false;
+    ArchiveErrorCode code = ArchiveErrorCode::Unknown;
+    connect(&reader, &ArchiveBackend::fileListReady, &reader,
+            [&finished](const QList<ArchiveEntry> &) { finished = true; });
+    connect(&reader, &ArchiveBackend::errorOccurred, &reader,
+            [&finished, &code](ArchiveErrorCode errorCode, const QString &) {
+                finished = true;
+                code = errorCode;
+            });
+    reader.listContents();
+
+    QVERIFY(finished);
+    QCOMPARE(code, ArchiveErrorCode::VolumeMissing);
 }
 
 // Create, list, extract and test a zip archive.

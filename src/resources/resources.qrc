@@ -14,6 +14,7 @@
         <file alias="Preferences.png">icons/Preferences.png</file>
         <file alias="QArchiver.png">icons/QArchiver.png</file>
         <file alias="Quit.png">icons/Quit.png</file>
+        <file alias="warning.ico">icons/warning.ico</file>
     </qresource>
     <qresource prefix="/styles">
         <file alias="aero.qss">styles/aero.qss</file>

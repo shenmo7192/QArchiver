@@ -5,6 +5,7 @@
 // Recursive filter proxy for archive entry names.
 // 用于压缩包条目名称的递归过滤代理模型。
 
+#include <QRegularExpression>
 #include <QSortFilterProxyModel>
 
 // Recursive tree filter for archive entries (design doc 5.7).
@@ -26,9 +27,13 @@ protected:
 
 private:
     QString m_pattern;
+    QRegularExpression m_patternRegex;
+    bool m_hasPatternRegex = false;
     bool m_caseSensitive = true;
     QString m_pathPrefix;
     bool m_hideEncrypted = false;
+
+    void rebuildPatternRegex();
 };
 
 #endif // FILTERPROXYMODEL_H

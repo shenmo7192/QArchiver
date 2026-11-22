@@ -4,6 +4,9 @@
 
 #include "BackgroundImage.h"
 
+#include <QDateTime>
+#include <QFileInfo>
+#include <QHash>
 #include <QImageReader>
 #include <QPainter>
 #include <QPixmap>
@@ -156,10 +159,42 @@ QRect BackgroundImage::targetRect(const QSize &imageSize, const QRect &target,
     return QRect(QPoint(x, y), imageSize);
 }
 
+namespace {
+struct CachedPixmap {
+    QPixmap pixmap;
+    qint64 mtimeMs = 0;
+    qint64 size = 0;
+    quint64 lastUsed = 0;
+};
+
+QHash<QString, CachedPixmap> &pixmapCache()
+{
+    static QHash<QString, CachedPixmap> cache;
+    return cache;
+}
+
+quint64 g_cacheClock = 0;
+constexpr int kMaxCachedPixmaps = 8;
+} // namespace
+
 QPixmap BackgroundImage::loadPixmap(const QString &path)
 {
     if (path.isEmpty()) {
         return {};
+    }
+
+    const QFileInfo info(path);
+    const QString key = info.absoluteFilePath();
+    const qint64 mtimeMs = info.lastModified().toMSecsSinceEpoch();
+    const qint64 size = info.size();
+    const quint64 used = ++g_cacheClock;
+
+    auto &cache = pixmapCache();
+    auto it = cache.find(key);
+    if (it != cache.end() && it->mtimeMs == mtimeMs && it->size == size
+        && !it->pixmap.isNull()) {
+        it->lastUsed = used;
+        return it->pixmap;
     }
 
     // QImageReader respects the PNG alpha channel and also supports the other
@@ -169,9 +204,28 @@ QPixmap BackgroundImage::loadPixmap(const QString &path)
     reader.setAutoTransform(true);
     const QImage image = reader.read();
     if (image.isNull()) {
+        cache.remove(key);
         return {};
     }
-    return QPixmap::fromImage(image);
+
+    if (cache.size() >= kMaxCachedPixmaps && !cache.contains(key)) {
+        auto oldest = cache.begin();
+        for (auto candidate = cache.begin(); candidate != cache.end(); ++candidate) {
+            if (candidate->lastUsed < oldest->lastUsed) {
+                oldest = candidate;
+            }
+        }
+        cache.erase(oldest);
+    }
+
+    const QPixmap pixmap = QPixmap::fromImage(image);
+    cache.insert(key, CachedPixmap{pixmap, mtimeMs, size, used});
+    return pixmap;
+}
+
+void BackgroundImage::clearPixmapCache()
+{
+    pixmapCache().clear();
 }
 
 void BackgroundImage::paint(QPainter *painter, const QRect &target,

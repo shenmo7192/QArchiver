@@ -4,6 +4,12 @@
 
 #include <QtTest>
 
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
+
+#include <limits>
+
 #include "backends/sevenzip/SevenZipListParser.h"
 #include "utils/FileUtils.h"
 
@@ -15,6 +21,11 @@ private slots:
     void normalizeEntryPath();
     void traversalDetection();
     void sevenZipListParser();
+    void checkedSizeAccumulation();
+    void safeSymlinkTargets_data();
+    void safeSymlinkTargets();
+    void unsafeExtractedSymlinks();
+    void parserPreservesSpacesAndLinks();
 };
 
 // Data rows for archive path normalization.
@@ -94,6 +105,109 @@ void TestUtils::sevenZipListParser()
 
     QVERIFY(entries.at(2).isSymLink);
     QCOMPARE(entries.at(2).path, QStringLiteral("my dir/link.txt"));
+}
+
+// Size sums must reject overflow and negative sizes instead of wrapping.
+// 大小累加必须拒绝溢出与负值，而不是回绕。
+void TestUtils::checkedSizeAccumulation()
+{
+    ArchiveEntry maximum;
+    maximum.path = QStringLiteral("maximum.bin");
+    maximum.size = std::numeric_limits<qint64>::max();
+    ArchiveEntry one;
+    one.path = QStringLiteral("one.bin");
+    one.size = 1;
+
+    QCOMPARE(FileUtils::totalUnpackedSize({maximum, one}),
+             std::numeric_limits<qint64>::max());
+
+    qint64 checked = 0;
+    QVERIFY(!FileUtils::totalUnpackedSizeChecked({maximum, one}, &checked));
+
+    checked = 0;
+    QVERIFY(FileUtils::totalUnpackedSizeChecked({maximum}, &checked));
+    QCOMPARE(checked, std::numeric_limits<qint64>::max());
+    QVERIFY(!FileUtils::addSizeChecked(checked, 1));
+
+    ArchiveEntry negative;
+    negative.path = QStringLiteral("negative.bin");
+    negative.size = -1;
+    checked = 0;
+    QVERIFY(!FileUtils::totalUnpackedSizeChecked({negative}, &checked));
+    QVERIFY(!FileUtils::addSizeChecked(checked, -1));
+}
+
+void TestUtils::safeSymlinkTargets_data()
+{
+    QTest::addColumn<QString>("entry");
+    QTest::addColumn<QString>("target");
+    QTest::addColumn<bool>("safe");
+
+    QTest::newRow("sibling") << QStringLiteral("dir/link")
+                             << QStringLiteral("../file.txt") << true;
+    QTest::newRow("nested") << QStringLiteral("dir/link")
+                            << QStringLiteral("sub/file.txt") << true;
+    QTest::newRow("normalize") << QStringLiteral("dir/link")
+                               << QStringLiteral("sub/../file.txt") << true;
+    QTest::newRow("escape-root") << QStringLiteral("link")
+                                 << QStringLiteral("../file.txt") << false;
+    QTest::newRow("escape") << QStringLiteral("dir/link")
+                            << QStringLiteral("../../file.txt") << false;
+    QTest::newRow("absolute") << QStringLiteral("dir/link")
+                              << QStringLiteral("/etc/passwd") << false;
+    QTest::newRow("empty") << QStringLiteral("dir/link") << QString() << false;
+}
+
+void TestUtils::safeSymlinkTargets()
+{
+    QFETCH(QString, entry);
+    QFETCH(QString, target);
+    QFETCH(bool, safe);
+
+    QCOMPARE(FileUtils::isSafeSymlinkTarget(entry, target), safe);
+}
+
+void TestUtils::unsafeExtractedSymlinks()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    QVERIFY(QDir(temp.path()).mkpath(QStringLiteral("sub")));
+
+    QFile inside(QDir(temp.path()).filePath(QStringLiteral("inside.txt")));
+    QVERIFY(inside.open(QIODevice::WriteOnly));
+    inside.write("inside");
+    inside.close();
+
+    const QString safeLink = QDir(temp.path()).filePath(QStringLiteral("sub/safe"));
+    const QString unsafeLink = QDir(temp.path()).filePath(QStringLiteral("sub/unsafe"));
+    QVERIFY(QFile::link(QStringLiteral("../inside.txt"), safeLink));
+    QVERIFY(QFile::link(QStringLiteral("../../outside.txt"), unsafeLink));
+
+    const QStringList unsafe = FileUtils::unsafeExtractedSymlinks(temp.path());
+    QCOMPARE(unsafe.size(), 1);
+    QCOMPARE(unsafe.first(), QStringLiteral("sub/unsafe"));
+}
+
+// Streaming parser keeps member-name spaces and captures symlink/hardlink data.
+// 流式解析器保留成员名空格，并捕获符号链接/硬链接数据。
+void TestUtils::parserPreservesSpacesAndLinks()
+{
+    SevenZipListParser parser;
+    parser.feedLine(QStringLiteral("Path =  leading.txt "));
+    parser.feedLine(QStringLiteral("Folder = -"));
+    parser.feedLine(QStringLiteral("Size = 3"));
+    parser.feedLine(QStringLiteral("Hard Link = target.txt"));
+    parser.feedLine(QStringLiteral("Path = dir/link"));
+    parser.feedLine(QStringLiteral("Folder = -"));
+    parser.feedLine(QStringLiteral("Symbolic Link = ../target.txt"));
+
+    const QList<ArchiveEntry> entries = parser.takeEntries();
+    QCOMPARE(entries.size(), 2);
+    QCOMPARE(entries.at(0).path, QStringLiteral(" leading.txt "));
+    QVERIFY(entries.at(0).isHardLink);
+    QCOMPARE(entries.at(0).hardLinkTarget, QStringLiteral("target.txt"));
+    QVERIFY(entries.at(1).isSymLink);
+    QCOMPARE(entries.at(1).linkTarget, QStringLiteral("../target.txt"));
 }
 
 QTEST_GUILESS_MAIN(TestUtils)

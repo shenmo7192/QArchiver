@@ -6,12 +6,6 @@
 
 #include <QApplication>
 #include <QColor>
-#ifdef QARCHIVER_HAS_DBUS
-#include <QDBusConnection>
-#include <QDBusInterface>
-#include <QDBusReply>
-#include <QDBusVariant>
-#endif
 #include <QFile>
 #include <QFont>
 #include <QFontDatabase>
@@ -407,71 +401,28 @@ QString loadAeroStyleSheet(bool dark)
 
 QString ThemeManager::systemColorScheme()
 {
-#ifdef QARCHIVER_HAS_DBUS
-    const QDBusConnection bus = QDBusConnection::sessionBus();
-    if (!bus.isConnected()) {
-        LOG_WARN_S("ThemeManager", "Session bus unavailable; defaulting to light theme");
-        return QStringLiteral("light");
-    }
-
-    QDBusInterface iface(QStringLiteral("org.freedesktop.portal.Desktop"),
-                         QStringLiteral("/org/freedesktop/portal/desktop"),
-                         QStringLiteral("org.freedesktop.portal.Settings"),
-                         bus);
-    if (!iface.isValid()) {
-        LOG_WARN_S("ThemeManager",
-                   "org.freedesktop.portal.Settings unavailable; defaulting to light theme");
-        return QStringLiteral("light");
-    }
-
-    const QDBusReply<QVariant> reply = iface.call(
-        QStringLiteral("Read"),
-        QStringLiteral("org.freedesktop.appearance"),
-        QStringLiteral("color-scheme"));
-
-    if (!reply.isValid()) {
-        LOG_WARN_S("ThemeManager",
-                   "color-scheme query failed; defaulting to light theme");
-        return QStringLiteral("light");
-    }
-
-    // org.freedesktop.appearance color-scheme values:
-    //   0 = no preference, 1 = prefer dark, 2 = prefer light.
-    // The portal returns the value as a variant (QDBusVariant), so unwrap it
-    // before converting to a number.
-    // org.freedesktop.appearance color-scheme 取值：
-    //   0 = 无偏好，1 = 偏好深色，2 = 偏好浅色。
-    // 门户以 variant（QDBusVariant）返回该值，转换数字前需先解包。
-    QVariant rawValue = reply.value();
-    if (rawValue.canConvert<QDBusVariant>()) {
-        rawValue = rawValue.value<QDBusVariant>().variant();
-    }
-    bool ok = false;
-    const uint value = rawValue.toUInt(&ok);
-    if (!ok) {
-        LOG_WARN_S("ThemeManager",
-                   "color-scheme value is not a number; defaulting to light theme");
-        return QStringLiteral("light");
-    }
-
-    return (value == 1) ? QStringLiteral("dark") : QStringLiteral("light");
-#else
-    // Qt::ColorScheme and QStyleHints::colorScheme() were added in Qt 6.5.
-    // Qt::ColorScheme 与 QStyleHints::colorScheme() 自 Qt 6.5 起提供。
+    // Prefer Qt's platform hint.  It does not perform a blocking DBus call
+    // and reflects the same desktop preference on modern Qt versions.
+    // Prior to Qt 6.5 use the palette lightness, which is also available
+    // without touching the session bus during startup.
+    // 优先使用 Qt 的平台提示。它不会执行阻塞式 DBus 调用，在较新的 Qt 上
+    // 反映相同的桌面偏好。Qt 6.5 之前使用调色板明度，同样无需在启动期间
+    // 访问会话总线。
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-    const Qt::ColorScheme scheme = QGuiApplication::styleHints()->colorScheme();
-    return scheme == Qt::ColorScheme::Dark
-        ? QStringLiteral("dark")
-        : QStringLiteral("light");
-#else
-    // On Qt 6.4 fall back to the lightness of the default window color.
-    // 在 Qt 6.4 上退回到使用默认窗口颜色的明度判断。
+    if (auto *hints = QGuiApplication::styleHints()) {
+        const Qt::ColorScheme scheme = hints->colorScheme();
+        if (scheme == Qt::ColorScheme::Dark) {
+            return QStringLiteral("dark");
+        }
+        if (scheme == Qt::ColorScheme::Light) {
+            return QStringLiteral("light");
+        }
+    }
+#endif
     const QPalette palette = QGuiApplication::palette();
     return palette.color(QPalette::Window).lightness() < 128
         ? QStringLiteral("dark")
         : QStringLiteral("light");
-#endif
-#endif
 }
 
 QString ThemeManager::effectiveTheme(const QString &configuredTheme)
