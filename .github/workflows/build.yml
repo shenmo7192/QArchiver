@@ -177,13 +177,24 @@ jobs:
             exit 1
           }
 
-      - name: Upload Windows package
+      - name: Upload Windows installer
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v4
         with:
-          name: qarchiver-windows-${{ matrix.arch }}
-          path: |
-            QArchiver-*-windows-${{ matrix.arch }}.zip
-            QArchiver-*-windows-${{ matrix.arch }}-setup.exe
+          # One artifact per deliverable: the installer artifact contains only
+          # the bare setup.exe, the portable artifact only the ZIP.
+          # 每种产物单独上传：安装器 artifact 只包含 setup.exe，
+          # 便携版 artifact 只包含 ZIP。
+          name: qarchiver-windows-${{ matrix.arch }}-installer
+          path: QArchiver-*-windows-${{ matrix.arch }}-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Windows portable package
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qarchiver-windows-${{ matrix.arch }}-portable
+          path: QArchiver-*-windows-${{ matrix.arch }}.zip
           if-no-files-found: error
           retention-days: 14

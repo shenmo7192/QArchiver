@@ -73,7 +73,10 @@ install(TARGETS QArchiver
 # Explorer context-menu extension (dynamic menu labels / archive exclusion).
 # 资源管理器右键菜单扩展（动态文案 / 排除压缩包）。
 if(WIN32)
-    add_library(QArchiverShell SHARED windows/QArchiverShell.cpp)
+    add_library(QArchiverShell SHARED
+        windows/QArchiverShell.cpp
+        windows/QArchiverShell.def
+    )
     target_compile_definitions(QArchiverShell PRIVATE
         UNICODE _UNICODE _WIN32_WINNT=0x0601 WINVER=0x0601
     )

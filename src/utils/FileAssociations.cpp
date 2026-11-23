@@ -338,6 +338,7 @@ bool registerFormats(const QStringList &extensionsToRegister, QString *error)
         return true;
     }
 #ifdef Q_OS_WIN
+    Q_UNUSED(error);
     const QString command = applicationCommand();
     const QString exe = QDir::toNativeSeparators(
         QCoreApplication::applicationFilePath());
@@ -412,6 +413,7 @@ bool unregisterFormats(const QStringList &extensionsToUnregister, QString *error
         return true;
     }
 #ifdef Q_OS_WIN
+    Q_UNUSED(error);
     for (const QString &extension : extensionsToUnregister) {
         const QString progId = progIdFor(extension);
         deleteValue(extension + QStringLiteral("\\OpenWithProgids"), progId);

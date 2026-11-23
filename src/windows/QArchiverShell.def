@@ -1,0 +1,8 @@
+; QArchiverShell.dll exports (COM in-proc server + regsvr32 entry points).
+; QArchiverShell.dll 导出（进程内 COM 服务器与 regsvr32 入口）。
+LIBRARY QArchiverShell
+EXPORTS
+    DllGetClassObject
+    DllCanUnloadNow
+    DllRegisterServer
+    DllUnregisterServer

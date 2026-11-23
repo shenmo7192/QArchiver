@@ -431,7 +431,7 @@ void notifyShell()
 // COM exports / COM 导出
 // ---------------------------------------------------------------------------
 
-extern "C" __declspec(dllexport) HRESULT STDAPICALLTYPE DllGetClassObject(REFCLSID clsid, REFIID riid, void **object)
+STDAPI DllGetClassObject(REFCLSID clsid, REFIID riid, void **object)
 {
     if (!IsEqualCLSID(clsid, kClsid)) {
         return CLASS_E_CLASSNOTAVAILABLE;
@@ -445,12 +445,12 @@ extern "C" __declspec(dllexport) HRESULT STDAPICALLTYPE DllGetClassObject(REFCLS
     return result;
 }
 
-extern "C" __declspec(dllexport) HRESULT STDAPICALLTYPE DllCanUnloadNow()
+STDAPI DllCanUnloadNow()
 {
     return g_objectCount == 0 ? S_OK : S_FALSE;
 }
 
-extern "C" __declspec(dllexport) HRESULT STDAPICALLTYPE DllRegisterServer()
+STDAPI DllRegisterServer()
 {
     const std::wstring dll = modulePath();
     if (dll.empty()) {
@@ -480,7 +480,7 @@ extern "C" __declspec(dllexport) HRESULT STDAPICALLTYPE DllRegisterServer()
     return S_OK;
 }
 
-extern "C" __declspec(dllexport) HRESULT STDAPICALLTYPE DllUnregisterServer()
+STDAPI DllUnregisterServer()
 {
     HKEY root = classesRoot();
     unregisterHandler(root, L"Software\\Classes\\*");
