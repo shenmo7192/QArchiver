@@ -362,11 +362,11 @@ def toolbar_icons() -> dict[str, str]:
     # grid views both render this pixmap at different sizes.
     # 让文件夹图形在 64 单位 viewBox 中居中；列表和网格会以不同尺寸绘制。
     icons["folder.png"] = svg(
-        '<g transform="translate(7 3.5)">'
-        '<path d="M5 17a3 3 0 0 1 3-3h9l4 4h18a3 3 0 0 1 3 3v20H5z" fill="#2d7fe0"/>'
-        '<path d="M5 21h40v18a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3z" fill="#4aa6ff"/>'
-        '<path d="M5 21h40v4H5z" fill="#ffffff" opacity=".25"/>'
-        '</g>', 32)
+        '<rect x="5" y="8" width="24" height="12" rx="3" fill="#2d7fe0"/>'
+        '<rect x="5" y="13" width="54" height="47" rx="6" fill="#2d7fe0"/>'
+        '<rect x="5" y="23" width="54" height="35" rx="6" fill="#4aa6ff"/>'
+        '<rect x="5" y="23" width="54" height="5" rx="2" fill="#ffffff" opacity=".22"/>',
+        32)
     icons["file.png"] = doc_icon("#7ea9d6", size=64)
 
     # Additional common file kinds / 更多常见文件类型

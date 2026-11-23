@@ -249,7 +249,7 @@ void AppSettings::setSort(int column, Qt::SortOrder order)
 
 int AppSettings::itemSize() const
 {
-    return std::clamp(value(QStringLiteral("ui/itemSize"), 96).toInt(), 48, 128);
+    return std::clamp(value(QStringLiteral("ui/itemSize"), 100).toInt(), 48, 128);
 }
 
 void AppSettings::setItemSize(int size)

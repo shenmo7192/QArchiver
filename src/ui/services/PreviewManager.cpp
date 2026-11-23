@@ -22,6 +22,7 @@
 #include <QFileInfo>
 #include <QLocale>
 #include <QPointer>
+#include <QProcess>
 #include <QSet>
 #include <QStandardPaths>
 #include <QTimer>
@@ -34,6 +35,30 @@
 
 #include "ui/dialogs/ProgressDialog.h"
 
+namespace {
+
+// Open an extracted preview target, optionally through the system
+// "Open with" picker on Windows.
+void openExtractedPath(const QString &path, bool openWith)
+{
+#ifdef Q_OS_WIN
+    if (openWith) {
+        QProcess::startDetached(
+            QStringLiteral("rundll32.exe"),
+            {QStringLiteral("shell32.dll,OpenAs_RunDLL"),
+             QDir::toNativeSeparators(path)});
+        return;
+    }
+#else
+    Q_UNUSED(openWith);
+#endif
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
+        MessageBoxUtils::showOpenFailure(nullptr, path);
+    }
+}
+
+} // namespace
+
 struct PreviewJob {
     QString previewDir;
     QString destPath;
@@ -42,6 +67,7 @@ struct PreviewJob {
         std::make_shared<std::atomic_bool>(false);
     std::atomic<ArchiveBackend *> backend{nullptr};
     bool finished = false;
+    bool openWith = false;
     bool cancelled = false;
 };
 
@@ -71,12 +97,12 @@ QString PreviewManager::ownPreviewDir() const
 void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
                              const QString &entryPath, qint64 entrySize,
                              const QStringList &imagePaths,
-                             const QString &password)
+                             const QString &password, bool openWith)
 {
     if (archivePath.isEmpty() || entryPath.isEmpty()) {
         return;
     }
-    if (entrySize > AppSettings::instance().maxPreviewSize()) {
+    if (!openWith && entrySize > AppSettings::instance().maxPreviewSize()) {
         MessageBoxUtils::showWarning(
             nullptr, tr("Preview"),
             tr("This file is too large to preview (%1).")
@@ -150,9 +176,7 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
         }
     }
     if (missingPaths.isEmpty()) {
-        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(destPath))) {
-            MessageBoxUtils::showOpenFailure(nullptr, destPath);
-        }
+        openExtractedPath(destPath, openWith);
         return;
     }
 
@@ -170,6 +194,7 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
     auto *job = new PreviewJob;
     job->previewDir = previewDir;
     job->destPath = destPath;
+    job->openWith = openWith;
     m_jobs.insert(previewDir, job);
 
     const int threshold =
@@ -211,7 +236,7 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
     // created, used and destroyed entirely inside the worker thread.
     // 不要在 GUI 线程调用主 backend。私有 backend 完全在工作线程内创建、使用和销毁。
     (void)QtConcurrent::run([archivePath, format, missingPaths, previewDir,
-                              destPath, password, job]() {
+                              destPath, password, openWith, job]() {
         auto cancel = job->cancel;
         std::unique_ptr<ArchiveBackend> backend(
             ArchiveBackendFactory::createForRead(format, archivePath));
@@ -280,9 +305,10 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
         cancelled = cancelled || cancel->load(std::memory_order_relaxed);
         QMetaObject::invokeMethod(
             &PreviewManager::instance(),
-            [previewDir, destPath, success, cancelled, errorMessage]() {
+            [previewDir, destPath, success, cancelled, errorMessage, openWith]() {
                 PreviewManager::instance().finishPreview(
-                    previewDir, destPath, success, cancelled, errorMessage);
+                    previewDir, destPath, success, cancelled, errorMessage,
+                    openWith);
             },
             Qt::QueuedConnection);
     });
@@ -322,7 +348,7 @@ void PreviewManager::cancelPreview(const QString &previewDir)
 void PreviewManager::finishPreview(const QString &previewDir,
                                    const QString &destPath, bool success,
                                    bool cancelled,
-                                   const QString &errorMessage)
+                                   const QString &errorMessage, bool openWith)
 {
     PreviewJob *job = m_jobs.take(previewDir);
     if (!job) {
@@ -354,9 +380,7 @@ void PreviewManager::finishPreview(const QString &previewDir,
                      "Preview extraction reported failure but target exists: %s",
                      targetPath.toUtf8().constData());
         }
-        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(targetPath))) {
-            MessageBoxUtils::showOpenFailure(nullptr, targetPath);
-        }
+        openExtractedPath(targetPath, openWith);
         return;
     }
 

@@ -307,6 +307,11 @@ void MainWindow::teardownUi()
         delete m_statusSummaryRight;
         m_statusSummaryRight = nullptr;
     }
+    if (m_sizeSlider) {
+        statusBar()->removeWidget(m_sizeSlider);
+        delete m_sizeSlider;
+        m_sizeSlider = nullptr;
+    }
     statusBar()->clearMessage();
 
     m_treeView = nullptr;

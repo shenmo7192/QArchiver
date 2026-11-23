@@ -56,9 +56,10 @@ public:
         const QRect cellRect = view ? view->visualRect(index) : opt.rect;
         const QRect layoutRect = cellRect.isValid() ? cellRect : opt.rect;
         const QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
-        const QSize iconSize = opt.decorationSize.isValid()
-            ? opt.decorationSize
-            : (view ? view->iconSize() : QSize(56, 56));
+        const QSize iconSize = (view && view->iconSize().isValid())
+            ? view->iconSize()
+            : (opt.decorationSize.isValid() ? opt.decorationSize
+                                            : QSize(56, 56));
         const QString text = opt.text;
 
         opt.rect = layoutRect;
@@ -74,7 +75,19 @@ public:
         iconRect.moveCenter(QPoint(layoutRect.center().x(),
                                    layoutRect.top() + topPad
                                        + iconSize.height() / 2));
-        icon.paint(painter, iconRect, Qt::AlignCenter, QIcon::Normal);
+        if (!icon.isNull()) {
+            // QIcon::pixmap() keeps the source aspect ratio (a 16:9 thumbnail
+            // yields e.g. 100x56). Draw it at that size and centre it; drawing
+            // it into the square iconRect would stretch the preview.
+            // QIcon::pixmap() 会保持原比例（例如 16:9 缩略图返回 100x56），
+            // 按它自己的尺寸居中绘制；直接画进方形 iconRect 会拉伸预览。
+            const QPixmap pixmap = icon.pixmap(iconRect.size());
+            if (!pixmap.isNull()) {
+                QRect target(QPoint(0, 0), pixmap.size());
+                target.moveCenter(iconRect.center());
+                painter->drawPixmap(target, pixmap);
+            }
+        }
 
         if (!text.isEmpty()) {
             painter->setPen(opt.palette.color(

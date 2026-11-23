@@ -1844,6 +1844,10 @@ Overwrite it?</source>
         <source>File Associations...</source>
         <translation>文件关联...</translation>
     </message>
+    <message>
+        <source>Open With...</source>
+        <translation>打开方式...</translation>
+    </message>
 </context>
 <context>
     <name>ModernNavBar</name>

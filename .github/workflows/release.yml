@@ -1,11 +1,8 @@
-# Release workflow: push a version tag (e.g. v0.1.3) to build all artifacts.
-# The installer packages (Windows setup.exe + Linux .deb) and the portable
-# Windows ZIP are published as two separate GitHub Releases:
-#   * v0.1.3           -> Windows 安装版 + Linux 安装包
-#   * v0.1.3-portable  -> Windows 便携版/绿色版
-# 发布工作流：推送版本标签（如 v0.1.3）后构建全部产物，并分成两个 Release：
-#   * v0.1.3           -> Windows 安装版 + Linux 安装包
-#   * v0.1.3-portable  -> Windows 便携版/绿色版
+# Release workflow: push a version tag (e.g. v2.3.0) to build all artifacts and
+# publish one GitHub Release containing both the installers and the portable
+# Windows ZIP.
+# 发布工作流：推送版本标签（如 v2.3.0）后构建全部产物，并在同一个 Release 中
+# 同时发布安装版与 Windows 便携版。
 
 name: Release
 
@@ -13,10 +10,6 @@ on:
   push:
     tags:
       - 'v*'
-      # The portable release tag is created by this workflow itself; do not
-      # start another release run for it.
-      # 便携版标签由本工作流创建，不应再次触发发布。
-      - '!v*-portable'
 
 permissions:
   contents: write
@@ -26,7 +19,7 @@ jobs:
     uses: ./.github/workflows/build.yml
 
   publish:
-    name: Publish GitHub Releases
+    name: Publish GitHub Release
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -38,76 +31,41 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Prepare installer release files
+      - name: Prepare release files
         run: |
-          mkdir -p release-installer
-          cp dist/*.deb release-installer/
-          cp dist/*-setup.exe release-installer/
-          cd release-installer
+          mkdir -p release
+          cp dist/*.deb release/
+          cp dist/*-setup.exe release/
+          cp dist/*.zip release/
+          cd release
           ls -l
-          # Checksums are generated per release so each one is self-contained.
-          # 每个 Release 单独生成校验和，保持各自完整。
-          sha256sum -- *.exe *.deb > SHA256SUMS
+          sha256sum -- *.exe *.deb *.zip > SHA256SUMS
           cat SHA256SUMS
 
-      - name: Prepare portable release files
-        run: |
-          mkdir -p release-portable
-          cp dist/*.zip release-portable/
-          cd release-portable
-          ls -l
-          sha256sum -- *.zip > SHA256SUMS
-          cat SHA256SUMS
-
-      - name: Create installer release
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: QArchiver ${{ github.ref_name }} 安装版 / Installers
+          name: QArchiver ${{ github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
-            ## 安装版 / Installers
-
-            本 Release 只包含安装包（Windows `setup.exe` 与 Linux `.deb`）。
-            绿色版/便携版请见 [`${{ github.ref_name }}-portable`](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}-portable)。
+            ## Downloads
 
             | Platform | Package |
             | --- | --- |
-            | Windows x86_64 | `QArchiver-*-windows-x64-setup.exe` |
-            | Windows ARM64 | `QArchiver-*-windows-arm64-setup.exe` |
+            | Windows x86_64 | `QArchiver-*-windows-x64-setup.exe`（安装版） |
+            | Windows ARM64 | `QArchiver-*-windows-arm64-setup.exe`（安装版） |
+            | Windows x86_64 | `QArchiver-*-windows-x64.zip`（便携版/绿色版） |
+            | Windows ARM64 | `QArchiver-*-windows-arm64.zip`（便携版/绿色版） |
             | Linux x86_64 | `qarchiver_*_amd64.deb` |
             | Linux ARM64 | `qarchiver_*_arm64.deb` |
 
-            Windows 安装器会安装开始菜单/桌面快捷方式与卸载入口，并注册资源管理器
-            右键菜单（打开、一键解压、添加到 xx.zip、压缩到 7z/ZIP/tar 等）。
+            Windows 安装器提供简体中文 / English 双语界面，会询问是否关联压缩包
+            格式（默认选中），并注册资源管理器右键菜单（打开、一键解压、动态
+            “添加到 xx.zip”、压缩到 7z/ZIP/tar 等）。绿色版解压后直接运行
+            `QArchiver.exe`，无需安装。
 
             Debian/Ubuntu：`sudo apt install ./qarchiver_*_<arch>.deb`。
           files: |
-            release-installer/*
-
-      - name: Create portable release
-        uses: softprops/action-gh-release@v2
-        with:
-          # A dedicated tag is created at the same commit for the portable
-          # release, so installers and portable packages stay separate.
-          # 为便携版在同一提交上创建独立标签，使安装版与绿色版分开。
-          tag_name: ${{ github.ref_name }}-portable
-          target_commitish: ${{ github.sha }}
-          name: QArchiver ${{ github.ref_name }} 便携版 / Portable
-          fail_on_unmatched_files: true
-          body: |
-            ## 便携版 / Portable（绿色版）
-
-            本 Release 只包含 Windows 便携 ZIP。安装版请见
-            [`${{ github.ref_name }}`](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})。
-
-            | Platform | Package |
-            | --- | --- |
-            | Windows x86_64 | `QArchiver-*-windows-x64.zip` |
-            | Windows ARM64 | `QArchiver-*-windows-arm64.zip` |
-
-            解压后直接运行 `QArchiver.exe`，无需安装；资源管理器右键菜单脚本
-            `install-shell-menu.ps1` 在同一目录（当前用户，无需管理员）。
-          files: |
-            release-portable/*
+            release/*

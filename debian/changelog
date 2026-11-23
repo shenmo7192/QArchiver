@@ -1,20 +1,16 @@
-qarchiver (0.1.3) unstable; urgency=medium
+qarchiver (2.3.1) unstable; urgency=medium
 
-  * Classic layout: add Forward/Back/Up buttons to the left of the filter field
-    (Forward, Back, Up) with shared history and Alt+Right/Left/Up shortcuts.
-  * Classic grid view now shows image thumbnails; classic list/tree keep the
-    regular image icon. Modern list thumbnails are fitted to the row height
-    with a bounded width.
-  * Classic list/tree use a compact 16px icon and 24px row height; the classic
-    content-view setting now applies to both layouts.
-  * Fix Linux mimeapps.list corruption by replacing QSettings writes with an
-    atomic, format-preserving MimeAppsList implementation.
-  * Fix .r?? suffix misclassification, split-volume target names and icons,
-    grid-mode ".." entries, classic folder double-click after a layout switch,
-    dialog-only exit, itemSize persistence and a ThumbnailManager build warning.
-  * Add missing classic/modern icons and a static Windows issue review document.
+  * Sort button uses the standard two-arrow icon (centred), the item-size
+    slider moved to the bottom-right status bar, and Ctrl+wheel zoom remains.
+  * Taller near-square folder icon, generated from an SVG source at 256px.
+  * Image thumbnails keep their aspect ratio and are centred instead of being
+    stretched into a square.
+  * Modern layout uses a 10.5pt font, tighter 128x152 grid cells (icon and
+    label fill about 80%), and a darker sidebar for better contrast.
+  * Installer defaults to Simplified Chinese on Chinese systems.
+  * Installers and portable ZIP stay in a single GitHub Release.
 
- -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 23:59:00 +0800
+ -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 22:40:00 +0800
 
 qarchiver (2.3.0) unstable; urgency=medium
 
@@ -35,8 +31,8 @@ qarchiver (2.3.0) unstable; urgency=medium
     10pt default font, larger grid items and clearer sidebar contrast.
   * One-click extraction honours the current selection.
   * Windows installer is bilingual (Simplified Chinese / English).
-  * Releases are split: vX.Y.Z contains installers (Windows setup.exe + Linux
-    .deb), vX.Y.Z-portable contains the portable Windows ZIP.
+  * Each release contains both installers (Windows setup.exe + Linux .deb)
+    and the portable Windows ZIP.
 
  -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 21:40:00 +0800
 

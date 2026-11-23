@@ -45,8 +45,10 @@
     <file alias="settings.png">icons/modern/settings.png</file>
     <file alias="sort-down-light.png">icons/modern/sort-down-light.png</file>
     <file alias="sort-down.png">icons/modern/sort-down.png</file>
+    <file alias="sort-light.png">icons/modern/sort-light.png</file>
     <file alias="sort-up-light.png">icons/modern/sort-up-light.png</file>
     <file alias="sort-up.png">icons/modern/sort-up.png</file>
+    <file alias="sort.png">icons/modern/sort.png</file>
     <file alias="test.png">icons/modern/test.png</file>
     <file alias="toolbox.png">icons/modern/toolbox.png</file>
     <file alias="up-light.png">icons/modern/up-light.png</file>

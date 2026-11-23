@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 # QArchiver (小Q解压) is a Qt 6 desktop archive manager.
 # QArchiver（小Q解压）是一个基于 Qt 6 的桌面压缩包管理工具。
 project(QArchiver
-    VERSION 0.1.3
+    VERSION 2.3.1
     LANGUAGES CXX
 )
 
