@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the small Aero UI glyphs used by src/resources/styles/aero.qss.
+"""Generate the small Aero UI glyphs used by resources/themes/aero/aero.qss.
 
 The generated PNGs are committed to the repository, so this script is only
 needed when the glyphs or their colors change. It uses PyQt6 because the
@@ -26,7 +26,22 @@ from PyQt6.QtGui import (  # noqa: E402
     QPolygonF,
 )
 
-OUT_DIR = Path(__file__).resolve().parent.parent / "src" / "resources" / "styles"
+# Classic (Aero) glyphs are written into the theme's light/ and dark/ folders.
+# The style sheet lives in the same theme folder and refers to these files via
+# the /themes/aero resource prefix.
+# 经典（Aero）字形写入主题的 light/ 与 dark/ 目录；样式表位于同一主题目录，
+# 并通过 /themes/aero 资源前缀引用这些文件。
+#
+# Files are written to one of three destinations:
+#   THEME_DIR/          glyphs shared by both themes (Win7 checkbox/radio art)
+#   THEME_DIR/light/    glyphs for light backgrounds
+#   THEME_DIR/dark/     the same glyph names, recolored for dark backgrounds
+# 文件写入三个目标之一：主题根目录（深浅共用）、light/（浅色背景）、
+# dark/（同名重着色版本，供深色背景）。
+THEME_DIR = Path(__file__).resolve().parent.parent / "resources" / "themes" / "aero"
+OUT_DIR = THEME_DIR / "light"
+DARK_DIR = THEME_DIR / "dark"
+SHARED_DIR = THEME_DIR
 
 # Windows 7 Aero-ish control colors.
 WHITE = QColor("#ffffff")
@@ -60,15 +75,17 @@ def image(size: int) -> tuple[QImage, QPainter]:
     return img, painter
 
 
-def save(img: QImage, name: str) -> None:
-    path = OUT_DIR / name
+def save(img: QImage, name: str, target: str = "light") -> None:
+    directory = {"light": OUT_DIR, "dark": DARK_DIR, "shared": SHARED_DIR}[target]
+    path = directory / name
+    path.parent.mkdir(parents=True, exist_ok=True)
     if not img.save(str(path), "PNG"):
         raise RuntimeError(f"failed to save {path}")
-    print(f"wrote {path.relative_to(OUT_DIR.parent.parent.parent)}")
+    print(f"wrote {path.relative_to(THEME_DIR.parent.parent.parent)}")
 
 
 def recolor(src_name: str, dst_name: str, color: QColor) -> None:
-    """Create a light-on-dark variant of a monochrome glyph."""
+    """Create the dark-theme variant of a monochrome glyph (dark/ folder)."""
     img = QImage(str(OUT_DIR / src_name))
     if img.isNull():
         raise RuntimeError(f"missing source glyph: {src_name}")
@@ -81,7 +98,7 @@ def recolor(src_name: str, dst_name: str, color: QColor) -> None:
             tinted = QColor(color)
             tinted.setAlpha(alpha)
             img.setPixelColor(x, y, tinted)
-    save(img, dst_name)
+    save(img, dst_name, "dark")
 
 
 def box_gradient(rect: QRectF, top: QColor, bottom: QColor) -> QLinearGradient:
@@ -146,7 +163,7 @@ def draw_checkbox(variant: str) -> None:
         p.drawLine(QPointF(4.0, 6.5), QPointF(9.0, 6.5))
 
     p.end()
-    save(img, f"checkbox-{variant}.png")
+    save(img, f"checkbox-{variant}.png", "shared")
 
 
 def draw_radio(variant: str) -> None:
@@ -186,7 +203,7 @@ def draw_radio(variant: str) -> None:
         p.drawEllipse(QRectF(5.0, 4.6, 1.6, 1.2))
 
     p.end()
-    save(img, f"radio-{variant}.png")
+    save(img, f"radio-{variant}.png", "shared")
 
 
 def arrow_polygon(direction: str, size: float = 9.0) -> QPolygonF:
@@ -276,7 +293,8 @@ def draw_sizegrip() -> None:
 
 
 def main() -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    for directory in (SHARED_DIR, OUT_DIR, DARK_DIR):
+        directory.mkdir(parents=True, exist_ok=True)
     app = QGuiApplication([])  # noqa: F841 - keeps QPainter happy
 
     for variant in (
@@ -339,7 +357,7 @@ def main() -> None:
         "spin-down.png",
         "spin-up.png",
     ):
-        recolor(name, name.replace(".png", "-dark.png"), DARK_GLYPH)
+        recolor(name, name, DARK_GLYPH)
 
     for name in (
         "scroll-down-disabled.png",
@@ -347,7 +365,7 @@ def main() -> None:
         "scroll-right-disabled.png",
         "scroll-up-disabled.png",
     ):
-        recolor(name, name.replace(".png", "-dark.png"), DARK_GLYPH_DISABLED)
+        recolor(name, name, DARK_GLYPH_DISABLED)
 
 
 if __name__ == "__main__":

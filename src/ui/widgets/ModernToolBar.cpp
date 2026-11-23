@@ -2,7 +2,8 @@
 // ModernToolBar construction and action buttons.
 // ModernToolBar 的构建与动作按钮。
 
-#include "ModernToolBar.h"
+#include "ui/icons/IconUtils.h"
+#include "ui/widgets/ModernToolBar.h"
 
 #include <QAction>
 #include <QFrame>
@@ -64,7 +65,7 @@ ModernToolBar::ModernToolBar(QWidget *parent)
     brandLayout->setSpacing(10);
 
     auto *logo = new QLabel(brand);
-    logo->setPixmap(QIcon(QStringLiteral(":/modern/app.png")).pixmap(42, 42));
+    logo->setPixmap(Icons::modern(QStringLiteral("app.png")).pixmap(42, 42));
     logo->setFixedSize(46, 46);
     logo->setScaledContents(true);
     brandLayout->addWidget(logo);

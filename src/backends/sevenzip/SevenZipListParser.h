@@ -8,7 +8,7 @@
 #include <QList>
 #include <QString>
 
-#include "core/ArchiveEntry.h"
+#include "common/ArchiveEntry.h"
 
 // Parses 7-Zip `l -slt` (technical) output.  The same key/value format is
 // emitted for 7z, zip, tar, rar and the other formats handled by 7-Zip.

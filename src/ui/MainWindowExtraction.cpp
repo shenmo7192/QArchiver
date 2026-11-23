@@ -1,0 +1,398 @@
+// QArchiver / 小Q解压
+// MainWindow extraction: extract/add flows, one-click extraction and the
+// dialogs that drive them.
+// MainWindow 解压：解压/添加流程、一键解压以及驱动它们的对话框。
+
+// QArchiver / 小Q解压
+// MainWindow implementation: modern and classic layouts, actions, drag/drop,
+// previews, one-click extraction and dialogs.
+// MainWindow 实现：现代与经典布局、动作、拖放、预览、一键解压与对话框。
+
+#include "common/FormatRegistry.h"
+
+#include "ui/MainWindow.h"
+
+#include "ui/MainWindowHelpers.h"
+#include "ui/icons/IconUtils.h"
+
+#include "ui/models/FileListModel.h"
+#include "ui/models/FilterProxyModel.h"
+#include "ui/models/FileListViewDelegate.h"
+#include "ui/services/PreviewManager.h"
+#include "ui/services/PreviewUtils.h"
+#include "ui/services/DragOutManager.h"
+#include "ui/widgets/ArchiveTreeView.h"
+#include "ui/widgets/ArchiveGridView.h"
+#include "ui/widgets/BackgroundWidget.h"
+#include "ui/widgets/SidebarWidget.h"
+#include "ui/widgets/ModernToolBar.h"
+#include "ui/widgets/ModernNavBar.h"
+#include "ui/widgets/ArchiveFolderPane.h"
+#include "ui/widgets/WelcomePage.h"
+#include "ui/dialogs/ExtractDialog.h"
+#include "ui/dialogs/CompressDialog.h"
+#include "ui/dialogs/PasswordDialog.h"
+#include "ui/dialogs/ProgressDialog.h"
+#include "ui/dialogs/PreferencesDialog.h"
+#include "ui/dialogs/BenchmarkDialog.h"
+#include "utils/Logger.h"
+#include "utils/MimeTypeHelper.h"
+#include "utils/SevenZipTool.h"
+#include "ui/icons/MessageBoxUtils.h"
+#include "utils/FileUtils.h"
+#include "ui/icons/FileTypeHelper.h"
+#include "ui/theme/ThemeManager.h"
+
+#include "core/ArchiveManager.h"
+#include "common/ArchiveError.h"
+#include "common/ArchiveOptions.h"
+#include "common/ArchiveConstants.h"
+#include "core/AppSettings.h"
+
+#include "backends/ArchiveBackend.h"
+
+#include <QAbstractItemView>
+#include <QAction>
+#include <QApplication>
+#include <QCheckBox>
+#include <QCloseEvent>
+#include <QCoreApplication>
+#include <QDesktopServices>
+#include <QDialog>
+#include <QDir>
+#include <QDockWidget>
+#include <QDrag>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QElapsedTimer>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QFrame>
+#include <QFutureWatcher>
+#include <QGuiApplication>
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QIcon>
+#include <QItemSelectionModel>
+#include <QKeyEvent>
+#include <QLabel>
+#include <QLineEdit>
+#include <QLocale>
+#include <QMenu>
+#include <QMenuBar>
+#include <QMessageBox>
+#include <QMimeData>
+#include <QProgressBar>
+#include <QPushButton>
+#include <QSplitter>
+#include <QStackedWidget>
+#include <QStandardPaths>
+#include <QStatusBar>
+#include <QTimer>
+#include <QToolBar>
+#include <QTreeView>
+#include <QUrl>
+#include <QVBoxLayout>
+#include <QtConcurrent>
+
+#include <limits>
+
+void MainWindow::openArchivePath(const QString &path)
+{
+    if (!path.isEmpty()) {
+        openFile(path);
+    }
+}
+
+void MainWindow::extractOneClickPath(const QString &path)
+{
+    m_oneClickPending = true;
+    openFile(path);
+}
+
+QStringList MainWindow::chooseSourceItems(const QString &title)
+{
+    // Native file dialogs cannot select files and directories in one dialog.
+    // Ask which kind to pick, then use the system dialog for that kind.  This
+    // keeps the common path native (Windows Explorer / GTK / KDE) instead of
+    // forcing the Qt widget dialog on every desktop.
+    // 原生文件对话框无法同时选择文件与目录；先询问类型，再调用系统对话框，
+    // 避免为了混合选择而在所有桌面强制使用 Qt 控件对话框。
+    QMessageBox chooser(this);
+    chooser.setWindowTitle(title);
+    chooser.setIcon(QMessageBox::Question);
+    chooser.setText(tr("What would you like to select?"));
+    chooser.setInformativeText(
+        tr("Files can be selected together; folders are added one at a time."));
+    QPushButton *filesButton = chooser.addButton(
+        tr("Select Files..."), QMessageBox::AcceptRole);
+    QPushButton *folderButton = chooser.addButton(
+        tr("Select Folder..."), QMessageBox::ActionRole);
+    chooser.addButton(QMessageBox::Cancel);
+    chooser.setDefaultButton(filesButton);
+    chooser.exec();
+
+    if (chooser.clickedButton() == filesButton) {
+        const QStringList files = QFileDialog::getOpenFileNames(
+            this, title, QDir::homePath(), tr("All Files (*)"));
+        return files;
+    }
+    if (chooser.clickedButton() == folderButton) {
+        const QString folder = QFileDialog::getExistingDirectory(
+            this, title, QDir::homePath(),
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        return folder.isEmpty() ? QStringList() : QStringList{folder};
+    }
+    return {};
+}
+
+void MainWindow::openFile(const QString &path)
+{
+    // Keep the current archive (and its password) until the new one opens
+    // successfully.  onArchiveOpened() switches to the session password.
+    // 在新压缩包成功打开前保留当前压缩包及其密码。
+    ArchiveManager::instance().openArchive(path);
+    updateActionsState();
+}
+
+void MainWindow::startExtract(const ExtractOptions &opts)
+{
+    ExtractOptions options = opts;
+    if (!m_currentPassword.isEmpty()) {
+        options.password = m_currentPassword;
+    }
+
+    if (options.overwrite == OverwritePolicy::Ask) {
+        const QDir dest(options.destDir);
+        const bool hasExisting = dest.exists()
+            && !dest.entryList(QDir::AllEntries | QDir::NoDotAndDotDot).isEmpty();
+        if (!hasExisting) {
+            options.overwrite = OverwritePolicy::Always;
+        } else {
+            const auto answer = QMessageBox::question(
+                this, tr("Overwrite Files"),
+                tr("The destination directory is not empty. Overwrite existing files?"),
+                QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
+                QMessageBox::No);
+            if (answer == QMessageBox::Cancel) {
+                return;
+            }
+            options.overwrite = (answer == QMessageBox::Yes)
+                ? OverwritePolicy::Always
+                : OverwritePolicy::Never;
+        }
+    }
+
+    m_openDestAfterExtract = options.openDestAfterFinish;
+    m_lastExtractDest = options.destDir;
+    m_currentOp = UiOp::Extract;
+
+    ArchiveManager::instance().extract(options);
+    if (ArchiveManager::instance().isBusy()) {
+        showProgressDialog(tr("Extracting..."));
+    }
+}
+
+void MainWindow::addFilesToCurrentArchive(const QStringList &files)
+{
+    ArchiveBackend *backend = ArchiveManager::instance().backend();
+    if (!backend || files.isEmpty()) {
+        return;
+    }
+    if (!ArchiveManager::instance().canModifyCurrentArchive()) {
+        QMessageBox::information(this, tr("Add Files"),
+                                 tr("This archive does not support adding files."));
+        return;
+    }
+
+    AddFilesOptions options;
+    options.archivePath = ArchiveManager::instance().currentPath();
+    options.sourceFiles = files;
+    options.password = m_currentPassword;
+    options.compressionLevel = AppSettings::instance().defaultCompressionLevel();
+    options.followSymlinks = AppSettings::instance().followSymlinks();
+
+    m_currentOp = UiOp::Add;
+    showProgressDialog(tr("Adding Files..."));
+    ArchiveManager::instance().addFiles(options);
+}
+
+void MainWindow::onExtractAll()
+{
+    if (!ArchiveManager::instance().backend()) {
+        return;
+    }
+
+    ExtractDialog dlg(ArchiveManager::instance().currentPath(), this);
+    if (dlg.exec() != QDialog::Accepted) {
+        return;
+    }
+    startExtract(dlg.options());
+}
+
+void MainWindow::onExtractSelected()
+{
+    const QStringList paths = selectedEntryPaths();
+    if (paths.isEmpty() || !ArchiveManager::instance().backend()) {
+        return;
+    }
+
+    ExtractDialog dlg(ArchiveManager::instance().currentPath(), this);
+    dlg.setSelectedFiles(paths);
+    if (dlg.exec() != QDialog::Accepted) {
+        return;
+    }
+    startExtract(dlg.options());
+}
+
+QString MainWindow::oneClickArchiveBaseName(const QString &archivePath)
+{
+    QString name =
+        FormatRegistry::stripArchiveExtension(QFileInfo(archivePath).fileName());
+    if (name.isEmpty()) {
+        name = QStringLiteral("archive");
+    }
+    return name;
+}
+
+QString MainWindow::oneClickDestinationRoot() const
+{
+    const AppSettings &settings = AppSettings::instance();
+    QString root;
+    if (settings.oneClickExtractDestMode() == QStringLiteral("custom")) {
+        root = settings.oneClickExtractDest();
+    } else {
+        root = QFileInfo(ArchiveManager::instance().currentPath()).absolutePath();
+    }
+    if (root.isEmpty()) {
+        root = QStandardPaths::writableLocation(
+            QStandardPaths::DocumentsLocation);
+    }
+    if (root.isEmpty()) {
+        root = QDir::homePath();
+    }
+    return QDir::cleanPath(root);
+}
+
+bool MainWindow::askOneClickClosePreference()
+{
+    AppSettings &settings = AppSettings::instance();
+    if (settings.oneClickCloseAsked()) {
+        return settings.oneClickCloseAfterExtract();
+    }
+
+    QMessageBox box(this);
+    box.setWindowTitle(tr("One-click Extract"));
+    box.setIconPixmap(Icons::modern(QStringLiteral("oneclick.png")).pixmap(48, 48));
+    box.setText(tr("Close QArchiver after one-click extraction finishes?"));
+    box.setInformativeText(
+        tr("The archive is extracted to its own folder. You can change this "
+           "behaviour later in Preferences → One-click Extract."));
+    QPushButton *closeButton = box.addButton(tr("Extract and Close"),
+                                             QMessageBox::AcceptRole);
+    box.addButton(tr("Keep Window Open"), QMessageBox::RejectRole);
+    // Emphasise the recommended "extract and close" choice with the accent
+    // colour; QMessageBox styles the default button as primary.
+    // 用强调色突出推荐的“解压后关闭”；QMessageBox 会把默认按钮画成主按钮。
+    box.setDefaultButton(closeButton);
+    // QMessageBox overrides its own minimumWidth from the layout; widen the
+    // two labels instead so the informative text does not wrap into a column.
+    // QMessageBox 会用布局覆盖自身 minimumWidth；改为加宽文本标签，
+    // 避免说明文字被挤成窄列。
+    box.setStyleSheet(
+        "QLabel#qt_msgbox_label, QLabel#qt_msgbox_informativelabel "
+        "{ min-width: 460px; }");
+    box.exec();
+
+    const bool closeAfter = box.clickedButton() == closeButton;
+    settings.setOneClickCloseAfterExtract(closeAfter);
+    settings.setOneClickCloseAsked(true);
+    return closeAfter;
+}
+
+void MainWindow::beginOneClickExtract()
+{
+    auto &manager = ArchiveManager::instance();
+    if (!manager.backend() || manager.isBusy()) {
+        return;
+    }
+    if (!m_listReady) {
+        m_oneClickPending = true;
+        statusBar()->showMessage(tr("Reading archive contents..."), 4000);
+        return;
+    }
+
+    m_oneClickPending = false;
+    const bool closeAfter = askOneClickClosePreference();
+
+    const QString root = oneClickDestinationRoot();
+    if (root.isEmpty() || !QDir().mkpath(root)) {
+        MessageBoxUtils::showWarning(
+            this, tr("One-click Extract"),
+            tr("Cannot create the destination directory:\n%1").arg(root));
+        return;
+    }
+    if (!QFileInfo(root).isDir() || !QFileInfo(root).isWritable()) {
+        MessageBoxUtils::showWarning(
+            this, tr("One-click Extract"),
+            tr("The destination directory is not writable:\n%1").arg(root));
+        return;
+    }
+
+    const QString archivePath = manager.currentPath();
+    const QString baseSource = MimeTypeHelper::isSplitVolume(archivePath)
+        ? MimeTypeHelper::resolveFirstVolume(archivePath)
+        : archivePath;
+    const QString baseName = oneClickArchiveBaseName(baseSource);
+    QString destination = QDir(root).filePath(baseName);
+    if (QFileInfo::exists(destination) || QFileInfo(destination).isSymLink()) {
+        destination = FileUtils::uniqueDestinationPath(destination);
+    }
+
+    ExtractOptions options;
+    options.destDir = destination;
+    options.preservePaths = true;
+    options.overwrite = OverwritePolicy::Always;
+    options.password = m_currentPassword;
+    options.openDestAfterFinish = false;
+
+    m_oneClickExtractActive = true;
+    m_oneClickCloseAfter = closeAfter;
+    m_openDestAfterExtract = AppSettings::instance().openDestAfterFinish()
+        && !closeAfter;
+    m_lastExtractDest = destination;
+    m_currentOp = UiOp::Extract;
+
+    statusBar()->showMessage(
+        tr("One-click extracting to %1").arg(destination), 8000);
+    manager.extract(options);
+    if (manager.isBusy()) {
+        showProgressDialog(tr("One-click Extract..."));
+    }
+    updateActionsState();
+}
+
+void MainWindow::onOneClickExtract()
+{
+    if (ArchiveManager::instance().isBusy()) {
+        return;
+    }
+
+    if (ArchiveManager::instance().backend()) {
+        m_oneClickPending = true;
+        if (m_listReady) {
+            beginOneClickExtract();
+        } else {
+            statusBar()->showMessage(tr("Reading archive contents..."), 4000);
+        }
+        return;
+    }
+
+    const QString path = QFileDialog::getOpenFileName(
+        this, tr("One-click Extract"), QString(), MainWindowHelpers::archiveDialogFilter());
+    if (path.isEmpty()) {
+        return;
+    }
+    m_oneClickPending = true;
+    openFile(path);
+}

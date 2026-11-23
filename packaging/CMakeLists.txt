@@ -22,12 +22,12 @@ if(NOT WIN32)
     # 让面板/任务栏/启动器在各类桌面环境都能找到清晰图标。
     foreach(_size 512 256 128 64 48 32)
         install(FILES
-            ${PROJECT_SOURCE_DIR}/src/resources/icons/QArchiver-${_size}.png
+            ${PROJECT_SOURCE_DIR}/resources/app-icons/qarchiver-${_size}.png
             DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_size}x${_size}/apps
             RENAME qarchiver.png
         )
     endforeach()
-    install(FILES ${PROJECT_SOURCE_DIR}/src/resources/icons/QArchiver-256.png
+    install(FILES ${PROJECT_SOURCE_DIR}/resources/app-icons/qarchiver-256.png
         DESTINATION ${CMAKE_INSTALL_DATADIR}/pixmaps
         RENAME qarchiver.png
     )

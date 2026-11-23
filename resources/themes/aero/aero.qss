@@ -1,0 +1,956 @@
+/* QArchiver / 小Q解压
+ * Frutiger Aero / Windows 7 inspired control theme.
+ *
+ * Tokens of the form {name} are replaced at runtime by ThemeManager with the
+ * light or dark Aero color set. Keep the shape rules shared between both
+ * variants so the two themes stay consistent.
+ *
+ * Frutiger Aero / Windows 7 风格控件主题。
+ * {name} 形式的标记由 ThemeManager 在运行时替换为浅色或深色 Aero 配色。
+ * 两种主题共用形状规则，以保持一致。
+ */
+
+/* ------------------------------------------------------------------------- */
+/* Base surfaces                                                             */
+/* ------------------------------------------------------------------------- */
+
+QWidget {
+    color: @text@;
+}
+
+QMainWindow,
+QDialog {
+    background-color: @base@;
+}
+
+QWidget#MainBackground {
+    background-color: @base@;
+}
+
+QWidget#ToolbarSpacer {
+    background: transparent;
+}
+
+QLabel {
+    background: transparent;
+}
+
+QLabel#PlaceholderLabel {
+    color: @mutedText@;
+    font-size: 14px;
+}
+
+QLabel#HintLabel {
+    color: @mutedText@;
+}
+
+QToolTip {
+    background-color: @tooltipBg@;
+    color: @text@;
+    border: 1px solid @tooltipBorder@;
+    padding: 3px 6px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Main toolbar (Explorer-style glass strip)                                 */
+/* ------------------------------------------------------------------------- */
+
+QToolBar#MainToolBar {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @toolbarTop@,
+        stop:0.45 @toolbarMid@,
+        stop:0.55 @toolbarMid2@,
+        stop:1 @toolbarBottom@);
+    border: none;
+    border-bottom: 1px solid @border@;
+    padding: 3px 4px;
+    spacing: 2px;
+}
+
+QToolBar#MainToolBar::separator {
+    background: @separator@;
+    width: 1px;
+    margin: 4px 5px;
+}
+
+QToolBar#MainToolBar QToolButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 3px 6px;
+    margin: 1px;
+    color: @text@;
+}
+
+QToolBar#MainToolBar QToolButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @hoverTop@, stop:1 @hoverBottom@);
+    border: 1px solid @hoverBorder@;
+}
+
+QToolBar#MainToolBar QToolButton:pressed,
+QToolBar#MainToolBar QToolButton:checked {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @pressedTop@, stop:1 @pressedBottom@);
+    border: 1px solid @pressedBorder@;
+}
+
+QToolBar#MainToolBar QToolButton:disabled {
+    color: @disabledText@;
+}
+
+QToolBar#MainToolBar QToolButton::menu-indicator {
+    image: url(@arrowDown@);
+    subcontrol-position: bottom right;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Search field and text inputs                                              */
+/* ------------------------------------------------------------------------- */
+
+QLineEdit,
+QPlainTextEdit,
+QTextEdit {
+    background-color: @base@;
+    border: 1px solid @inputBorder@;
+    border-radius: 3px;
+    padding: 3px 6px;
+    min-height: 15px;
+    selection-background-color: @selection@;
+    selection-color: @selectionText@;
+}
+
+QLineEdit:focus,
+QPlainTextEdit:focus,
+QTextEdit:focus {
+    border: 1px solid @focusBorder@;
+}
+
+QLineEdit:disabled,
+QPlainTextEdit:disabled,
+QTextEdit:disabled {
+    background-color: @disabledBg@;
+    color: @disabledText@;
+    border-color: @disabledBorder@;
+}
+
+QLineEdit#SearchEdit {
+    min-height: 16px;
+    padding-left: 4px;
+}
+
+QPlainTextEdit#ProgressOutput {
+    border: 1px solid @inputBorder@;
+    background-color: @base@;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Push buttons (Windows 7 Aero button face)                                 */
+/* ------------------------------------------------------------------------- */
+
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonTop@,
+        stop:0.45 @buttonMid@,
+        stop:0.55 @buttonMid2@,
+        stop:1 @buttonBottom@);
+    border: 1px solid @buttonBorder@;
+    border-radius: 3px;
+    padding: 4px 12px;
+    min-height: 15px;
+    color: @text@;
+    icon-size: 16px;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonHoverTop@, stop:1 @buttonHoverBottom@);
+    border: 1px solid @accent@;
+}
+
+QPushButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonPressedTop@, stop:1 @buttonPressedBottom@);
+    border: 1px solid @accentDark@;
+}
+
+QPushButton:default {
+    border: 2px solid @accent@;
+    padding: 3px 11px;
+}
+
+QPushButton:focus {
+    border: 1px solid @accent@;
+}
+
+QPushButton:disabled {
+    background: @disabledBg@;
+    border-color: @disabledBorder@;
+    color: @disabledText@;
+}
+
+QPushButton:flat {
+    background: transparent;
+    border: none;
+}
+
+QDialogButtonBox QPushButton {
+    min-width: 75px;
+}
+
+QDialogButtonBox {
+    border: none;
+    border-top: 1px solid @footerBorder@;
+    padding-top: 8px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Combo boxes and spin boxes                                                */
+/* ------------------------------------------------------------------------- */
+
+QComboBox,
+QAbstractSpinBox {
+    background-color: @base@;
+    border: 1px solid @inputBorder@;
+    border-radius: 3px;
+    padding: 3px 6px;
+    min-height: 15px;
+    color: @text@;
+    selection-background-color: @selection@;
+    selection-color: @selectionText@;
+}
+
+QComboBox {
+    padding-right: 22px;
+}
+
+QComboBox:hover,
+QAbstractSpinBox:hover {
+    border: 1px solid @hoverBorder@;
+}
+
+QComboBox:focus,
+QAbstractSpinBox:focus {
+    border: 1px solid @focusBorder@;
+}
+
+QComboBox:disabled,
+QAbstractSpinBox:disabled {
+    background-color: @disabledBg@;
+    color: @disabledText@;
+    border-color: @disabledBorder@;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 18px;
+    border-left: 1px solid @inputBorder@;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonTop@, stop:1 @buttonBottom@);
+}
+
+QComboBox::drop-down:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonHoverTop@, stop:1 @buttonHoverBottom@);
+}
+
+QComboBox::down-arrow {
+    image: url(@comboArrow@);
+    width: 9px;
+    height: 9px;
+}
+
+QComboBox::down-arrow:on {
+    top: 1px;
+    left: 1px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: @base@;
+    border: 1px solid @menuBorder@;
+    selection-background-color: @listSelectedTop@;
+    selection-color: @text@;
+    outline: 0;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 20px;
+    padding: 2px 6px;
+}
+
+QSpinBox,
+QDoubleSpinBox {
+    padding-right: 18px;
+}
+
+QSpinBox::up-button,
+QDoubleSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 16px;
+    border-left: 1px solid @inputBorder@;
+    border-bottom: 1px solid @inputBorder@;
+    border-top-right-radius: 3px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonTop@, stop:1 @buttonBottom@);
+}
+
+QSpinBox::down-button,
+QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 16px;
+    border-left: 1px solid @inputBorder@;
+    border-bottom-right-radius: 3px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonTop@, stop:1 @buttonBottom@);
+}
+
+QSpinBox::up-button:hover,
+QSpinBox::down-button:hover,
+QDoubleSpinBox::up-button:hover,
+QDoubleSpinBox::down-button:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonHoverTop@, stop:1 @buttonHoverBottom@);
+}
+
+QSpinBox::up-arrow,
+QDoubleSpinBox::up-arrow {
+    image: url(@spinUp@);
+    width: 7px;
+    height: 7px;
+}
+
+QSpinBox::down-arrow,
+QDoubleSpinBox::down-arrow {
+    image: url(@spinDown@);
+    width: 7px;
+    height: 7px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Check boxes and radio buttons                                             */
+/* ------------------------------------------------------------------------- */
+
+QCheckBox,
+QRadioButton {
+    spacing: 6px;
+    background: transparent;
+}
+
+QCheckBox::indicator,
+QRadioButton::indicator {
+    width: 13px;
+    height: 13px;
+}
+
+QCheckBox::indicator:unchecked {
+    image: url(:/themes/aero/checkbox-unchecked.png);
+}
+
+QCheckBox::indicator:unchecked:hover {
+    image: url(:/themes/aero/checkbox-unchecked-hover.png);
+}
+
+QCheckBox::indicator:unchecked:disabled {
+    image: url(:/themes/aero/checkbox-unchecked-disabled.png);
+}
+
+QCheckBox::indicator:checked {
+    image: url(:/themes/aero/checkbox-checked.png);
+}
+
+QCheckBox::indicator:checked:hover {
+    image: url(:/themes/aero/checkbox-checked-hover.png);
+}
+
+QCheckBox::indicator:checked:disabled {
+    image: url(:/themes/aero/checkbox-checked-disabled.png);
+}
+
+QCheckBox::indicator:indeterminate {
+    image: url(:/themes/aero/checkbox-indeterminate.png);
+}
+
+QRadioButton::indicator:unchecked {
+    image: url(:/themes/aero/radio-unchecked.png);
+}
+
+QRadioButton::indicator:unchecked:hover {
+    image: url(:/themes/aero/radio-unchecked-hover.png);
+}
+
+QRadioButton::indicator:unchecked:disabled {
+    image: url(:/themes/aero/radio-unchecked-disabled.png);
+}
+
+QRadioButton::indicator:checked {
+    image: url(:/themes/aero/radio-checked.png);
+}
+
+QRadioButton::indicator:checked:hover {
+    image: url(:/themes/aero/radio-checked-hover.png);
+}
+
+QRadioButton::indicator:checked:disabled {
+    image: url(:/themes/aero/radio-checked-disabled.png);
+}
+
+QCheckBox:disabled,
+QRadioButton:disabled {
+    color: @disabledText@;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Archive tree and list views                                               */
+/* ------------------------------------------------------------------------- */
+
+QTreeView#ArchiveTree {
+    background: transparent;
+    border: 1px solid @border@;
+    outline: 0;
+    show-decoration-selected: 0;
+    selection-background-color: transparent;
+    selection-color: @text@;
+}
+
+QTreeView#ArchiveTree::item {
+    padding: 0 4px;
+    border: none;
+    background: transparent;
+}
+
+QTreeView#ArchiveTree::branch {
+    background: transparent;
+}
+
+QTreeView#ArchiveTree::branch:has-children:closed {
+    image: url(@branchClosed@);
+}
+
+QTreeView#ArchiveTree::branch:has-children:open {
+    image: url(@branchOpen@);
+}
+
+QTreeView,
+QListView {
+    background-color: @base@;
+    border: 1px solid @border@;
+    outline: 0;
+    selection-background-color: @listSelectedTop@;
+    selection-color: @text@;
+}
+
+QTreeView::item,
+QListView::item {
+    padding: 3px 4px;
+    border: 1px solid transparent;
+}
+
+QTreeView::item:hover,
+QListView::item:hover {
+    background-color: @listHover@;
+    border: 1px solid @hoverBorder@;
+}
+
+QTreeView::item:selected,
+QListView::item:selected {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @listSelectedTop@, stop:1 @listSelectedBottom@);
+    border: 1px solid @listSelectedBorder@;
+    color: @text@;
+}
+
+QTreeView::item:selected:!active,
+QListView::item:selected:!active {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @listInactiveTop@, stop:1 @listInactiveBottom@);
+    border: 1px solid @disabledBorder@;
+    color: @text@;
+}
+
+QHeaderView::section {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @headerTop@,
+        stop:0.5 @headerMid@,
+        stop:1 @headerBottom@);
+    border: none;
+    border-right: 1px solid @headerSeparator@;
+    border-bottom: 1px solid @border@;
+    padding: 3px 6px;
+    color: @text@;
+}
+
+QHeaderView::section:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @hoverTop@, stop:1 @hoverBottom@);
+}
+
+QHeaderView::section:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @pressedTop@, stop:1 @pressedBottom@);
+}
+
+QHeaderView::up-arrow {
+    image: url(@sortUp@);
+    width: 9px;
+    height: 9px;
+}
+
+QHeaderView::down-arrow {
+    image: url(@sortDown@);
+    width: 9px;
+    height: 9px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Recently opened files list                                                */
+/* ------------------------------------------------------------------------- */
+
+QListWidget#RecentList {
+    background-color: @base@;
+    border: none;
+    outline: 0;
+}
+
+QListWidget#RecentList::item {
+    padding: 3px 4px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+}
+
+QListWidget#RecentList::item:hover {
+    background-color: @listHover@;
+    border: 1px solid @hoverBorder@;
+}
+
+QListWidget#RecentList::item:selected {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @listSelectedTop@, stop:1 @listSelectedBottom@);
+    border: 1px solid @listSelectedBorder@;
+    color: @text@;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Scroll bars (Windows 7 arrows + glossy handle)                            */
+/* ------------------------------------------------------------------------- */
+
+QScrollBar:vertical {
+    background: @scrollTrack@;
+    width: 17px;
+    margin: 17px 0 17px 0;
+    border-left: 1px solid @borderLight@;
+}
+
+QScrollBar::handle:vertical {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 @scrollHandleTop@,
+        stop:0.5 @scrollHandleMid@,
+        stop:1 @scrollHandleBottom@);
+    border: 1px solid @scrollHandleBorder@;
+    border-radius: 2px;
+    min-height: 20px;
+    margin: 1px 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 @buttonHoverTop@, stop:1 @buttonHoverBottom@);
+    border-color: @accent@;
+}
+
+QScrollBar::handle:vertical:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 @buttonPressedTop@, stop:1 @buttonPressedBottom@);
+    border-color: @accentDark@;
+}
+
+QScrollBar::add-line:vertical {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @scrollButtonTop@, stop:1 @scrollButtonBottom@);
+    height: 17px;
+    subcontrol-origin: margin;
+    subcontrol-position: bottom;
+    border-top: 1px solid @borderLight@;
+}
+
+QScrollBar::sub-line:vertical {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @scrollButtonTop@, stop:1 @scrollButtonBottom@);
+    height: 17px;
+    subcontrol-origin: margin;
+    subcontrol-position: top;
+    border-bottom: 1px solid @borderLight@;
+}
+
+QScrollBar::add-line:vertical:hover,
+QScrollBar::sub-line:vertical:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonHoverTop@, stop:1 @buttonHoverBottom@);
+}
+
+QScrollBar::add-line:vertical:pressed,
+QScrollBar::sub-line:vertical:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonPressedTop@, stop:1 @buttonPressedBottom@);
+}
+
+QScrollBar::up-arrow:vertical {
+    image: url(@scrollUp@);
+    width: 9px;
+    height: 9px;
+}
+
+QScrollBar::down-arrow:vertical {
+    image: url(@scrollDown@);
+    width: 9px;
+    height: 9px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: @scrollTrack@;
+}
+
+QScrollBar:horizontal {
+    background: @scrollTrack@;
+    height: 17px;
+    margin: 0 17px 0 17px;
+    border-top: 1px solid @borderLight@;
+}
+
+QScrollBar::handle:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @scrollHandleTop@,
+        stop:0.5 @scrollHandleMid@,
+        stop:1 @scrollHandleBottom@);
+    border: 1px solid @scrollHandleBorder@;
+    border-radius: 2px;
+    min-width: 20px;
+    margin: 2px 1px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonHoverTop@, stop:1 @buttonHoverBottom@);
+    border-color: @accent@;
+}
+
+QScrollBar::handle:horizontal:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonPressedTop@, stop:1 @buttonPressedBottom@);
+    border-color: @accentDark@;
+}
+
+QScrollBar::add-line:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 @scrollButtonTop@, stop:1 @scrollButtonBottom@);
+    width: 17px;
+    subcontrol-origin: margin;
+    subcontrol-position: right;
+    border-left: 1px solid @borderLight@;
+}
+
+QScrollBar::sub-line:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 @scrollButtonTop@, stop:1 @scrollButtonBottom@);
+    width: 17px;
+    subcontrol-origin: margin;
+    subcontrol-position: left;
+    border-right: 1px solid @borderLight@;
+}
+
+QScrollBar::add-line:horizontal:hover,
+QScrollBar::sub-line:horizontal:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 @buttonHoverTop@, stop:1 @buttonHoverBottom@);
+}
+
+QScrollBar::add-line:horizontal:pressed,
+QScrollBar::sub-line:horizontal:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 @buttonPressedTop@, stop:1 @buttonPressedBottom@);
+}
+
+QScrollBar::left-arrow:horizontal {
+    image: url(@scrollLeft@);
+    width: 9px;
+    height: 9px;
+}
+
+QScrollBar::right-arrow:horizontal {
+    image: url(@scrollRight@);
+    width: 9px;
+    height: 9px;
+}
+
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: @scrollTrack@;
+}
+
+QScrollBar::handle:disabled {
+    background: @disabledBg@;
+    border-color: @disabledBorder@;
+}
+
+QAbstractScrollArea::corner {
+    background: @scrollTrack@;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Progress bars (Windows 7 green glass)                                     */
+/* ------------------------------------------------------------------------- */
+
+QProgressBar {
+    background-color: @progressBg@;
+    border: 1px solid @inputBorder@;
+    border-radius: 3px;
+    text-align: center;
+    min-height: 15px;
+    color: @text@;
+}
+
+QProgressBar::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @progressTop@,
+        stop:0.45 @progressMid@,
+        stop:0.55 @progressMid2@,
+        stop:1 @progressBottom@);
+    border-radius: 2px;
+    margin: 1px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Menus                                                                     */
+/* ------------------------------------------------------------------------- */
+
+QMenu {
+    background-color: @menuBg@;
+    border: 1px solid @menuBorder@;
+    padding: 3px;
+}
+
+QMenu::item {
+    padding: 4px 24px 4px 28px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+}
+
+QMenu::item:selected {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @menuHoverTop@, stop:1 @menuHoverBottom@);
+    border: 1px solid @menuHoverBorder@;
+    color: @text@;
+}
+
+QMenu::item:disabled {
+    color: @disabledText@;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: @menuSeparator@;
+    margin: 3px 6px;
+}
+
+QMenu::icon {
+    left: 6px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Docked side bar                                                           */
+/* ------------------------------------------------------------------------- */
+
+QDockWidget {
+    border: 1px solid @border@;
+    color: @text@;
+    titlebar-close-icon: url(@dockClose@);
+    titlebar-normal-icon: url(@dockFloat@);
+}
+
+QDockWidget::title {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @dockTitleTop@, stop:1 @dockTitleBottom@);
+    border-bottom: 1px solid @border@;
+    padding: 4px 6px;
+    text-align: left;
+}
+
+QDockWidget::close-button,
+QDockWidget::float-button {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    padding: 0;
+}
+
+QDockWidget::close-button:hover,
+QDockWidget::float-button:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @hoverTop@, stop:1 @hoverBottom@);
+    border: 1px solid @hoverBorder@;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Status bar                                                                */
+/* ------------------------------------------------------------------------- */
+
+QStatusBar {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @statusTop@, stop:1 @statusBottom@);
+    border-top: 1px solid @border@;
+    color: @text@;
+}
+
+QStatusBar::item {
+    border: none;
+}
+
+QStatusBar QLabel {
+    background: transparent;
+}
+
+QSizeGrip {
+    background: transparent;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Main window splitter and tabs                                             */
+/* ------------------------------------------------------------------------- */
+
+QMainWindow::separator {
+    background: @borderLight@;
+    width: 4px;
+    height: 4px;
+}
+
+QMainWindow::separator:hover {
+    background: @hoverBorder@;
+}
+
+QSplitter::handle {
+    background: @borderLight@;
+}
+
+QSplitter::handle:hover {
+    background: @hoverBorder@;
+}
+
+QTabWidget::pane {
+    background-color: @base@;
+    border: 1px solid @border@;
+}
+
+QTabBar::tab {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @buttonTop@, stop:1 @buttonBottom@);
+    border: 1px solid @border@;
+    border-bottom: none;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    padding: 4px 12px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:selected {
+    background: @base@;
+}
+
+QMenuBar {
+    background-color: @toolbarMid@;
+    color: @text@;
+}
+
+QMenuBar::item {
+    background: transparent;
+    padding: 4px 8px;
+}
+
+QMenuBar::item:selected {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 @hoverTop@, stop:1 @hoverBottom@);
+    border: 1px solid @hoverBorder@;
+}
+
+QGroupBox {
+    border: 1px solid @border@;
+    border-radius: 3px;
+    margin-top: 8px;
+    padding-top: 8px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 3px;
+}
+
+/* Archive icon grid and view-mode switch */
+QListView#ArchiveGridView {
+    background: @base@;
+    border: none;
+}
+
+QListView#ArchiveGridView::item {
+    border-radius: 4px;
+    padding: 6px;
+    color: @text@;
+}
+
+QListView#ArchiveGridView::item:hover {
+    background: @listHover@;
+}
+
+QListView#ArchiveGridView::item:selected {
+    background: @selection@;
+    color: @selectionText@;
+}
+
+QToolButton#ViewModeButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 3px 8px;
+}
+
+QToolButton#ViewModeButton:hover {
+    background: @listHover@;
+    border-color: @hoverBorder@;
+}
+
+QToolButton#ViewModeButton:checked {
+    background: @selection@;
+    color: @selectionText@;
+    border-color: @focusBorder@;
+}
+
+QWidget#ModernViewSwitch {
+    background: @base@;
+    border: 1px solid @inputBorder@;
+    border-radius: 4px;
+}
+
+QToolButton#ModernNavViewButton {
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    padding: 3px;
+}
+
+QToolButton#ModernNavViewButton:hover {
+    background: @listHover@;
+}
+
+QToolButton#ModernNavViewButton:checked {
+    background: @selection@;
+}
+
+QLabel#ModernViewLabel {
+    color: @mutedText@;
+    padding: 0 2px 0 8px;
+}

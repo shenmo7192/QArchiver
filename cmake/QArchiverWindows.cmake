@@ -14,8 +14,8 @@ function(qarchiver_add_windows_resources target)
         return()
     endif()
 
-    set(_icon "${PROJECT_SOURCE_DIR}/src/resources/icons/QArchiver.ico")
-    set(_manifest "${PROJECT_SOURCE_DIR}/src/resources/windows/QArchiver.manifest")
+    set(_icon "${PROJECT_SOURCE_DIR}/resources/app-icons/qarchiver.ico")
+    set(_manifest "${PROJECT_SOURCE_DIR}/packaging/windows/QArchiver.manifest")
     if(NOT EXISTS "${_icon}")
         message(WARNING
             "Windows icon not found: ${_icon}. "
@@ -25,7 +25,7 @@ function(qarchiver_add_windows_resources target)
     set(QARCHIVER_WINDOWS_ICON "${_icon}")
     set(QARCHIVER_WINDOWS_MANIFEST "${_manifest}")
     configure_file(
-        "${PROJECT_SOURCE_DIR}/src/resources/windows/QArchiver.rc.in"
+        "${PROJECT_SOURCE_DIR}/packaging/windows/QArchiver.rc.in"
         "${CMAKE_CURRENT_BINARY_DIR}/QArchiver.rc"
         @ONLY
     )

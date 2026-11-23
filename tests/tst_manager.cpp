@@ -14,18 +14,24 @@
 
 #include <memory>
 
+// The factory is used by both build configurations (libarchive on/off), so its
+// include must stay outside the feature guard.
+// 工厂在开启/关闭 libarchive 的构建中都会用到，因此其 include 不能放进
+// 功能开关内部。
+#include "core/ArchiveBackendFactory.h"
+
 #ifdef QARCHIVER_HAS_LIBARCHIVE
-#include "backends/archive/LibArchiveBackend.h"
+#include "backends/libarchive/LibArchiveBackend.h"
 #endif
 #include "backends/rar/RarBackend.h"
 #include "backends/sevenzip/SevenZipBackend.h"
 #include "backends/tar/TarBackend.h"
-#include "backends/zip/ZipBackend.h"
+#include "backends/sevenzip/ZipBackend.h"
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
-#include "core/ArchiveOptions.h"
-#include "ui/PreviewManager.h"
-#include "ui/PreviewUtils.h"
+#include "common/ArchiveOptions.h"
+#include "ui/services/PreviewManager.h"
+#include "ui/services/PreviewUtils.h"
 #include "utils/FileUtils.h"
 #include "utils/ProcessRunner.h"
 
@@ -535,8 +541,8 @@ void TestManager::addDeleteReopensReadOnlyBackend()
 #ifndef QARCHIVER_HAS_LIBARCHIVE
     QSKIP("built without the libarchive read backend");
 #else
-    if (!ArchiveManager::isLibArchiveAvailable()
-        || ArchiveManager::isLibArchiveDisabledByEnvironment()) {
+    if (!ArchiveBackendFactory::isLibArchiveAvailable()
+        || ArchiveBackendFactory::isLibArchiveDisabledByEnvironment()) {
         QSKIP("libarchive read backend is unavailable");
     }
 
@@ -632,7 +638,7 @@ void TestManager::addDeleteReopensReadOnlyBackend()
 void TestManager::backendSelectionHonoursPreference()
 {
 #ifdef QARCHIVER_HAS_LIBARCHIVE
-    QVERIFY(ArchiveManager::isLibArchiveAvailable());
+    QVERIFY(ArchiveBackendFactory::isLibArchiveAvailable());
 
     AppSettings &settings = AppSettings::instance();
     const bool saved = settings.useLibArchiveBackend();
@@ -640,13 +646,13 @@ void TestManager::backendSelectionHonoursPreference()
     settings.setUseLibArchiveBackend(false);
     QVERIFY(!settings.useLibArchiveBackend());
     {
-        std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
+        std::unique_ptr<ArchiveBackend> backend(ArchiveBackendFactory::createForRead(
             ArchiveFormat::Zip, QStringLiteral("archive.zip")));
         QVERIFY(qobject_cast<LibArchiveBackend *>(backend.get()) == nullptr);
         QVERIFY(qobject_cast<ZipBackend *>(backend.get()) != nullptr);
     }
     {
-        std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
+        std::unique_ptr<ArchiveBackend> backend(ArchiveBackendFactory::createForRead(
             ArchiveFormat::TarGz, QStringLiteral("archive.tar.gz")));
         QVERIFY(qobject_cast<LibArchiveBackend *>(backend.get()) == nullptr);
         QVERIFY(qobject_cast<TarBackend *>(backend.get()) != nullptr);
@@ -655,12 +661,12 @@ void TestManager::backendSelectionHonoursPreference()
     settings.setUseLibArchiveBackend(true);
     QVERIFY(settings.useLibArchiveBackend());
     {
-        std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
+        std::unique_ptr<ArchiveBackend> backend(ArchiveBackendFactory::createForRead(
             ArchiveFormat::Zip, QStringLiteral("archive.zip")));
         QVERIFY(qobject_cast<LibArchiveBackend *>(backend.get()) != nullptr);
     }
     {
-        std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
+        std::unique_ptr<ArchiveBackend> backend(ArchiveBackendFactory::createForRead(
             ArchiveFormat::TarGz, QStringLiteral("archive.tar.gz")));
         QVERIFY(qobject_cast<LibArchiveBackend *>(backend.get()) != nullptr);
     }
@@ -668,32 +674,32 @@ void TestManager::backendSelectionHonoursPreference()
     // Not candidates for the libarchive backend, even when enabled: split
     // volumes have to be resolved by the CLI, and RAR stays on RarBackend.
     {
-        std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
+        std::unique_ptr<ArchiveBackend> backend(ArchiveBackendFactory::createForRead(
             ArchiveFormat::SevenZip, QStringLiteral("archive.7z.001")));
         QVERIFY(qobject_cast<SevenZipBackend *>(backend.get()) != nullptr);
     }
     {
-        std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
+        std::unique_ptr<ArchiveBackend> backend(ArchiveBackendFactory::createForRead(
             ArchiveFormat::Rar5, QStringLiteral("archive.rar")));
         QVERIFY(qobject_cast<LibArchiveBackend *>(backend.get()) == nullptr);
     }
 
     // The troubleshooting environment variable overrides the preference.
     qputenv("QARCHIVER_NO_LIBARCHIVE", "1");
-    QVERIFY(ArchiveManager::isLibArchiveDisabledByEnvironment());
+    QVERIFY(ArchiveBackendFactory::isLibArchiveDisabledByEnvironment());
     {
-        std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
+        std::unique_ptr<ArchiveBackend> backend(ArchiveBackendFactory::createForRead(
             ArchiveFormat::Zip, QStringLiteral("archive.zip")));
         QVERIFY(qobject_cast<LibArchiveBackend *>(backend.get()) == nullptr);
         QVERIFY(qobject_cast<ZipBackend *>(backend.get()) != nullptr);
     }
     qunsetenv("QARCHIVER_NO_LIBARCHIVE");
-    QVERIFY(!ArchiveManager::isLibArchiveDisabledByEnvironment());
+    QVERIFY(!ArchiveBackendFactory::isLibArchiveDisabledByEnvironment());
 
     settings.setUseLibArchiveBackend(saved);
 #else
-    QVERIFY(!ArchiveManager::isLibArchiveAvailable());
-    std::unique_ptr<ArchiveBackend> backend(ArchiveManager::createReadBackend(
+    QVERIFY(!ArchiveBackendFactory::isLibArchiveAvailable());
+    std::unique_ptr<ArchiveBackend> backend(ArchiveBackendFactory::createForRead(
         ArchiveFormat::Zip, QStringLiteral("archive.zip")));
     QVERIFY(qobject_cast<ZipBackend *>(backend.get()) != nullptr);
 #endif

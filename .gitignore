@@ -60,6 +60,13 @@ compile_commands.json
 
 *_qmlcache.qrc
 
+# Python bytecode from the asset scripts
+__pycache__/
+*.pyc
+
+# Scratch directory for assets/files awaiting manual cleanup
+tmp/
+
 # Local drag & drop investigation logs (user's own records, not part of the repo)
 /*.log
 

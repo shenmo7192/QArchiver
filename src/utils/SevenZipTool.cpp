@@ -2,10 +2,10 @@
 // 7-Zip CLI discovery, --help validation and RAR codec probing.
 // 7-Zip CLI 发现、--help 校验与 RAR 编解码器探测。
 
-#include "SevenZipTool.h"
+#include "utils/SevenZipTool.h"
 
-#include "Logger.h"
-#include "ProcessRunner.h"
+#include "utils/Logger.h"
+#include "utils/ProcessRunner.h"
 
 #include <QCoreApplication>
 #include <QDir>

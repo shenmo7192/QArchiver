@@ -2,7 +2,7 @@
 // ExtractDialog layout, validation and result options.
 // ExtractDialog 的布局、校验与结果选项。
 
-#include "ExtractDialog.h"
+#include "ui/dialogs/ExtractDialog.h"
 
 #include <QLineEdit>
 #include <QCheckBox>
@@ -18,7 +18,7 @@
 #include <QFileInfo>
 
 #include "core/AppSettings.h"
-#include "utils/IconUtils.h"
+#include "ui/icons/IconUtils.h"
 
 ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     : QDialog(parent)
@@ -34,7 +34,7 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     // 默认目标：已打开压缩包所在目录。
     auto *destLabel = new QLabel(tr("Destination:"), this);
     m_destEdit = new QLineEdit(fi.absolutePath(), this);
-    auto *browseBtn = new QPushButton(qarchiverIcon(QStringLiteral("folder.png")),
+    auto *browseBtn = new QPushButton(Icons::aero(QStringLiteral("folder.png")),
                                       tr("Browse..."), this);
 
     auto *destLayout = new QHBoxLayout;
@@ -68,13 +68,13 @@ ExtractDialog::ExtractDialog(const QString &archivePath, QWidget *parent)
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     buttons->setCenterButtons(false);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
-        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+        ok->setIcon(Icons::aero(QStringLiteral("yes.ico")));
         ok->setText(tr("OK"));
         ok->setIconSize(QSize(16, 16));
         ok->setMinimumWidth(75);
     }
     if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
-        cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+        cancel->setIcon(Icons::aero(QStringLiteral("no.ico")));
         cancel->setText(tr("Cancel"));
         cancel->setIconSize(QSize(16, 16));
         cancel->setMinimumWidth(75);

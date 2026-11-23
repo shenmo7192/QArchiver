@@ -2,7 +2,7 @@
 // Two-stage tar/tar.gz/tar.xz/tar.bz2 creation, listing and extraction.
 // tar/tar.gz/tar.xz/tar.bz2 的两阶段创建、列表与解压。
 
-#include "TarBackend.h"
+#include "backends/tar/TarBackend.h"
 
 #include <QDir>
 #include <QFile>

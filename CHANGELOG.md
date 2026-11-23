@@ -3,12 +3,20 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
-## [2.1.0] - 2026-11-22
+## [0.1.2] - 2026-11-23
 
 作者：shenmo <shenmo@spark-app.store>
 
 ### Added / 新增
 
+- `resources/svg/modern/`：现代图标的 SVG 源文件，便于重新生成与审阅。
+- `tools/update_qrc.py`：按目录结构生成 `icons.qrc`、`themes-aero.qrc`、
+  `themes-modern.qrc`。
+- `tools/check_resources.py`：校验 qrc 清单、资源前缀与代码中的资源字面量。
+- `update_translations` 现在直接调用 `lupdate` 扫描整个 `src/`（此前经
+  `qt_add_lupdate()` 只扫描可执行目标，会把所有界面字符串判为过时并删除）。
+- `docs/design.zh_CN.md`：按新结构重写的设计文档（根目录的
+  `项目设计文档.md` 改为指向它的索引）。
 - 现代好压（HaoZip）风格默认界面：扁平渐变头部、大号彩色工具栏、
   文件夹面板、详细信息面板、路径导航与包内搜索、归档状态摘要。
 - 现代起始页：拖放区、打开/一键解压入口与最近打开列表。
@@ -53,6 +61,28 @@ All notable changes to QArchiver (小Q解压) are documented here.
 
 ### Changed / 变更
 
+- 源码按层重构为静态库：`common`（格式表/错误/数据结构）、`utils`、`backends`、
+  `core`、`ui`，依赖只能自上而下，消除了 `core → backends → utils → core`
+  的循环依赖；`main.cpp` 精简为启动流程，命令行解析与翻译安装移入 `app/`。
+- 拆分为多个编译单元以降低单文件体积：`ArchiveManager` 拆出
+  `ArchiveBackendFactory`、`ExtractionPreflight`、`CompressOutput`、
+  `ArchiveManagerDispatch`；`MainWindow` 按职责拆为动作/布局/导航/解压/拖出/
+  公共工具六个实现文件。
+- 统一图标与主题资源：全部移到仓库根目录的 `resources/`，按用途分为
+  `icons/classic`、`icons/modern`、`icons/file-types`、`themes/aero`、
+  `themes/modern`；两套主题的 `light/` 与 `dark/` 使用相同文件名，深浅共用
+  的字形放在主题根目录；资源路径只在 `Icons::` 与 `ThemeManager` 中拼接，
+  资源路径恒等于文件在 `resources/` 下的路径。
+- 格式后缀与类型判断统一到 `FormatRegistry`（`MimeTypeHelper`、`FileTypeHelper`、
+  `CompressDialog`、一键解压均改为查表），`backends/zip` 合并进 `backends/sevenzip`，
+  `backends/archive` 更名为 `backends/libarchive`。
+- 全部静态库 `POSITION_INDEPENDENT_CODE ON`，libarchive 探测移入
+  `cmake/QArchiverLibArchive.cmake`；测试统一通过 `qarchiver_add_test()` 注册。
+- 图标归一：经典图标工具栏 48px、列表图标 64px；新增 `tools/normalize_classic_icons.py`。
+- 偏好设置的“界面”页按当前布局隐藏无效选项：现代布局隐藏“工具栏样式”和
+  “显示最近文件侧边栏”，经典布局隐藏“归档内容视图”（经典布局没有视图切换入口，
+  固定使用树视图）；“最近文件上限”与背景图片在两种布局下都保留。
+  切换布局下拉框时立即更新，无需保存后重开对话框。
 - 默认界面由 Aero/Windows 7 风格改为现代扁平风格；经典布局与 Aero 主题仍保留。
 - 归档内容默认视图由树形改为网格；已有显式列表/树形设置会保留。
 - 文件列表新增“类型”列，现代布局隐藏旧“加密”列；现代布局使用彩色文件类型图标。
@@ -62,6 +92,12 @@ All notable changes to QArchiver (小Q解压) are documented here.
 
 ### Fixed / 修复
 
+- `-DQARCHIVER_USE_LIBARCHIVE=OFF` 时测试编译失败：`ArchiveBackendFactory.h`
+  的 include 被放进了 `#ifdef QARCHIVER_HAS_LIBARCHIVE` 内部。
+- 资源自检脚本漏检两类问题：`Icons::` 调用字面量与 QSS 中的 `url(:/...)`；
+  另新增两套主题 `light/`/`dark/` 文件名一致性与资源路径存在性校验。
+- `MimeTypeHelper::resolveStreamFormat()` 改用 `FormatRegistry` 判断复合 tar 后缀，
+  不再维护第四份后缀表。
 - 修正 tar/7z 在用户跳过危险符号链接时仍可能解出该链接的问题：
   归档根目录 `.` 条目会让 7-Zip 展开整棵树，现已从成员列表中排除。
 - 一键解压对 `.7z.001` / `.part1.rar` 等分卷使用正确的目标文件夹名。
@@ -69,4 +105,4 @@ All notable changes to QArchiver (小Q解压) are documented here.
 - 修正后台取色/透明度测试在不同渲染后端上的舍入误差。
 - 清理 mk-build-deps 遗留文件与 Qt 5 时代文档描述。
 
-[2.1.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.1.0
+[0.1.2]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.2

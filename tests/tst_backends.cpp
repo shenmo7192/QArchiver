@@ -15,8 +15,8 @@
 #include "backends/rar/RarBackend.h"
 #include "backends/stream/StreamBackend.h"
 #include "backends/tar/TarBackend.h"
-#include "backends/zip/ZipBackend.h"
-#include "core/ArchiveOptions.h"
+#include "backends/sevenzip/ZipBackend.h"
+#include "common/ArchiveOptions.h"
 #include "utils/MimeTypeHelper.h"
 
 namespace {

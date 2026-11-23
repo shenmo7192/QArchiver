@@ -2,7 +2,7 @@
 // StreamBackend compression, extraction and single-member listing.
 // StreamBackend 的压缩、解压与单条目列表。
 
-#include "StreamBackend.h"
+#include "backends/stream/StreamBackend.h"
 
 #include <QDir>
 #include <QDirIterator>

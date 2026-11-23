@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <span>
 
-#include "ArchiveConstants.h"
+#include "common/ArchiveConstants.h"
 
 // Format detection authority (design doc 4.3).
 // Three-stage detection: Magic Number -> tar stream probe -> suffix fallback.

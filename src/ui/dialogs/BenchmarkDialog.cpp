@@ -2,7 +2,7 @@
 // BenchmarkDialog: QProcess wiring, live output and result summary.
 // BenchmarkDialog：QProcess 连接、实时输出与结果摘要。
 
-#include "BenchmarkDialog.h"
+#include "ui/dialogs/BenchmarkDialog.h"
 
 #include "utils/PlatformProcess.h"
 #include "utils/SevenZipTool.h"

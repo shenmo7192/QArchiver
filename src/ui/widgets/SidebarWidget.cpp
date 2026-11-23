@@ -2,10 +2,10 @@
 // SidebarWidget item management and signals.
 // SidebarWidget 的条目管理与信号。
 
-#include "SidebarWidget.h"
+#include "ui/widgets/SidebarWidget.h"
 
 #include "core/RecentFilesManager.h"
-#include "utils/IconUtils.h"
+#include "ui/icons/IconUtils.h"
 
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -71,7 +71,7 @@ void SidebarWidget::refreshRecent()
     m_recentList->clear();
     const QStringList paths = RecentFilesManager::instance().validatedList();
     for (const QString &path : paths) {
-        auto *item = new QListWidgetItem(qarchiverIcon(QStringLiteral("Open.png")),
+        auto *item = new QListWidgetItem(Icons::aero(QStringLiteral("Open.png")),
                                          QFileInfo(path).fileName(), m_recentList);
         item->setData(Qt::UserRole, path);
         item->setToolTip(path);

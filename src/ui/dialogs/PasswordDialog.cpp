@@ -2,10 +2,10 @@
 // PasswordDialog initialization from preferences and password visibility.
 // PasswordDialog 从偏好设置初始化以及密码可见性处理。
 
-#include "PasswordDialog.h"
+#include "ui/dialogs/PasswordDialog.h"
 
 #include "core/AppSettings.h"
-#include "utils/IconUtils.h"
+#include "ui/icons/IconUtils.h"
 
 #include <QLineEdit>
 #include <QCheckBox>
@@ -40,13 +40,13 @@ PasswordDialog::PasswordDialog(QWidget *parent)
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     buttons->setCenterButtons(false);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
-        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+        ok->setIcon(Icons::aero(QStringLiteral("yes.ico")));
         ok->setText(tr("OK"));
         ok->setIconSize(QSize(16, 16));
         ok->setMinimumWidth(75);
     }
     if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
-        cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+        cancel->setIcon(Icons::aero(QStringLiteral("no.ico")));
         cancel->setText(tr("Cancel"));
         cancel->setIconSize(QSize(16, 16));
         cancel->setMinimumWidth(75);

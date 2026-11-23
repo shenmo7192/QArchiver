@@ -8,7 +8,7 @@
 #include <QList>
 #include <QWidget>
 
-#include "core/ArchiveEntry.h"
+#include "common/ArchiveEntry.h"
 
 class QTreeWidget;
 class QTreeWidgetItem;

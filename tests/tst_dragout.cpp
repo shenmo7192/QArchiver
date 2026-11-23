@@ -13,11 +13,11 @@
 
 #include <limits>
 
-#include "core/ArchiveOptions.h"
+#include "common/ArchiveOptions.h"
 #include "utils/FileUtils.h"
 #include "utils/ProcessRunner.h"
 
-#include "ui/DragOutManager.h"
+#include "ui/services/DragOutManager.h"
 
 // Exercises the "prepare files for dragging" staging logic: path pruning,
 // staging/mapping, disk checks and the CLI fallback for archives libarchive

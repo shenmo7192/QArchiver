@@ -2,9 +2,10 @@
 // PreferencesDialog: tabbed settings, one-click extraction and benchmark entry.
 // PreferencesDialog：分页设置、一键解压与性能测试入口。
 
-#include "PreferencesDialog.h"
+#include "core/ArchiveBackendFactory.h"
+#include "ui/dialogs/PreferencesDialog.h"
 
-#include "BenchmarkDialog.h"
+#include "ui/dialogs/BenchmarkDialog.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -28,10 +29,10 @@
 #include "backends/rar/RarBackend.h"
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
-#include "utils/BackgroundImage.h"
-#include "utils/IconUtils.h"
+#include "ui/background/BackgroundImage.h"
+#include "ui/icons/IconUtils.h"
 #include "utils/SevenZipTool.h"
-#include "utils/ThemeManager.h"
+#include "ui/theme/ThemeManager.h"
 
 namespace {
 
@@ -46,7 +47,7 @@ QLabel *hintLabel(const QString &text, QWidget *parent)
 QPushButton *makeBrowseButton(QWidget *parent)
 {
     auto *button = new QPushButton(
-        qarchiverIcon(QStringLiteral("folder.png")), QObject::tr("Browse..."),
+        Icons::aero(QStringLiteral("folder.png")), QObject::tr("Browse..."),
         parent);
     button->setIconSize(QSize(16, 16));
     return button;
@@ -139,8 +140,8 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
 
         m_libArchiveCheck = new QCheckBox(
             tr("Read archives with libarchive (no external process)"), generalPage);
-        const bool libArchiveUsable = ArchiveManager::isLibArchiveAvailable()
-            && !ArchiveManager::isLibArchiveDisabledByEnvironment();
+        const bool libArchiveUsable = ArchiveBackendFactory::isLibArchiveAvailable()
+            && !ArchiveBackendFactory::isLibArchiveDisabledByEnvironment();
         m_libArchiveCheck->setChecked(settings.useLibArchiveBackend()
                                       && libArchiveUsable);
         if (libArchiveUsable) {
@@ -156,7 +157,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
             m_libArchiveCheck->setChecked(false);
             m_libArchiveCheck->setEnabled(false);
             m_libArchiveCheck->setToolTip(
-                ArchiveManager::isLibArchiveAvailable()
+                ArchiveBackendFactory::isLibArchiveAvailable()
                     ? tr("Disabled by the QARCHIVER_NO_LIBARCHIVE environment variable.")
                     : tr("This build was compiled without libarchive."));
         }
@@ -272,6 +273,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     {
         auto &settings = AppSettings::instance();
         m_layoutModeCombo = new QComboBox(interfacePage);
+        m_layoutModeCombo->setObjectName(QStringLiteral("PrefsLayoutModeCombo"));
         m_layoutModeCombo->addItem(tr("Modern (HaoZip-style)"),
                                    QStringLiteral("modern"));
         m_layoutModeCombo->addItem(tr("Classic (previous layout)"),
@@ -292,6 +294,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         m_themeCombo->setCurrentIndex(themeIndex >= 0 ? themeIndex : 0);
 
         m_viewModeCombo = new QComboBox(interfacePage);
+        m_viewModeCombo->setObjectName(QStringLiteral("PrefsViewModeCombo"));
         m_viewModeCombo->addItem(tr("Grid view (default)"),
                                  QStringLiteral("grid"));
         m_viewModeCombo->addItem(tr("List view"), QStringLiteral("list"));
@@ -301,6 +304,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         m_viewModeCombo->setCurrentIndex(viewModeIndex >= 0 ? viewModeIndex : 0);
 
         m_toolbarStyleCombo = new QComboBox(interfacePage);
+        m_toolbarStyleCombo->setObjectName(QStringLiteral("PrefsToolbarStyleCombo"));
         m_toolbarStyleCombo->addItem(tr("Icons above text"),
                                      QStringLiteral("textUnderIcon"));
         m_toolbarStyleCombo->addItem(tr("Icons beside text"),
@@ -314,21 +318,24 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         m_toolbarStyleCombo->setCurrentIndex(toolbarStyleIndex >= 0
                                                  ? toolbarStyleIndex : 0);
         m_toolbarStyleCombo->setToolTip(
-            tr("Only used by the classic layout; the modern layout always uses "
-               "large icons above text."));
+            tr("How the toolbar buttons show text and icons."));
 
         auto *layoutGroup = new QGroupBox(tr("Layout and appearance"),
                                           interfacePage);
         auto *layoutForm = new QFormLayout(layoutGroup);
+        m_layoutForm = layoutForm;
         layoutForm->setHorizontalSpacing(12);
         layoutForm->setVerticalSpacing(8);
         layoutForm->addRow(tr("&Interface layout:"), m_layoutModeCombo);
         layoutForm->addRow(tr("&Theme:"), m_themeCombo);
         layoutForm->addRow(tr("Archive content &view:"), m_viewModeCombo);
-        layoutForm->addRow(tr("Classic toolbar style:"), m_toolbarStyleCombo);
+        // Rows that only exist in one layout are hidden, not disabled.
+        // 只在某一种布局中生效的设置直接隐藏，而不是置灰。
+        layoutForm->addRow(tr("&Toolbar style:"), m_toolbarStyleCombo);
 
         m_showRecentFilesCheck = new QCheckBox(
-            tr("Show recent files sidebar (classic layout)"), interfacePage);
+            tr("Show recent &files sidebar"), interfacePage);
+        m_showRecentFilesCheck->setObjectName(QStringLiteral("PrefsRecentFilesCheck"));
         m_showRecentFilesCheck->setChecked(settings.showRecentFiles());
         m_recentFilesLimitSpin = new QSpinBox(interfacePage);
         m_recentFilesLimitSpin->setRange(1, 100);
@@ -336,6 +343,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
 
         auto *recentGroup = new QGroupBox(tr("Recent files"), interfacePage);
         auto *recentForm = new QFormLayout(recentGroup);
+        m_recentForm = recentForm;
         recentForm->setHorizontalSpacing(12);
         recentForm->setVerticalSpacing(8);
         recentForm->addRow(m_showRecentFilesCheck);
@@ -393,7 +401,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         m_backgroundOpacitySpin->setValue(
             qRound(settings.backgroundImageOpacity() * 100.0));
 
-        auto *backgroundGroup = new QGroupBox(tr("Background image (classic)"),
+        auto *backgroundGroup = new QGroupBox(tr("Background image"),
                                               interfacePage);
         auto *backgroundForm = new QFormLayout(backgroundGroup);
         backgroundForm->setHorizontalSpacing(12);
@@ -402,7 +410,12 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         backgroundForm->addRow(tr("Image &alignment:"), m_backgroundAlignCombo);
         backgroundForm->addRow(tr("Image &size:"), backgroundSizeLayout);
         backgroundForm->addRow(tr("Image &opacity:"), m_backgroundOpacitySpin);
+        backgroundForm->addRow(hintLabel(
+            tr("The image is painted behind the list and tree views; the grid "
+               "view does not show it."), backgroundGroup));
 
+        connect(m_layoutModeCombo, &QComboBox::currentIndexChanged, this,
+                [this]() { updateLayoutVisibility(); });
         connect(m_backgroundPathEdit, &QLineEdit::textChanged, this,
                 [this](const QString &) { updateBackgroundControls(); });
         connect(backgroundBrowse, &QPushButton::clicked, this, [this]() {
@@ -418,6 +431,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         connect(m_backgroundClearButton, &QPushButton::clicked, this,
                 [this]() { m_backgroundPathEdit->clear(); });
         updateBackgroundControls();
+        updateLayoutVisibility();
 
         interfaceLayout->addWidget(layoutGroup);
         interfaceLayout->addWidget(recentGroup);
@@ -434,7 +448,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
                "throttling; no archive data is modified."), toolsPage);
 
         auto *benchmarkButton = new QPushButton(
-            QIcon(QStringLiteral(":/modern/toolbox.png")),
+            Icons::modern(QStringLiteral("toolbox.png")),
             tr("Run 7-Zip Benchmark..."), toolsPage);
         benchmarkButton->setIconSize(QSize(18, 18));
         const QString toolPath = SevenZipTool::resolvePath();
@@ -480,13 +494,13 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     buttons->setCenterButtons(false);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
-        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+        ok->setIcon(Icons::aero(QStringLiteral("yes.ico")));
         ok->setText(tr("OK"));
         ok->setIconSize(QSize(16, 16));
         ok->setMinimumWidth(75);
     }
     if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
-        cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+        cancel->setIcon(Icons::aero(QStringLiteral("no.ico")));
         cancel->setText(tr("Cancel"));
         cancel->setIconSize(QSize(16, 16));
         cancel->setMinimumWidth(75);
@@ -501,6 +515,30 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     layout->setSpacing(8);
     layout->addWidget(tabs, 1);
     layout->addWidget(buttons);
+}
+
+void PreferencesDialog::updateLayoutVisibility()
+{
+    // Options that only apply to one layout are hidden instead of disabled, so
+    // the Interface page stays short and has no dead entries.
+    // 仅在一种布局中生效的选项直接隐藏（而不是置灰），让界面页保持简洁。
+    const bool classic = m_layoutModeCombo
+        && m_layoutModeCombo->currentData().toString() == QStringLiteral("classic");
+    if (m_layoutForm) {
+        // Classic has no view-mode switcher (the toolbar has no view buttons and
+        // there is no view menu), so the setting would be uncontrollable there.
+        // 经典布局没有视图模式切换入口（工具栏没有视图按钮，也没有视图菜单），
+        // 该设置在经典布局下无法更改，因此隐藏。
+        m_layoutForm->setRowVisible(m_viewModeCombo, !classic);
+        m_layoutForm->setRowVisible(m_toolbarStyleCombo, classic);
+    }
+    if (m_recentForm) {
+        // The recent-files sidebar only exists in the classic layout; the limit
+        // applies to both layouts (classic sidebar and modern welcome page).
+        // 最近文件侧边栏只存在于经典布局；上限对两种布局都生效
+        // （经典侧边栏与现代欢迎页）。
+        m_recentForm->setRowVisible(m_showRecentFilesCheck, classic);
+    }
 }
 
 void PreferencesDialog::updateOneClickControls()

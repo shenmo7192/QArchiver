@@ -2,9 +2,10 @@
 // MimeTypeHelper implementation, including compressed-tar stream probing.
 // MimeTypeHelper 实现，包括压缩 tar 流探测。
 
-#include "MimeTypeHelper.h"
+#include "utils/MimeTypeHelper.h"
 
-#include "PlatformProcess.h"
+#include "common/FormatRegistry.h"
+#include "utils/PlatformProcess.h"
 
 #include <QDir>
 #include <QFile>
@@ -17,8 +18,8 @@
 #include <array>
 #include <cstdint>
 
-#include "Logger.h"
-#include "ProcessRunner.h"
+#include "utils/Logger.h"
+#include "utils/ProcessRunner.h"
 
 // Magic Number signatures (design doc 4.3.2).  Compile-time byte arrays
 // avoid runtime QByteArray::fromHex allocations.
@@ -119,11 +120,14 @@ ArchiveFormat resolveStreamFormat(const QString &filePath,
                                   ArchiveFormat tarFormat,
                                   ArchiveFormat streamFormat)
 {
-    const QString ext = MimeTypeHelper::extensionOf(filePath);
-
-    const bool isTarSuffix = (ext == QStringLiteral(".tar.gz") || ext == QStringLiteral(".tgz")
-                              || ext == QStringLiteral(".tar.xz") || ext == QStringLiteral(".txz")
-                              || ext == QStringLiteral(".tar.bz2") || ext == QStringLiteral(".tbz2"));
+    // A compound tar suffix already tells us the payload, so no probing is
+    // needed; the suffix table itself lives in FormatRegistry.
+    // 复合 tar 后缀已能确定内容，无需探测；后缀表本身位于 FormatRegistry。
+    const ArchiveFormat bySuffix = FormatRegistry::formatFromSuffix(filePath);
+    const bool isTarSuffix = bySuffix == ArchiveFormat::Tar
+        || bySuffix == ArchiveFormat::TarGz
+        || bySuffix == ArchiveFormat::TarXz
+        || bySuffix == ArchiveFormat::TarBz2;
     if (isTarSuffix) {
         return tarFormat;
     }
@@ -159,52 +163,15 @@ bool MimeTypeHelper::matchMagic(const QByteArray &head, std::span<const std::uin
 
 QString MimeTypeHelper::extensionOf(const QString &filePath)
 {
-    const QString lower = filePath.toLower();
-
-    static const QStringList compoundSuffixes = {
-        QStringLiteral(".tar.gz"), QStringLiteral(".tar.xz"), QStringLiteral(".tar.bz2"),
-        QStringLiteral(".tgz"), QStringLiteral(".txz"), QStringLiteral(".tbz2"),
-        QStringLiteral(".7z.001"), QStringLiteral(".zip.001")
-    };
-    for (const QString &suffix : compoundSuffixes) {
-        if (lower.endsWith(suffix)) {
-            return suffix;
-        }
-    }
-
-    static const QRegularExpression partRarRe(
-        QStringLiteral("\\.part\\d+\\.rar$"));
-    static const QRegularExpression rarOldVolumeRe(
-        QStringLiteral("\\.r\\d{2,}$"));
-    if (partRarRe.match(lower).hasMatch()) {
-        return QStringLiteral(".partNN.rar");
-    }
-    if (rarOldVolumeRe.match(lower).hasMatch()) {
-        return lower.mid(lower.lastIndexOf(QLatin1Char('.')));
-    }
-
-    const int dot = lower.lastIndexOf(QLatin1Char('.'));
-    if (dot < 0) {
-        return QString();
-    }
-    return lower.mid(dot);
+    // Suffix knowledge lives in FormatRegistry; this is the detection-facing
+    // accessor kept for readability at the call sites.
+    // 后缀知识集中在 FormatRegistry；这里保留检测侧的可读访问器。
+    return FormatRegistry::extensionOf(filePath);
 }
 
 bool MimeTypeHelper::isSplitVolume(const QString &filePath)
 {
-    static const QRegularExpression zipVol(
-        QStringLiteral("\\.(?:7z|zip)\\.\\d{3,}$"),
-        QRegularExpression::CaseInsensitiveOption);
-    static const QRegularExpression rar4Vol(
-        QStringLiteral("\\.r\\d{2,}$"),
-        QRegularExpression::CaseInsensitiveOption);
-    static const QRegularExpression rar5Vol(
-        QStringLiteral("\\.part\\d+\\.rar$"),
-        QRegularExpression::CaseInsensitiveOption);
-
-    return zipVol.match(filePath).hasMatch()
-        || rar4Vol.match(filePath).hasMatch()
-        || rar5Vol.match(filePath).hasMatch();
+    return FormatRegistry::isSplitVolume(filePath);
 }
 
 QString MimeTypeHelper::resolveFirstVolume(const QString &filePath)
@@ -326,24 +293,10 @@ ArchiveFormat MimeTypeHelper::detect(const QString &filePath)
     LOG_DEBUG("MimeTypeHelper", "No magic match; falling back to suffix: %s",
               ext.toUtf8().constData());
 
-    if (ext == QStringLiteral(".tar")) return ArchiveFormat::Tar;
-    if (ext == QStringLiteral(".tar.gz") || ext == QStringLiteral(".tgz"))
-        return ArchiveFormat::TarGz;
-    if (ext == QStringLiteral(".tar.xz") || ext == QStringLiteral(".txz"))
-        return ArchiveFormat::TarXz;
-    if (ext == QStringLiteral(".tar.bz2") || ext == QStringLiteral(".tbz2"))
-        return ArchiveFormat::TarBz2;
-    if (ext == QStringLiteral(".zip") || ext == QStringLiteral(".zip.001"))
-        return ArchiveFormat::Zip;
-    if (ext == QStringLiteral(".7z") || ext == QStringLiteral(".7z.001"))
-        return ArchiveFormat::SevenZip;
-    if (ext == QStringLiteral(".rar") || ext == QStringLiteral(".partNN.rar"))
-        return ArchiveFormat::Rar5;
-    if (ext.startsWith(QStringLiteral(".r")) && ext.size() >= 4)
-        return ArchiveFormat::Rar4;
-    if (ext == QStringLiteral(".gz")) return ArchiveFormat::Gzip;
-    if (ext == QStringLiteral(".bz2")) return ArchiveFormat::Bzip2;
-    if (ext == QStringLiteral(".xz")) return ArchiveFormat::Xz;
+    const ArchiveFormat bySuffix = FormatRegistry::formatFromSuffix(filePath);
+    if (bySuffix != ArchiveFormat::Unknown) {
+        return bySuffix;
+    }
 
     LOG_WARN("MimeTypeHelper", "Unrecognized format: %s", filePath.toUtf8().constData());
     return ArchiveFormat::Unknown;

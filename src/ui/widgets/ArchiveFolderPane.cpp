@@ -2,9 +2,10 @@
 // Archive folder tree, details form and navigation signals.
 // 压缩包文件夹树、详细信息表单与导航信号。
 
-#include "ArchiveFolderPane.h"
+#include "ui/icons/IconUtils.h"
+#include "ui/widgets/ArchiveFolderPane.h"
 
-#include "utils/FileTypeHelper.h"
+#include "ui/icons/FileTypeHelper.h"
 #include "utils/FileUtils.h"
 
 #include <QFileInfo>
@@ -202,7 +203,7 @@ void ArchiveFolderPane::rebuildTree()
 
     auto *root = new QTreeWidgetItem(m_tree);
     root->setText(0, tr("Archive root"));
-    root->setIcon(0, QIcon(QStringLiteral(":/modern/folder.png")));
+    root->setIcon(0, Icons::fileType(QStringLiteral("folder.png")));
     root->setData(0, Qt::UserRole, QString());
 
     QMap<QString, QTreeWidgetItem *> items;
@@ -216,7 +217,7 @@ void ArchiveFolderPane::rebuildTree()
         QTreeWidgetItem *parent = items.value(parentPath, root);
         auto *item = new QTreeWidgetItem(parent);
         item->setText(0, name);
-        item->setIcon(0, QIcon(QStringLiteral(":/modern/folder.png")));
+        item->setIcon(0, Icons::fileType(QStringLiteral("folder.png")));
         item->setData(0, Qt::UserRole, path);
         item->setToolTip(0, path);
         items.insert(path, item);

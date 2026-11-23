@@ -2,9 +2,9 @@
 // RecentFilesManager implementation and stale-entry cleanup.
 // RecentFilesManager 实现及失效条目清理。
 
-#include "RecentFilesManager.h"
+#include "core/RecentFilesManager.h"
 
-#include "AppSettings.h"
+#include "core/AppSettings.h"
 #include <QFileInfo>
 
 RecentFilesManager::RecentFilesManager()

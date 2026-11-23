@@ -11,10 +11,10 @@
 
 #include <atomic>
 
-#include "core/ArchiveConstants.h"
-#include "core/ArchiveOptions.h"
-#include "core/ArchiveEntry.h"
-#include "core/ArchiveError.h"
+#include "common/ArchiveConstants.h"
+#include "common/ArchiveOptions.h"
+#include "common/ArchiveEntry.h"
+#include "common/ArchiveError.h"
 
 // Abstract backend interface (design doc 4.1).
 // All backends must implement this unified interface.

@@ -2,7 +2,7 @@
 // RarBackend construction and optional archive creation via the system rar.
 // RarBackend 构造，以及通过系统 rar 创建压缩包的可选功能。
 
-#include "RarBackend.h"
+#include "backends/rar/RarBackend.h"
 
 #include <QDir>
 #include <QFile>

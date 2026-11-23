@@ -21,7 +21,7 @@ ctest --test-dir build -C Release --output-on-failure
 cpack --config build/CPackConfig.cmake -C Release
 ```
 
-生成 `QArchiver-2.1.0-windows-x64.zip`，根目录包含 `QArchiver.exe`、
+生成 `QArchiver-0.1.2-windows-x64.zip`，根目录包含 `QArchiver.exe`、
 `7zip\7z.exe`、`7zip\7z.dll` 以及 `windeployqt` 部署的 Qt 运行库。
 
 ARM64 在 x64 主机上交叉构建（Qt 包使用
@@ -35,7 +35,7 @@ cmake --build build-arm64 --config Release
 cpack --config build-arm64/CPackConfig.cmake -C Release
 ```
 
-生成 `QArchiver-2.1.0-windows-arm64.zip`，内置原生 ARM64 的
+生成 `QArchiver-0.1.2-windows-arm64.zip`，内置原生 ARM64 的
 `7zip\7z.exe` / `7z.dll`。ARM64 可执行文件无法在 x64 主机上运行测试，
 因此不执行 `ctest`。
 

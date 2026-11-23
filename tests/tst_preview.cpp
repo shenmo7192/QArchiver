@@ -11,7 +11,7 @@
 #include <QTemporaryDir>
 
 #include "backends/tar/TarBackend.h"
-#include "ui/PreviewUtils.h"
+#include "ui/services/PreviewUtils.h"
 #include "utils/FileUtils.h"
 #include "utils/ProcessRunner.h"
 

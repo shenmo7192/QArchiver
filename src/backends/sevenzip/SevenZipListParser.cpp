@@ -2,7 +2,7 @@
 // Parses 7-Zip -slt blocks into ArchiveEntry values.
 // 将 7-Zip -slt 块解析为 ArchiveEntry。
 
-#include "SevenZipListParser.h"
+#include "backends/sevenzip/SevenZipListParser.h"
 
 #include <QDateTime>
 

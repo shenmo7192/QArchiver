@@ -28,8 +28,8 @@ Windows 包为便携目录，解压后运行 `QArchiver.exe`；右键菜单脚�
 发布新版本：
 
 ```bash
-git tag v2.1.0
-git push origin v2.1.0
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 ## 功能
@@ -204,6 +204,42 @@ dpkg-buildpackage -us -uc -b
 
 若 libarchive 只提供 pkg-config 文件而没有 CMake 配置包，构建脚本会自动
 回退到 `pkg_check_modules`。
+
+## 源码结构
+
+源码按层组织，每层一个静态库，依赖只能自上而下
+（`ui → core → backends → utils → common`）：
+
+```text
+src/
+├── app/        命令行解析与翻译安装
+├── common/     格式后缀表、错误与基础数据结构（不依赖 Widgets）
+├── utils/      子进程、路径、编码、7-Zip 定位、日志
+├── backends/   tar / sevenzip / rar / stream / libarchive
+├── core/       ArchiveManager、后端工厂、解压预检、压缩输出、设置
+└── ui/         MainWindow（按职责拆分）、模型、服务、主题、图标、对话框
+resources/      图标、主题字形与样式表（qrc 编译进可执行文件）
+cmake/          7-Zip 打包、libarchive 探测、Windows 资源、交叉编译工具链
+packaging/      Windows .rc.in / manifest 与资源管理器右键菜单脚本
+tests/          Qt Test 用例（统一由 qarchiver_add_test() 注册）
+tools/          图标生成、qrc 生成与资源校验脚本
+docs/           设计文档（design.zh_CN.md）与截图
+```
+
+完整的模块职责、接口与流程见 [`docs/design.zh_CN.md`](docs/design.zh_CN.md)。
+
+图标与样式表位于仓库根目录的 `resources/`，通过 `resources/CMakeLists.txt`
+中的 `icons.qrc`、`themes-aero.qrc`、`themes-modern.qrc` 编译进可执行文件，
+运行时不需要额外的资源目录。修改图形后重新运行
+`python3 tools/update_qrc.py`，再用 `python3 tools/check_resources.py` 自检：
+
+```bash
+python3 tools/gen_aero_assets.py        # 经典主题字形（PyQt6）
+python3 tools/gen_modern_icons.py       # 现代主题图标（需要 rsvg-convert）
+python3 tools/normalize_classic_icons.py
+python3 tools/update_qrc.py
+python3 tools/check_resources.py
+```
 
 ## 读取后端与开关
 

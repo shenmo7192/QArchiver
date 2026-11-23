@@ -29,8 +29,8 @@ Explorer integration scripts are in the same directory. `SHA256SUMS` is attached
 Publish a release:
 
 ```bash
-git tag v2.1.0
-git push origin v2.1.0
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 ## Features
@@ -208,6 +208,43 @@ Common options:
 
 If libarchive only provides a pkg-config file and no CMake config package, the build script automatically
 falls back to `pkg_check_modules`.
+
+## Source layout
+
+The sources are organised in layers, one static library each; dependencies only
+point downwards (`ui -> core -> backends -> utils -> common`):
+
+```text
+src/
+├── app/        command line parsing and translation setup
+├── common/     format suffix table, errors, basic data types (no Widgets)
+├── utils/      subprocess, paths, encoding, 7-Zip discovery, logging
+├── backends/   tar / sevenzip / rar / stream / libarchive
+├── core/       ArchiveManager, backend factory, extraction preflight, settings
+└── ui/         MainWindow (split by concern), models, services, theme, icons
+resources/      icons, theme glyphs and style sheets (compiled into the binary)
+cmake/          7-Zip bundling, libarchive probing, Windows resources, toolchains
+packaging/      Windows .rc.in / manifest and Explorer integration scripts
+tests/          Qt Test cases, all registered through qarchiver_add_test()
+tools/          icon generation, qrc generation and resource validation
+docs/           design document (design.zh_CN.md) and screenshots
+```
+
+See [`docs/design.zh_CN.md`](docs/design.zh_CN.md) for modules, interfaces and
+flows (Chinese).
+
+Icons and style sheets live in `resources/` at the repository root and are
+compiled into the executable through `icons.qrc`, `themes-aero.qrc` and
+`themes-modern.qrc`, so no asset directory is needed at runtime. After changing
+artwork, regenerate the manifests and validate them:
+
+```bash
+python3 tools/gen_aero_assets.py        # classic glyphs (PyQt6)
+python3 tools/gen_modern_icons.py       # modern icons (needs rsvg-convert)
+python3 tools/normalize_classic_icons.py
+python3 tools/update_qrc.py
+python3 tools/check_resources.py
+```
 
 ## Read Backends and Switches
 

@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 """Generate the modern (HaoZip-style) icon set for QArchiver.
 
-The script renders SVG sources with rsvg-convert and writes PNGs into
-src/resources/modern/.  It is intentionally dependency-light so packagers can
-regenerate the assets after changing a colour or shape:
+The script renders SVG sources with rsvg-convert and writes the PNGs into the
+folders used by the resource bundle:
+
+    resources/icons/modern/              toolbar and navigation icons, app logo
+    resources/icons/file-types/          file-type icons
+    resources/themes/modern/light/       glyphs for light backgrounds
+    resources/themes/modern/dark/        glyphs for dark backgrounds
+    resources/svg/modern/                committed SVG sources
+    resources/app-icons/                 installed application icons (.png/.ico)
+
+It is intentionally dependency-light so packagers can regenerate the assets
+after changing a colour or shape:
 
     python3 tools/gen_modern_icons.py
 
@@ -20,8 +29,48 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "src" / "resources" / "modern"
-ICON_OUT = ROOT / "src" / "resources" / "icons"
+RES = ROOT / "resources"
+ICONS = RES / "icons" / "modern"
+FILE_TYPES = RES / "icons" / "file-types"
+GLYPHS_ROOT = RES / "themes" / "modern"
+GLYPHS_LIGHT = GLYPHS_ROOT / "light"
+GLYPHS_DARK = RES / "themes" / "modern" / "dark"
+SVG_OUT = RES / "svg" / "modern"
+APP_ICONS = RES / "app-icons"
+
+# Monochrome glyphs with a light/ and a dark/ variant, referenced by
+# modern.qss and the custom delegates.
+# 具有 light/ 与 dark/ 两套变体的单色字形，由 modern.qss 与自绘委托引用。
+GLYPH_NAMES = {
+    "arrow-down", "arrow-up", "arrow-left", "arrow-right",
+    "branch-closed", "branch-open", "chevron-down",
+    "chevron-right", "chevron-up", "close",
+    "search", "sizegrip", "sort-down", "sort-up",
+}
+
+# Glyphs that are identical in both themes and live at the theme root.
+# 深浅主题共用、位于主题根目录的字形。
+NEUTRAL_GLYPHS = {"check", "minus", "radio-dot"}
+
+# Icons that are also used as themed glyphs (written to both places).
+# 同时作为主题字形使用的图标（两处都写）。
+DUAL_ICONS = {"search.png"}
+
+
+def output_path(name: str) -> Path:
+    """Return the destination file for a generated icon."""
+    stem = name[:-4]
+    if stem.endswith("-light"):
+        # Dark-theme variants share the light glyph names in dark/.
+        # 深色主题变体在 dark/ 下使用与浅色字形相同的名称。
+        return GLYPHS_DARK / (stem[: -len("-light")] + ".png")
+    if stem in NEUTRAL_GLYPHS:
+        return GLYPHS_ROOT / name
+    if stem in GLYPH_NAMES:
+        return GLYPHS_LIGHT / name
+    if stem.startswith("file-") or stem in ("file", "folder"):
+        return FILE_TYPES / name
+    return ICONS / name
 
 BLUE = "#2f8cf6"
 BLUE_DARK = "#1b6fd6"
@@ -485,8 +534,11 @@ def main() -> int:
         print("rsvg-convert is required (librsvg2-bin)", file=sys.stderr)
         return 1
 
-    OUT.mkdir(parents=True, exist_ok=True)
-    tmp = OUT / ".svg"
+    for directory in (ICONS, FILE_TYPES, GLYPHS_LIGHT, GLYPHS_DARK, APP_ICONS):
+        directory.mkdir(parents=True, exist_ok=True)
+    SVG_OUT.mkdir(parents=True, exist_ok=True)
+
+    tmp = SVG_OUT / ".tmp"
     tmp.mkdir(exist_ok=True)
 
     for name, body in toolbar_icons().items():
@@ -498,42 +550,53 @@ def main() -> int:
             size = 64
         src = tmp / f"{name}.svg"
         src.write_text(body, encoding="utf-8")
+        # The committed SVG sources are the reproducible originals.
+        # 提交的 SVG 源文件是可复现的原始资源。
+        (SVG_OUT / f"{name}.svg").write_text(body, encoding="utf-8")
+        destination = output_path(name)
+        destination.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["rsvg-convert", "-w", str(size), "-h", str(size), str(src),
-             "-o", str(OUT / name)],
+             "-o", str(destination)],
             check=True,
         )
+        if name in DUAL_ICONS:
+            # e.g. the search glyph is used both as a toolbar icon and as a
+            # themed glyph, so the light-background copy lives in light/.
+            # 例如 search 既是工具栏图标又是主题字形，浅色背景版本另存一份。
+            subprocess.run(["cp", str(destination),
+                            str(GLYPHS_LIGHT / name)], check=True)
 
     # The app icon uses a larger canvas; rsvg preserves the 64-unit viewBox.
     app_svg = tmp / "app-icon.svg"
     app_svg.write_text(APP_ICON, encoding="utf-8")
-    app_png = OUT / "app-icon.png"
+    app_png = ICONS / "app-icon.png"
     subprocess.run(
         ["rsvg-convert", "-w", "256", "-h", "256", str(app_svg), "-o", str(app_png)],
         check=True,
     )
-    subprocess.run(["cp", str(app_png), str(ICON_OUT / "QArchiver-modern.png")],
-                   check=True)
     # Linux icon themes look for several nominal sizes.  Provide the common
     # hicolor sizes so launchers do not have to scale a single bitmap.
     # Linux 图标主题按常见尺寸查找；提供多种 hicolor 尺寸，避免启动器缩放模糊。
     for size in (512, 256, 128, 64, 48, 32):
         subprocess.run(
             ["rsvg-convert", "-w", str(size), "-h", str(size), str(app_svg),
-             "-o", str(ICON_OUT / f"QArchiver-{size}.png")],
+             "-o", str(APP_ICONS / f"qarchiver-{size}.png")],
             check=True,
         )
     if shutil.which("magick"):
         subprocess.run(
             ["magick", str(app_png), "-define",
              "icon:auto-resize=256,128,64,48,32,16",
-             str(ICON_OUT / "QArchiver.ico")],
+             str(APP_ICONS / "qarchiver.ico")],
             check=True,
         )
 
-    # Remove the intermediate SVG sources: the PNGs are the committed assets.
+    # Remove the intermediate rendering directory; resources/svg/modern keeps
+    # the committed SVG sources.
+    # 删除渲染中间目录；resources/svg/modern 保留提交的 SVG 源文件。
     shutil.rmtree(tmp, ignore_errors=True)
-    print(f"Generated {len(list(OUT.glob('*.png')))} icons in {OUT}")
+    print(f"Generated icons under {ICONS} and {RES / 'themes' / 'modern'}")
     return 0
 
 

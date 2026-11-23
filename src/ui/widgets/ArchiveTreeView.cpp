@@ -2,9 +2,11 @@
 // ArchiveTreeView sizing, expansion and selection helpers.
 // ArchiveTreeView 的尺寸、展开与选择辅助逻辑。
 
-#include "ArchiveTreeView.h"
-#include "AeroRowColors.h"
-#include "FileListModel.h"
+#include "ui/icons/IconUtils.h"
+#include "ui/theme/ThemeManager.h"
+#include "ui/widgets/ArchiveTreeView.h"
+#include "ui/theme/AeroRowColors.h"
+#include "ui/models/FileListModel.h"
 #include "core/AppSettings.h"
 #include "utils/Logger.h"
 
@@ -208,8 +210,8 @@ void ArchiveTreeView::drawBranches(QPainter *painter, const QRect &rect,
         return;
     }
 
-    const bool dark = qApp->property("aeroDark").toBool();
-    const bool modern = qApp->property("modernUi").toBool();
+    const bool dark = ThemeManager::isDarkTheme();
+    const bool modern = ThemeManager::isModernLayout();
     const AeroRowColors colors = modern
         ? (selected ? modernSelectedRowColors(dark, isActiveWindow())
                     : modernHoverRowColors(dark))
@@ -224,13 +226,13 @@ void ArchiveTreeView::drawBranches(QPainter *painter, const QRect &rect,
     }
 
     if (model() && model()->hasChildren(index)) {
-        static const QPixmap openLight(QStringLiteral(":/styles/branch-open.png"));
-        static const QPixmap closedLight(QStringLiteral(":/styles/branch-closed.png"));
-        static const QPixmap openDark(QStringLiteral(":/styles/branch-open-dark.png"));
-        static const QPixmap closedDark(QStringLiteral(":/styles/branch-closed-dark.png"));
-        const QPixmap &pixmap = isExpanded(index)
-            ? (dark ? openDark : openLight)
-            : (dark ? closedDark : closedLight);
+        // Themed glyphs: the modern set uses "-light" variants on dark
+        // backgrounds, the classic set uses "-dark" ones.
+        // 主题字形：现代图标集在深色背景使用 "-light" 变体，
+        // 经典图标集使用 "-dark" 变体。
+        const QPixmap pixmap = Icons::themedPixmap(
+            isExpanded(index) ? QStringLiteral("branch-open")
+                              : QStringLiteral("branch-closed"));
         const QRect arrowRect(rect.right() - 16, rect.top(), 16, rect.height());
         painter->drawPixmap(arrowRect.center()
                                 - QPoint(pixmap.width() / 2, pixmap.height() / 2),

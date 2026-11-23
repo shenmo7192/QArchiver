@@ -10,7 +10,7 @@
 #include <QPixmap>
 #include <QTemporaryDir>
 
-#include "utils/BackgroundImage.h"
+#include "ui/background/BackgroundImage.h"
 
 class TestBackground : public QObject {
     Q_OBJECT

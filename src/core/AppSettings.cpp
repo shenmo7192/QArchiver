@@ -2,7 +2,7 @@
 // Implementation of the persistent application preference store.
 // 全局应用偏好存储的实现。
 
-#include "AppSettings.h"
+#include "core/AppSettings.h"
 
 #include <QCoreApplication>
 #include <QSettings>

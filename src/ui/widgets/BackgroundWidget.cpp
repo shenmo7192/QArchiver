@@ -2,7 +2,7 @@
 // BackgroundWidget painting and settings loading.
 // BackgroundWidget 的绘制与设置加载。
 
-#include "BackgroundWidget.h"
+#include "ui/widgets/BackgroundWidget.h"
 
 #include <QPainter>
 #include <QStyle>

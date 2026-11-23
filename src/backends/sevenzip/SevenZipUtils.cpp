@@ -2,7 +2,7 @@
 // SevenZipUtils implementation for listfiles and legacy filename renames.
 // SevenZipUtils 的列表文件与旧文件名重命名实现。
 
-#include "SevenZipUtils.h"
+#include "backends/sevenzip/SevenZipUtils.h"
 
 #include <QDir>
 #include <QTemporaryFile>

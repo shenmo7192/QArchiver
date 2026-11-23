@@ -2,9 +2,9 @@
 // ArchiveGridView setup, selection and drag-out initiation.
 // ArchiveGridView 的初始化、选择与拖出启动。
 
-#include "ArchiveGridView.h"
+#include "ui/widgets/ArchiveGridView.h"
 
-#include "ui/FileListModel.h"
+#include "ui/models/FileListModel.h"
 
 #include <QApplication>
 #include <QFontMetrics>

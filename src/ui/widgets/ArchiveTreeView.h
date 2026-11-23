@@ -10,7 +10,7 @@
 #include <QPoint>
 #include <QPixmap>
 
-#include "utils/BackgroundImage.h"
+#include "ui/background/BackgroundImage.h"
 
 class QPainter;
 class QShowEvent;

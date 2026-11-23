@@ -2,11 +2,11 @@
 // Tool discovery, process I/O draining, cancellation and password masking.
 // 工具查找、进程 I/O 排空、取消与密码脱敏。
 
-#include "ProcessRunner.h"
+#include "utils/ProcessRunner.h"
 
-#include "EncodingDetector.h"
-#include "PlatformProcess.h"
-#include "SevenZipTool.h"
+#include "utils/EncodingDetector.h"
+#include "utils/PlatformProcess.h"
+#include "utils/SevenZipTool.h"
 
 #include <QDir>
 #include <QElapsedTimer>

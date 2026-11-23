@@ -8,7 +8,7 @@
 #include <QPixmap>
 #include <QWidget>
 
-#include "utils/BackgroundImage.h"
+#include "ui/background/BackgroundImage.h"
 
 // A container widget that paints a theme background and, optionally, a
 // semi-transparent image behind its children. Set the image with

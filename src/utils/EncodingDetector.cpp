@@ -2,7 +2,7 @@
 // UTF-8/GB18030/Big5/Shift-JIS detection, decoding and code-page mapping.
 // UTF-8/GB18030/Big5/Shift-JIS 检测、解码及代码页映射。
 
-#include "EncodingDetector.h"
+#include "utils/EncodingDetector.h"
 
 #include <QProcess>
 #include <QStringConverter>

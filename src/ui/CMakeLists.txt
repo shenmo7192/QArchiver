@@ -1,22 +1,48 @@
-# Widgets and dialogs for the main window.
-# 主窗口使用的控件与对话框。
-target_sources(QArchiver PRIVATE
-    # Main window, models, filtering and drag-out support.
-    # 主窗口、模型、过滤与拖出支持。
+# UI layer: main window, models, dialogs, widgets, themes, preview and drag-out.
+# 界面层：主窗口、模型、对话框、控件、主题、预览与拖出。
+add_library(qarchiver_ui STATIC
+    # Main window (implementation is split across MainWindow*.cpp).
+    # 主窗口（实现拆分为多个 MainWindow*.cpp）。
     MainWindow.cpp
     MainWindow.h
-    FileListModel.cpp
-    FileListModel.h
-    FilterProxyModel.cpp
-    FilterProxyModel.h
-    FileListViewDelegate.cpp
-    FileListViewDelegate.h
-    PreviewManager.cpp
-    PreviewManager.h
-    PreviewUtils.cpp
-    PreviewUtils.h
-    DragOutManager.cpp
-    DragOutManager.h
+    MainWindowHelpers.cpp
+    MainWindowHelpers.h
+    MainWindowActions.cpp
+    MainWindowLayout.cpp
+    MainWindowNavigation.cpp
+    MainWindowExtraction.cpp
+    MainWindowDragOut.cpp
+
+    # Item models, proxy model and delegate.
+    # 条目模型、代理模型与委托。
+    models/FileListModel.cpp
+    models/FileListModel.h
+    models/FilterProxyModel.cpp
+    models/FilterProxyModel.h
+    models/FileListViewDelegate.cpp
+    models/FileListViewDelegate.h
+
+    # Background services: preview extraction and drag-out staging.
+    # 后台服务：预览解压与拖出暂存。
+    services/PreviewManager.cpp
+    services/PreviewManager.h
+    services/PreviewUtils.cpp
+    services/PreviewUtils.h
+    services/DragOutManager.cpp
+    services/DragOutManager.h
+
+    # Theming and icon helpers.
+    # 主题与图标辅助代码。
+    theme/ThemeManager.cpp
+    theme/ThemeManager.h
+    theme/AeroRowColors.h
+    icons/IconUtils.cpp
+    icons/IconUtils.h
+    icons/FileTypeHelper.cpp
+    icons/FileTypeHelper.h
+    icons/MessageBoxUtils.h
+    background/BackgroundImage.cpp
+    background/BackgroundImage.h
 
     # Modal dialogs.
     # 模态对话框。
@@ -52,3 +78,18 @@ target_sources(QArchiver PRIVATE
     widgets/WelcomePage.cpp
     widgets/WelcomePage.h
 )
+
+target_include_directories(qarchiver_ui PUBLIC
+    ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(qarchiver_ui
+    PUBLIC qarchiver_core Qt6::Widgets Qt6::Gui
+    PRIVATE Qt6::Concurrent
+)
+
+set_target_properties(qarchiver_ui PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
+qarchiver_set_warnings(qarchiver_ui)

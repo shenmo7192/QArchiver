@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 # QArchiver (小Q解压) is a Qt 6 desktop archive manager.
 # QArchiver（小Q解压）是一个基于 Qt 6 的桌面压缩包管理工具。
 project(QArchiver
-    VERSION 2.1.0
+    VERSION 0.1.2
     LANGUAGES CXX
 )
 
@@ -51,14 +51,25 @@ endif()
 include(cmake/QArchiverWarnings.cmake)
 include(cmake/QArchiverBundled7zip.cmake)
 include(cmake/QArchiverWindows.cmake)
+include(cmake/QArchiverLibArchive.cmake)
 
 # Select the 7-Zip helper for the target platform before source directories run.
 # 在进入源码目录前，为目标平台选择要随程序分发的 7-Zip 辅助程序。
 qarchiver_select_bundled_7zip()
 
-# Qt setup, application target and libarchive detection are handled by src/.
-# Qt 配置、应用目标与 libarchive 探测由 src/ 负责。
+# Detect the optional libarchive backend once at the root, so src/ and tests/
+# share the same result without passing values back up.
+# 在根目录探测一次可选的 libarchive 后端，使 src/ 与 tests/ 共用同一结果，
+# 无需逐层回传变量。
+qarchiver_find_libarchive()
+
+# Qt setup, application target and the layer libraries are handled by src/.
+# Qt 配置、应用目标与分层静态库由 src/ 负责。
 add_subdirectory(src)
+
+# Icon, glyph and style-sheet resources (compiled into the executable).
+# 图标、字形与样式表资源（编译进可执行文件）。
+add_subdirectory(resources)
 
 # Translations need the Qt Linguist tools and are embedded into QArchiver.
 # 翻译需要 Qt Linguist 工具，并会被嵌入 QArchiver。

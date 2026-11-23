@@ -9,7 +9,7 @@
 #include <QStringList>
 #include <QList>
 
-#include "core/ArchiveConstants.h"
+#include "common/ArchiveConstants.h"
 
 struct ArchiveEntry;
 

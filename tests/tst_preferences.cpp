@@ -5,6 +5,8 @@
 #include <QtTest>
 
 #include <QCheckBox>
+#include <QComboBox>
+#include <QFormLayout>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
@@ -14,10 +16,11 @@
 #include <QPlainTextEdit>
 #include <QSettings>
 
+#include "core/ArchiveBackendFactory.h"
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
 #include "core/RecentFilesManager.h"
-#include "ui/FileListModel.h"
+#include "ui/models/FileListModel.h"
 #include "ui/dialogs/PasswordDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/BenchmarkDialog.h"
@@ -38,6 +41,7 @@ private slots:
     void configurableLimitsAreClamped();
     void recentFilesLimitTrimsImmediately();
     void newUiSettingsRoundTrip();
+    void layoutSpecificRowsFollowLayoutMode();
     void benchmarkDialogBuilds();
     void listModeDirectoryIndexPreservesEntries();
 
@@ -98,7 +102,7 @@ void TestPreferences::cleanupTestCase()
 // 复选框反映已持久化的偏好设置。
 void TestPreferences::libArchiveCheckboxReflectsSetting()
 {
-    if (!ArchiveManager::isLibArchiveAvailable()) {
+    if (!ArchiveBackendFactory::isLibArchiveAvailable()) {
         QSKIP("built without libarchive: the switch is always off and disabled");
     }
 
@@ -128,7 +132,7 @@ void TestPreferences::libArchiveCheckboxReflectsSetting()
 // 修改复选框会持久化偏好设置。
 void TestPreferences::libArchiveCheckboxPersistsChoice()
 {
-    if (!ArchiveManager::isLibArchiveAvailable()) {
+    if (!ArchiveBackendFactory::isLibArchiveAvailable()) {
         QSKIP("built without libarchive: the switch is always off and disabled");
     }
 
@@ -159,7 +163,7 @@ void TestPreferences::libArchiveCheckboxDisabledWithoutLibrary()
     QCheckBox *box = libArchiveCheck(dialog);
     QVERIFY(box);
 
-    if (ArchiveManager::isLibArchiveAvailable()) {
+    if (ArchiveBackendFactory::isLibArchiveAvailable()) {
         QVERIFY(box->isEnabled());
     } else {
         QVERIFY(!box->isEnabled());
@@ -307,6 +311,52 @@ void TestPreferences::newUiSettingsRoundTrip()
 // The benchmark dialog can be created without a display and exposes its
 // thread-count control.
 // 性能测试对话框可在无显示环境下创建，并包含线程数控件。
+// Rows that only apply to one interface layout are hidden, not disabled.
+// 只在某一种界面布局中生效的行会被隐藏，而不是置灰。
+void TestPreferences::layoutSpecificRowsFollowLayoutMode()
+{
+    auto &settings = AppSettings::instance();
+    const QString savedLayout = settings.uiLayoutMode();
+
+    settings.setUiLayoutMode(QStringLiteral("modern"));
+    {
+        PreferencesDialog dialog;
+        auto *viewMode = dialog.findChild<QComboBox *>(
+            QStringLiteral("PrefsViewModeCombo"));
+        auto *toolbarStyle = dialog.findChild<QComboBox *>(
+            QStringLiteral("PrefsToolbarStyleCombo"));
+        auto *recentCheck = dialog.findChild<QCheckBox *>(
+            QStringLiteral("PrefsRecentFilesCheck"));
+        QVERIFY(viewMode);
+        QVERIFY(toolbarStyle);
+        QVERIFY(recentCheck);
+
+        // Modern: archive content view available, classic-only rows hidden.
+        // 现代：内容视图可选，经典布局专属行隐藏。
+        QVERIFY(!viewMode->isHidden());
+        QVERIFY(toolbarStyle->isHidden());
+        QVERIFY(recentCheck->isHidden());
+
+        // Switching the layout combo updates the page immediately, without
+        // saving and reopening the dialog.
+        // 切换布局下拉框时立即更新页面，无需保存并重开对话框。
+        auto *layoutCombo = dialog.findChild<QComboBox *>(
+            QStringLiteral("PrefsLayoutModeCombo"));
+        QVERIFY(layoutCombo);
+        layoutCombo->setCurrentIndex(
+            layoutCombo->findData(QStringLiteral("classic")));
+        QVERIFY(viewMode->isHidden());
+        QVERIFY(!toolbarStyle->isHidden());
+        QVERIFY(!recentCheck->isHidden());
+    }
+
+    // The stored layout mode is not touched until the dialog is accepted.
+    // 对话框未确认前不会改动已保存的布局模式。
+    QCOMPARE(settings.uiLayoutMode(), QStringLiteral("modern"));
+
+    settings.setUiLayoutMode(savedLayout);
+}
+
 void TestPreferences::benchmarkDialogBuilds()
 {
     BenchmarkDialog dialog;

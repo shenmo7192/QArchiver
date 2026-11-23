@@ -34,9 +34,25 @@ set(_qarchiver_ts_files
 
 # Keep the lupdate integration (update_translations target).
 # 保留 lupdate 集成（update_translations 目标）。
-qt_add_lupdate(QArchiver
-    TS_FILES ${_qarchiver_ts_files}
-    OPTIONS -no-obsolete
+# lupdate is driven directly instead of through qt_add_lupdate(): that helper
+# only scans the executable target's own sources, while the UI code lives in the
+# static libraries, so every UI string would be reported as obsolete and
+# removed. Passing the whole src/ tree keeps all strings in the catalogs.
+# 这里直接调用 lupdate 而不使用 qt_add_lupdate()：后者只扫描可执行目标自身的
+# 源文件，而界面代码在各静态库中，会把所有界面字符串判为过时并删除；
+# 传入整个 src/ 目录可保留全部字符串。
+get_target_property(_qarchiver_lupdate Qt6::lupdate IMPORTED_LOCATION)
+if(NOT _qarchiver_lupdate)
+    find_program(_qarchiver_lupdate NAMES lupdate lupdate-qt6 REQUIRED)
+endif()
+
+add_custom_target(update_translations
+    COMMAND "${_qarchiver_lupdate}" -no-obsolete -locations relative
+            "${PROJECT_SOURCE_DIR}/src"
+            -ts ${_qarchiver_ts_files}
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+    COMMENT "Updating translation catalogs (lupdate)"
+    VERBATIM
 )
 
 # Compile .ts -> .qm; the output list is consumed by qt_add_resources() below.

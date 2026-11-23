@@ -6,8 +6,8 @@
 // 创建新压缩包并选择选项的对话框。
 
 #include <QDialog>
-#include "core/ArchiveOptions.h"
-#include "core/ArchiveConstants.h"
+#include "common/ArchiveOptions.h"
+#include "common/ArchiveConstants.h"
 
 class QLineEdit;
 class QComboBox;

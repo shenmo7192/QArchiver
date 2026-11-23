@@ -2,10 +2,11 @@
 // Welcome page construction and recent-file refresh.
 // 起始页构建与最近文件刷新。
 
-#include "WelcomePage.h"
+#include "ui/icons/IconUtils.h"
+#include "ui/widgets/WelcomePage.h"
 
 #include "core/RecentFilesManager.h"
-#include "utils/FileTypeHelper.h"
+#include "ui/icons/FileTypeHelper.h"
 
 #include <QFileInfo>
 #include <QIcon>
@@ -38,7 +39,7 @@ WelcomePage::WelcomePage(QWidget *parent)
     dropLayout->setSpacing(10);
 
     auto *icon = new QLabel(dropZone);
-    icon->setPixmap(QIcon(QStringLiteral(":/modern/app.png")).pixmap(78, 78));
+    icon->setPixmap(Icons::modern(QStringLiteral("app.png")).pixmap(78, 78));
     icon->setAlignment(Qt::AlignCenter);
     dropLayout->addWidget(icon);
 
@@ -62,11 +63,11 @@ WelcomePage::WelcomePage(QWidget *parent)
     buttonRow->addStretch(1);
     auto *openButton = new QPushButton(tr("Open Archive..."), dropZone);
     openButton->setObjectName(QStringLiteral("WelcomePrimary"));
-    openButton->setIcon(QIcon(QStringLiteral(":/modern/open.png")));
+    openButton->setIcon(Icons::modern(QStringLiteral("open.png")));
     openButton->setIconSize(QSize(18, 18));
     auto *oneClickButton = new QPushButton(tr("One-click Extract"), dropZone);
     oneClickButton->setObjectName(QStringLiteral("WelcomeSecondary"));
-    oneClickButton->setIcon(QIcon(QStringLiteral(":/modern/oneclick.png")));
+    oneClickButton->setIcon(Icons::modern(QStringLiteral("oneclick.png")));
     oneClickButton->setIconSize(QSize(18, 18));
     buttonRow->addWidget(openButton);
     buttonRow->addWidget(oneClickButton);

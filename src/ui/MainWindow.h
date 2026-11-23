@@ -10,9 +10,9 @@
 #include <QPointer>
 #include <QStringList>
 
-#include "core/ArchiveEntry.h"
-#include "core/ArchiveError.h"
-#include "core/ArchiveOptions.h"
+#include "common/ArchiveEntry.h"
+#include "common/ArchiveError.h"
+#include "common/ArchiveOptions.h"
 
 class FileListModel;
 class FilterProxyModel;

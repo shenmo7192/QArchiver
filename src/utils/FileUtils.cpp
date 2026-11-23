@@ -2,7 +2,7 @@
 // FileUtils implementation: path normalization, traversal checks and moves.
 // FileUtils 实现：路径规范化、路径穿越检查与文件移动。
 
-#include "FileUtils.h"
+#include "utils/FileUtils.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -14,7 +14,7 @@
 
 #include <limits>
 
-#include "ArchiveEntry.h"
+#include "common/ArchiveEntry.h"
 
 #ifndef Q_OS_WIN
 #include <unistd.h>

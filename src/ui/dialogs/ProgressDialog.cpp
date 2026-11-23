@@ -2,9 +2,9 @@
 // ProgressDialog updates and cancellation forwarding.
 // ProgressDialog 的更新与取消转发。
 
-#include "ProgressDialog.h"
+#include "ui/dialogs/ProgressDialog.h"
 
-#include "utils/IconUtils.h"
+#include "ui/icons/IconUtils.h"
 
 #include <QProgressBar>
 #include <QLabel>
@@ -42,7 +42,7 @@ ProgressDialog::ProgressDialog(QWidget *parent)
     outputFont.setPointSizeF(8.5);
     m_output->setFont(outputFont);
 
-    m_cancelBtn = new QPushButton(qarchiverIcon(QStringLiteral("no.ico")),
+    m_cancelBtn = new QPushButton(Icons::aero(QStringLiteral("no.ico")),
                                   tr("Cancel"), this);
     m_cancelBtn->setObjectName(QStringLiteral("ProgressCancelButton"));
     m_cancelBtn->setIconSize(QSize(16, 16));

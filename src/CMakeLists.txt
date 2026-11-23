@@ -10,10 +10,34 @@ include(GNUInstallDirs)
 # Qt 项目标准默认设置（AUTOMOC、AUTOUIC、输出目录等）。
 qt_standard_project_setup(REQUIRES ${QARCHIVER_MIN_QT_VERSION})
 
-# Main application target; sources are contributed by the child directories.
-# 主应用目标；具体源文件由各子目录追加。
+# ---------------------------------------------------------------------------
+# Target layout / 目标结构
+#
+# The code is built as small static libraries that mirror the source layout, so
+# the dependency direction is visible in CMake and the test executables can link
+# a library instead of re-listing source files:
+# 代码按源码层次拆成静态库，使依赖方向在 CMake 中可见，测试可链接静态库，
+# 而不必重复列出源文件：
+#
+#   qarchiver_common    common/     shared value types and error codes
+#   qarchiver_utils     utils/      logging, process, paths, encoding (no widgets)
+#   qarchiver_backends  backends/   archive backends (CLI + optional libarchive)
+#   qarchiver_core      core/       manager, settings, recent files
+#   qarchiver_ui        ui/         widgets, dialogs, models, themes
+#
+# Dependency direction: common <- utils <- backends <- core <- ui.
+# 依赖方向：common <- utils <- backends <- core <- ui。
+#
+# The final executable only adds main.cpp and the Qt resources.
+# 最终可执行文件只额外加入 main.cpp 与 Qt 资源。
+# ---------------------------------------------------------------------------
+
 qt_add_executable(QArchiver
     main.cpp
+    app/CommandLine.cpp
+    app/CommandLine.h
+    app/Translations.cpp
+    app/Translations.h
 )
 
 target_compile_definitions(QArchiver PRIVATE
@@ -24,35 +48,20 @@ target_compile_definitions(QArchiver PRIVATE
 # Windows 图标、版本资源、清单与部署规则。
 qarchiver_add_windows_resources(QArchiver)
 
+add_subdirectory(common)
+add_subdirectory(utils)
+add_subdirectory(backends)
+add_subdirectory(core)
+add_subdirectory(ui)
+
+target_link_libraries(QArchiver PRIVATE qarchiver_ui)
+
+# Include root for the application target: all library targets publish their
+# own include directory, so only src/ is needed here for main.cpp.
+# 应用目标的包含根：各库目标自行发布包含目录，这里仅为 main.cpp 需要 src/。
 target_include_directories(QArchiver PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/core
-    ${CMAKE_CURRENT_SOURCE_DIR}/backends
-    ${CMAKE_CURRENT_SOURCE_DIR}/ui
-    ${CMAKE_CURRENT_SOURCE_DIR}/utils
 )
-
-target_link_libraries(QArchiver PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Concurrent
-)
-
-# Source groups.  backends/ also detects libarchive and publishes the result.
-# 源码分组。backends/ 还会探测 libarchive，并把结果传递给上层。
-add_subdirectory(core)
-add_subdirectory(backends)
-add_subdirectory(ui)
-add_subdirectory(utils)
-add_subdirectory(resources)
-
-# The optional in-process libarchive backend is linked only when available.
-# 仅在系统提供 libarchive 时链接可选的进程内 libarchive 后端。
-if(QARCHIVER_HAS_LIBARCHIVE)
-    target_link_libraries(QArchiver PRIVATE ${QARCHIVER_LIBARCHIVE_TARGET})
-    target_compile_definitions(QArchiver PRIVATE QARCHIVER_HAS_LIBARCHIVE)
-endif()
 
 qarchiver_set_warnings(QArchiver)
 qarchiver_bundle_7zip(QArchiver)
@@ -73,8 +82,3 @@ qarchiver_configure_windows_deploy(QArchiver)
 # Install the bundled 7-Zip binaries and their license next to the app target.
 # 安装随程序分发的 7-Zip 二进制及其许可证。
 qarchiver_install_7zip()
-
-# Publish dependency results to the root directory so tests can reuse them.
-# 将依赖探测结果传递到根目录，供测试复用。
-set(QARCHIVER_HAS_LIBARCHIVE "${QARCHIVER_HAS_LIBARCHIVE}" PARENT_SCOPE)
-set(QARCHIVER_LIBARCHIVE_TARGET "${QARCHIVER_LIBARCHIVE_TARGET}" PARENT_SCOPE)

@@ -2,7 +2,7 @@
 // 7-Zip command construction, listing, extraction, writing and splits.
 // 7-Zip 命令构建、列表、解压、写入及分卷处理。
 
-#include "SevenZipBackend.h"
+#include "backends/sevenzip/SevenZipBackend.h"
 
 #include <QDir>
 #include <QFile>
@@ -13,8 +13,8 @@
 
 #include <QSet>
 
-#include "SevenZipListParser.h"
-#include "SevenZipUtils.h"
+#include "backends/sevenzip/SevenZipListParser.h"
+#include "backends/sevenzip/SevenZipUtils.h"
 #include "utils/EncodingDetector.h"
 #include "utils/FileUtils.h"
 #include "utils/Logger.h"

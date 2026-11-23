@@ -2,7 +2,8 @@
 // Modern navigation bar implementation.
 // 现代导航栏实现。
 
-#include "ModernNavBar.h"
+#include "ui/icons/IconUtils.h"
+#include "ui/widgets/ModernNavBar.h"
 
 #include <QAction>
 #include <QButtonGroup>
@@ -61,7 +62,7 @@ QToolButton *makeNavButton(const QString &iconName, const QString &tooltip,
 {
     auto *button = new QToolButton(parent);
     button->setObjectName(QStringLiteral("ModernNavButton"));
-    button->setIcon(QIcon(QStringLiteral(":/modern/") + iconName));
+    button->setIcon(Icons::modern(iconName));
     button->setIconSize(QSize(18, 18));
     button->setToolTip(tooltip);
     button->setFixedSize(30, 28);
@@ -109,7 +110,7 @@ ModernNavBar::ModernNavBar(QWidget *parent)
         const QString &icon, const QString &mode, const QString &tooltip) {
         auto *button = new QToolButton(viewSwitch);
         button->setObjectName(QStringLiteral("ModernNavViewButton"));
-        button->setIcon(QIcon(QStringLiteral(":/modern/") + icon));
+        button->setIcon(Icons::modern(icon));
         button->setIconSize(QSize(16, 16));
         button->setFixedSize(26, 22);
         button->setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -137,7 +138,7 @@ ModernNavBar::ModernNavBar(QWidget *parent)
         tr("Search this archive (wildcards allowed)"));
     m_searchEdit->setClearButtonEnabled(true);
     m_searchEdit->setFixedWidth(280);
-    auto *searchAction = new QAction(QIcon(QStringLiteral(":/modern/search.png")),
+    auto *searchAction = new QAction(Icons::modern(QStringLiteral("search.png")),
                                      tr("Search"), m_searchEdit);
     m_searchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     layout->addWidget(m_searchEdit);

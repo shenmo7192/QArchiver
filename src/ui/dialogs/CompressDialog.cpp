@@ -2,7 +2,8 @@
 // CompressDialog widgets, validation and option collection.
 // CompressDialog 的控件、校验与选项收集。
 
-#include "CompressDialog.h"
+#include "common/FormatRegistry.h"
+#include "ui/dialogs/CompressDialog.h"
 
 #include <QLineEdit>
 #include <QComboBox>
@@ -22,7 +23,7 @@
 
 #include "backends/rar/RarBackend.h"
 #include "core/AppSettings.h"
-#include "utils/IconUtils.h"
+#include "ui/icons/IconUtils.h"
 
 CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     : QDialog(parent)
@@ -41,7 +42,7 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     // Target
     auto *targetLabel = new QLabel(tr("Archive name:"), this);
     m_targetEdit = new QLineEdit(defaultPath, this);
-    auto *browseBtn = new QPushButton(qarchiverIcon(QStringLiteral("folder.png")),
+    auto *browseBtn = new QPushButton(Icons::aero(QStringLiteral("folder.png")),
                                       tr("Browse..."), this);
     auto *targetLayout = new QHBoxLayout;
     targetLayout->setSpacing(6);
@@ -117,13 +118,13 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     buttons->setCenterButtons(false);
     if (auto *ok = buttons->button(QDialogButtonBox::Ok)) {
-        ok->setIcon(qarchiverIcon(QStringLiteral("yes.ico")));
+        ok->setIcon(Icons::aero(QStringLiteral("yes.ico")));
         ok->setText(tr("OK"));
         ok->setIconSize(QSize(16, 16));
         ok->setMinimumWidth(75);
     }
     if (auto *cancel = buttons->button(QDialogButtonBox::Cancel)) {
-        cancel->setIcon(qarchiverIcon(QStringLiteral("no.ico")));
+        cancel->setIcon(Icons::aero(QStringLiteral("no.ico")));
         cancel->setText(tr("Cancel"));
         cancel->setIconSize(QSize(16, 16));
         cancel->setMinimumWidth(75);
@@ -175,21 +176,8 @@ void CompressDialog::onFormatChanged()
 
     // Strip any known archive extension and append the selected one.
     // 去掉已知压缩包扩展名，再追加当前选择的扩展名。
-    QString current = m_targetEdit->text();
-    const QStringList knownExtensions = {
-        QStringLiteral(".tar.gz"), QStringLiteral(".tar.xz"),
-        QStringLiteral(".tar.bz2"), QStringLiteral(".tgz"),
-        QStringLiteral(".txz"), QStringLiteral(".tbz2"),
-        QStringLiteral(".7z"), QStringLiteral(".zip"), QStringLiteral(".rar"),
-        QStringLiteral(".tar"), QStringLiteral(".gz"), QStringLiteral(".bz2"),
-        QStringLiteral(".xz")
-    };
-    for (const QString &known : knownExtensions) {
-        if (current.endsWith(known, Qt::CaseInsensitive)) {
-            current.chop(known.size());
-            break;
-        }
-    }
+    const QString current = FormatRegistry::stripArchiveExtension(
+        m_targetEdit->text());
     m_targetEdit->setText(current + ext);
 
     updateOptionAvailability();

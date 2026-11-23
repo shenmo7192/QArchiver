@@ -2,7 +2,7 @@
 // Logger implementation: formatting, mutexing and log rotation.
 // Logger 实现：格式化、互斥保护与日志轮转。
 
-#include "Logger.h"
+#include "utils/Logger.h"
 
 #include <QDateTime>
 #include <QDir>

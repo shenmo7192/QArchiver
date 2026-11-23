@@ -6,7 +6,7 @@
 // 选择解压目标与覆盖选项的对话框。
 
 #include <QDialog>
-#include "core/ArchiveOptions.h"
+#include "common/ArchiveOptions.h"
 
 class QLineEdit;
 class QCheckBox;

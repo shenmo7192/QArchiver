@@ -13,10 +13,11 @@
 #include <memory>
 #include <variant>
 
-#include "core/ArchiveConstants.h"
-#include "core/ArchiveOptions.h"
-#include "core/ArchiveEntry.h"
-#include "core/ArchiveError.h"
+#include "common/ArchiveConstants.h"
+#include "common/ArchiveOptions.h"
+#include "common/ArchiveEntry.h"
+#include "common/ArchiveError.h"
+#include "core/ExtractionPreflight.h"
 
 class ArchiveBackend;
 class QTemporaryDir;
@@ -54,10 +55,11 @@ public:
     // 使用界面获取的密码重试待处理操作
     void retryWithPassword(const QString &password);
 
-    enum class SymlinkDecision { Abort, Skip, SkipAll };
-    using SymlinkDecisionCallback =
-        std::function<SymlinkDecision(const QString &entryPath,
-                                      const QString &target)>;
+    // Defined by the extraction preflight; re-exported so the controller API
+    // stays unchanged for callers.
+    // 由解压预检定义；在此重新导出，使控制器 API 对调用方保持不变。
+    using SymlinkDecision = ExtractionPreflight::SymlinkDecision;
+    using SymlinkDecisionCallback = ExtractionPreflight::SymlinkDecisionCallback;
     // UI hook used during extraction preflight.  Called on the GUI thread;
     // null means unsafe symlinks abort the operation.
     // 解压预检期间使用的界面回调。在 GUI 线程调用；为空表示危险符号链接
@@ -85,26 +87,10 @@ public:
     // Last listed entries (empty before listing) / 最近一次列表结果（列表前为空）
     QList<ArchiveEntry> entries() const { return m_entries; }
 
-    // Create a backend for a given format (factory). Always uses the command
-    // line tools; this is the factory for write operations.
-    // 为指定格式创建后端（工厂）。始终使用命令行工具，用于写操作。
-    static ArchiveBackend *createBackend(ArchiveFormat fmt);
-    // Create a backend for reading an existing archive: libarchive when it is
-    // available and the archive is not a split volume, otherwise the CLI.
-    // 为已有压缩包创建读取后端：可用且非分卷时使用 libarchive，否则使用 CLI。
-    static ArchiveBackend *createReadBackend(ArchiveFormat fmt,
-                                             const QString &path = QString());
-    // Whether this build links libarchive (compile-time capability).
-    // 当前构建是否链接 libarchive（编译期能力）。
-    static bool isLibArchiveAvailable();
-    // Troubleshooting escape hatch: QARCHIVER_NO_LIBARCHIVE forces the CLI.
-    // 故障排查开关：QARCHIVER_NO_LIBARCHIVE 强制使用 CLI。
-    static bool isLibArchiveDisabledByEnvironment();
-    // Whether createReadBackend() would pick the in-process backend for this
-    // archive (preference, environment, format whitelist, split volumes).
-    // createReadBackend() 是否会为该压缩包选择进程内后端
-    // （取决于偏好、环境变量、格式白名单与分卷情况）。
-    static bool usesLibArchiveForRead(ArchiveFormat fmt, const QString &path);
+    // Backend creation and the libarchive read policy live in
+    // ArchiveBackendFactory; the manager uses them internally.
+    // 后端创建与 libarchive 读取策略位于 ArchiveBackendFactory，
+    // 控制器在内部使用。
 
 signals:
     // Emitted before asynchronous format detection starts. / 异步格式检测开始前发出。

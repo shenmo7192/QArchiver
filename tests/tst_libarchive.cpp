@@ -15,8 +15,8 @@
 #include <unistd.h>
 #endif
 
-#include "backends/archive/LibArchiveBackend.h"
-#include "core/ArchiveOptions.h"
+#include "backends/libarchive/LibArchiveBackend.h"
+#include "common/ArchiveOptions.h"
 #include "utils/FileUtils.h"
 #include "utils/ProcessRunner.h"
 
