@@ -14,35 +14,28 @@
 
 ## 下载
 
-推送 `v*` 标签后，Release 工作流会生成两个独立发布页：
-
-**安装版**（标签 `vX.Y.Z`，Windows setup.exe + Linux deb）：
+推送 `v*` 标签后，Release 工作流会在同一个 Release 中发布安装版与便携版：
 
 | 平台 | 产物 |
 | --- | --- |
 | Linux x86_64 | `qarchiver_<version>_amd64.deb` |
 | Linux ARM64 | `qarchiver_<version>_arm64.deb` |
-| Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe` |
-| Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe` |
-
-**便携版/绿色版**（标签 `vX.Y.Z-portable`，Windows ZIP）：
-
-| 平台 | 产物 |
-| --- | --- |
-| Windows x86_64 | `QArchiver-<version>-windows-x64.zip` |
-| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip` |
+| Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe`（安装版） |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe`（安装版） |
+| Windows x86_64 | `QArchiver-<version>-windows-x64.zip`（便携版） |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip`（便携版） |
 
 Windows 安装器会询问是否关联压缩包格式（默认选中），并安装开始菜单/桌面
 快捷方式、卸载入口和资源管理器右键菜单（打开、一键解压、动态“添加到
 xx.zip”、压缩到 7z/ZIP/tar 等）。安装器提供简体中文 / English 双语界面。
-便携 ZIP 解压后运行 `QArchiver.exe` 即可，右键菜单脚本在同一目录。每个
-发布页各自提供 `SHA256SUMS`。
+便携 ZIP 解压后运行 `QArchiver.exe` 即可，右键菜单脚本在同一目录。Release
+同时提供包含全部产物的 `SHA256SUMS`。
 
 发布新版本：
 
 ```bash
-git tag v2.3.0
-git push origin v2.3.0
+git tag v2.3.1
+git push origin v2.3.1
 ```
 
 ## 功能

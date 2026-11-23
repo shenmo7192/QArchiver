@@ -104,6 +104,6 @@ Windows 使用 `cmake --install` + `qt_generate_deploy_app_script()` 部署 Qt�
   内置原生 ARM64 7-Zip，生成 `QArchiver-<version>-windows-arm64.zip`
   及其安装器。
 
-推送 `v*` 标签会触发 `release.yml`，并创建两个 Release：`vX.Y.Z` 上传
-安装包（Windows setup.exe + Linux deb），`vX.Y.Z-portable` 上传 Windows
-便携 ZIP；各自附带 `SHA256SUMS`。
+推送 `v*` 标签会触发 `release.yml`，在同一个 Release 中上传安装包
+（Windows setup.exe + Linux deb）与 Windows 便携 ZIP，并附带一个
+覆盖全部产物的 `SHA256SUMS`。

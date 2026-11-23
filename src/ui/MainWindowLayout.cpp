@@ -84,6 +84,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QSlider>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
@@ -190,8 +191,6 @@ void MainWindow::setupModernUi()
         menu->setAttribute(Qt::WA_DeleteOnClose);
         menu->popup(globalPos);
     });
-    connect(m_modernNavBar, &ModernNavBar::itemSizeChanged,
-            this, &MainWindow::applyItemSize);
     connect(m_folderPane, &ArchiveFolderPane::directoryActivated,
             this, &MainWindow::onFolderDirectoryActivated);
     connect(m_welcomePage, &WelcomePage::openRequested,
@@ -441,6 +440,18 @@ void MainWindow::setupStatusBar()
         statusBar()->addWidget(m_statusSummaryLeft, 1);
         statusBar()->addPermanentWidget(m_busyWidget);
         statusBar()->addPermanentWidget(m_statusSummaryRight);
+        // Item-size slider at the bottom-right, next to the status summary.
+        // 条目大小滑块位于右下角，紧邻状态摘要。
+        m_sizeSlider = new QSlider(Qt::Horizontal, this);
+        m_sizeSlider->setObjectName(QStringLiteral("StatusSizeSlider"));
+        m_sizeSlider->setRange(48, 128);
+        m_sizeSlider->setSingleStep(8);
+        m_sizeSlider->setPageStep(16);
+        m_sizeSlider->setFixedWidth(110);
+        m_sizeSlider->setToolTip(tr("Icon size (Ctrl + wheel)"));
+        connect(m_sizeSlider, &QSlider::valueChanged,
+                this, &MainWindow::applyItemSize);
+        statusBar()->addPermanentWidget(m_sizeSlider);
     } else {
         statusBar()->addPermanentWidget(m_busyWidget);
     }
@@ -608,13 +619,14 @@ void MainWindow::applyItemSize(int size)
     size = qBound(48, size, 128);
     m_itemSize = size;
     AppSettings::instance().setItemSize(size);
-    if (m_modernNavBar) {
-        m_modernNavBar->setItemSize(size);
+    if (m_sizeSlider) {
+        const QSignalBlocker blocker(m_sizeSlider);
+        m_sizeSlider->setValue(size);
     }
     if (m_gridView) {
         m_gridView->setIconSize(QSize(size, size));
         m_gridView->setGridSize(
-            QSize(qMax(150, size + 48), size + 72));
+            QSize(qMax(128, size + 24), size + 52));
     }
     if (m_treeView) {
         const int treeIcon = qMin(48, size);
