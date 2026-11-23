@@ -19,6 +19,11 @@ All notable changes to QArchiver (小Q解压) are documented here.
   `vX.Y.Z-portable` 为 Windows 绿色版。
 - 缩略图保持原始比例（不再裁剪成正方形）；通过 Qt imageformats 模块支持
   WebP/TIFF 等格式。
+- 现代布局：排序按钮图标修复；导航栏增加图标大小滑块，Ctrl + 滚轮可缩放；
+  默认字体提升到 10pt，网格图标与文字填充更大比例的单元格；左侧栏与内容区
+  配色区分更明显。
+- 选中条目后点击“一键解压”只解压所选条目；未选择时仍解压整个压缩包。
+- Windows 安装器提供简体中文/English 双语界面，并默认显示语言选择。
 
 ### Fixed / 修复
 

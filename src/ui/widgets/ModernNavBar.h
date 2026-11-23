@@ -12,6 +12,7 @@ class QLineEdit;
 class QToolButton;
 class QLabel;
 class QButtonGroup;
+class QSlider;
 
 // Back / forward / up buttons, an elided location label and the archive search
 // field.  The widget only emits requests; MainWindow owns navigation state.
@@ -28,6 +29,8 @@ public:
     // Updates the sort button tooltip/icon to the active sort state.
     // 更新排序按钮的提示与图标，反映当前排序状态。
     void setSortState(const QString &tooltip, bool descending);
+    // Icon size slider (48..128). / 图标大小滑块。
+    void setItemSize(int size);
     QString searchText() const;
     void setSearchText(const QString &text);
     void clearSearch();
@@ -42,12 +45,14 @@ signals:
     // Emitted when the sort button is clicked; globalPos is the menu anchor.
     // 点击排序按钮时发出；globalPos 为菜单锚点。
     void sortMenuRequested(const QPoint &globalPos);
+    void itemSizeChanged(int size);
 
 private:
     QToolButton *m_backButton = nullptr;
     QToolButton *m_forwardButton = nullptr;
     QToolButton *m_upButton = nullptr;
     QToolButton *m_sortButton = nullptr;
+    QSlider *m_sizeSlider = nullptr;
     QLabel *m_locationLabel = nullptr;
     QLineEdit *m_searchEdit = nullptr;
     QButtonGroup *m_viewGroup = nullptr;

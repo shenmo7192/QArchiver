@@ -116,6 +116,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_modernUi = AppSettings::instance().uiLayoutMode() == QStringLiteral("modern");
     m_sortColumn = AppSettings::instance().sortColumn();
     m_sortOrder = AppSettings::instance().sortOrder();
+    m_itemSize = AppSettings::instance().itemSize();
     buildUi();
 
     // The background image is a presentation option, independent of the
@@ -221,6 +222,7 @@ void MainWindow::buildUi()
         setupClassicUi();
     }
     setupStatusBar();
+    applyItemSize(m_itemSize);
     applyContentViewMode();
 
     if (ArchiveManager::instance().backend()) {

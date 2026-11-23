@@ -183,6 +183,9 @@ private:
     void applySort(int column, Qt::SortOrder order);
     QMenu *createSortMenu(QWidget *parent);
     void updateSortUi();
+    // Icon size for the grid/list views (slider / Ctrl+wheel).
+    // 网格/列表视图的图标大小（滑块 / Ctrl+滚轮）。
+    void applyItemSize(int size);
 
     // Operations / 操作
     void showProgressDialog(const QString &title);
@@ -275,6 +278,7 @@ private:
     QString m_searchText;
     int m_sortColumn = 0;
     Qt::SortOrder m_sortOrder = Qt::AscendingOrder;
+    int m_itemSize = 96;
 
     // Navigation history for the modern layout / 现代布局导航历史
     QStringList m_navHistory;

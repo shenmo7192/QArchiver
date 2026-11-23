@@ -362,6 +362,14 @@ void MainWindow::beginOneClickExtract()
     options.password = m_currentPassword;
     options.openDestAfterFinish = false;
 
+    // One-click extraction applies to the current selection.  With no
+    // selection the whole archive is extracted.
+    // 一键解压处理当前选择；没有选择时解压整个压缩包。
+    const QStringList selected = selectedEntryPaths();
+    if (!selected.isEmpty()) {
+        options.selectedFiles = selected;
+    }
+
     m_oneClickExtractActive = true;
     m_oneClickCloseAfter = closeAfter;
     m_openDestAfterExtract = AppSettings::instance().openDestAfterFinish()

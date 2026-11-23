@@ -190,6 +190,8 @@ void MainWindow::setupModernUi()
         menu->setAttribute(Qt::WA_DeleteOnClose);
         menu->popup(globalPos);
     });
+    connect(m_modernNavBar, &ModernNavBar::itemSizeChanged,
+            this, &MainWindow::applyItemSize);
     connect(m_folderPane, &ArchiveFolderPane::directoryActivated,
             this, &MainWindow::onFolderDirectoryActivated);
     connect(m_welcomePage, &WelcomePage::openRequested,
@@ -360,6 +362,9 @@ ArchiveTreeView *MainWindow::createArchiveTree(QWidget *parent)
             this, &MainWindow::onEntryDoubleClicked);
     connect(tree, &ArchiveTreeView::dragOutRequested,
             this, &MainWindow::onEntriesDragOut);
+    connect(tree, &ArchiveTreeView::zoomRequested, this, [this](int direction) {
+        applyItemSize(m_itemSize + (direction > 0 ? 8 : -8));
+    });
     connect(&AppSettings::instance(), &AppSettings::backgroundImageChanged,
             tree, &ArchiveTreeView::reloadBackgroundFromSettings);
 
@@ -376,6 +381,9 @@ ArchiveGridView *MainWindow::createArchiveGrid(QWidget *parent)
             this, &MainWindow::onEntryDoubleClicked);
     connect(grid, &ArchiveGridView::dragOutRequested,
             this, &MainWindow::onEntriesDragOut);
+    connect(grid, &ArchiveGridView::zoomRequested, this, [this](int direction) {
+        applyItemSize(m_itemSize + (direction > 0 ? 8 : -8));
+    });
     connect(grid->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, [this, grid]() {
         if (grid == currentContentView()) {
@@ -593,6 +601,25 @@ void MainWindow::updateSortUi()
                  m_sortOrder == Qt::AscendingOrder ? tr("ascending")
                                                    : tr("descending")),
         m_sortOrder == Qt::DescendingOrder);
+}
+
+void MainWindow::applyItemSize(int size)
+{
+    size = qBound(48, size, 128);
+    m_itemSize = size;
+    AppSettings::instance().setItemSize(size);
+    if (m_modernNavBar) {
+        m_modernNavBar->setItemSize(size);
+    }
+    if (m_gridView) {
+        m_gridView->setIconSize(QSize(size, size));
+        m_gridView->setGridSize(
+            QSize(qMax(150, size + 48), size + 72));
+    }
+    if (m_treeView) {
+        const int treeIcon = qMin(48, size);
+        m_treeView->setIconSize(QSize(treeIcon, treeIcon));
+    }
 }
 
 QMenu *MainWindow::createSortMenu(QWidget *parent)

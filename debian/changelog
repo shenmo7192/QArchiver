@@ -13,6 +13,10 @@ qarchiver (2.3.0) unstable; urgency=medium
     (7-Zip -bsp1, CR/LF progress parsing).
   * Thumbnails keep the original aspect ratio instead of being cropped into a
     square; WebP/TIFF support via the Qt imageformats module.
+  * Modern layout: sort-button icon fix, icon-size slider and Ctrl+wheel zoom,
+    10pt default font, larger grid items and clearer sidebar contrast.
+  * One-click extraction honours the current selection.
+  * Windows installer is bilingual (Simplified Chinese / English).
   * Releases are split: vX.Y.Z contains installers (Windows setup.exe + Linux
     .deb), vX.Y.Z-portable contains the portable Windows ZIP.
 

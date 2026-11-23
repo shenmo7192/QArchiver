@@ -82,6 +82,9 @@ public:
     // 压缩包/本地文件列表的排序状态：列索引与顺序。
     int sortColumn() const;
     Qt::SortOrder sortOrder() const;
+    // Icon size of the modern list/grid views (48..128, default 96).
+    // 现代列表/网格视图的图标大小（48..128，默认 96）。
+    int itemSize() const;
     // Read archives with the libarchive backend instead of the command line.
     // Cached in an atomic so worker threads (PreviewManager) can read it too.
     // 使用 libarchive 后端而不是命令行读取压缩包；缓存在原子变量中，
@@ -116,6 +119,7 @@ public:
     void setBackgroundImageOpacity(qreal opacity);
     void setLocalBrowsePath(const QString &path);
     void setSort(int column, Qt::SortOrder order);
+    void setItemSize(int size);
     // Persist all background image options with one sync and one change signal.
     // 一次性持久化全部背景图片选项，只 sync 并发出一次变更信号。
     void setBackgroundImageOptions(const QString &path, const QString &alignment,

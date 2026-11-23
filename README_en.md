@@ -35,9 +35,10 @@ Pushing a `v*` tag makes the release workflow publish two separate releases:
 The Windows installer asks whether to associate archive formats (checked by
 default), adds Start Menu/desktop shortcuts, an uninstall entry and the Explorer
 context menus (open, one-click extract, dynamic "add to <name>.zip", compress
-to 7z/ZIP/tar...). The portable ZIP needs no installation: unzip and run
-`QArchiver.exe`; the context-menu scripts are in the same directory. Each
-release has its own `SHA256SUMS`.
+to 7z/ZIP/tar...). The installer is bilingual (Simplified Chinese/English).
+The portable ZIP needs no installation: unzip and run `QArchiver.exe`; the
+context-menu scripts are in the same directory. Each release has its own
+`SHA256SUMS`.
 
 Publish a release:
 
@@ -56,6 +57,8 @@ git push origin v2.3.0
 - The navigation bar above the archive list provides grid/list/tree switching on both the welcome and archive pages
 - Sort menu in the context menu and next to the view switcher: name/size/type/modified,
   ascending or descending, remembered across sessions (also applies to the grid view)
+- Modern layout: icon-size slider and Ctrl+wheel zoom, 10pt default font and
+  larger grid items, and clearer sidebar/content contrast
 - File-association manager (Preferences → Tools): Windows per-user ProgIDs,
   Linux xdg-mime / mimeapps.list; the installer asks to associate formats
 - Explorer context menu is an in-process extension: dynamic "add to <name>.zip"
@@ -63,7 +66,7 @@ git push origin v2.3.0
   the operation dialogs (no main window)
 - One-click extraction: automatically extracts into a separate folder named after the archive;
   on directory conflicts it automatically uses unique names such as `name (1)`; supports a first-use
-  prompt and "close the program after extraction"
+  prompt and "close the program after extraction"; extracts only the selection when items are selected
 - 7-Zip benchmark (`7z b`): live output, thread count selection, stop, and copy results
 - Modern and classic layouts can be switched instantly in Preferences; the classic layout keeps the
   original toolbar, recent-files sidebar, background image, and toolbar style options

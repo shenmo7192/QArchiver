@@ -146,6 +146,10 @@ jobs:
           } catch {
             Write-Host "Could not change the execution policy: $($_.Exception.Message)"
           }
+          # The bundled Simplified Chinese language file requires Inno Setup
+          # 6.5+; upgrade the runner image copy when necessary.
+          # 简体中文语言文件需要 Inno Setup 6.5+；必要时升级镜像自带版本。
+          choco upgrade innosetup -y --no-progress
           # The runner image normally ships Inno Setup 6; install it through
           # Chocolatey when it is missing.
           # 运行器镜像通常自带 Inno Setup 6；缺失时通过 Chocolatey 安装。

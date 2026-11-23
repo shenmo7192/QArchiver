@@ -14,7 +14,7 @@
 
 QWidget {
     color: @text@;
-    font-size: 9pt;
+    font-size: 10pt;
 }
 
 QMainWindow,
@@ -73,7 +73,7 @@ QToolButton#ModernToolButton {
     border-radius: 9px;
     padding: 5px 7px 4px 7px;
     color: @toolbarText@;
-    font-size: 9pt;
+    font-size: 10pt;
 }
 
 QToolButton#ModernToolButton:hover {
@@ -121,7 +121,7 @@ QLabel#ModernBrandTitle {
 
 QLabel#ModernBrandTagline {
     color: @brandTag@;
-    font-size: 9pt;
+    font-size: 10pt;
 }
 
 /* -------------------------------------------------------------------------

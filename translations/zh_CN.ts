@@ -1896,6 +1896,10 @@ Overwrite it?</source>
         <source>Sort</source>
         <translation>排序</translation>
     </message>
+    <message>
+        <source>Icon size (Ctrl + wheel)</source>
+        <translation>图标大小（Ctrl + 滚轮）</translation>
+    </message>
 </context>
 <context>
     <name>ModernToolBar</name>

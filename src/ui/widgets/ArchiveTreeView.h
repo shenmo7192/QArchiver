@@ -14,6 +14,7 @@
 
 class QPainter;
 class QShowEvent;
+class QWheelEvent;
 class ArchiveBackgroundOverlay;
 
 // Tree view for displaying archive contents (design doc 6 - widgets).
@@ -56,6 +57,9 @@ signals:
     // 接收方负责准备真实文件并启动实际 QDrag；
     // 视图完全不感知 ArchiveManager。
     void dragOutRequested(const QStringList &paths);
+    // Ctrl + wheel requests an icon-size change (positive = larger).
+    // Ctrl + 滚轮请求调整图标大小（正数为放大）。
+    void zoomRequested(int direction);
 
 protected:
     void drawBranches(QPainter *painter, const QRect &rect,
@@ -65,6 +69,7 @@ protected:
     void leaveEvent(QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
     void startDrag(Qt::DropActions supportedActions) override;
 
 private:

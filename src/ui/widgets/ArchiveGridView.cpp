@@ -9,6 +9,7 @@
 #include <QApplication>
 #include <QFontMetrics>
 #include <QMouseEvent>
+#include <QWheelEvent>
 #include <QPainter>
 #include <QStyledItemDelegate>
 #include <QStyleOptionViewItem>
@@ -179,6 +180,16 @@ void ArchiveGridView::mousePressEvent(QMouseEvent *event)
         m_dragStartPos = event->pos();
     }
     QListView::mousePressEvent(event);
+}
+
+void ArchiveGridView::wheelEvent(QWheelEvent *event)
+{
+    if (event->modifiers() & Qt::ControlModifier) {
+        emit zoomRequested(event->angleDelta().y());
+        event->accept();
+        return;
+    }
+    QListView::wheelEvent(event);
 }
 
 void ArchiveGridView::mouseMoveEvent(QMouseEvent *event)

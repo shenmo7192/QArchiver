@@ -60,6 +60,7 @@ UninstallDisplayName={#AppDisplayName}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+ShowLanguageDialog=yes
 CloseApplications=yes
 RestartApplications=no
 ArchitecturesAllowed={#ArchAllowed}
@@ -67,6 +68,7 @@ ArchitecturesInstallIn64BitMode={#ArchAllowed}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

@@ -11,6 +11,7 @@
 #include "utils/Logger.h"
 
 #include <QMouseEvent>
+#include <QWheelEvent>
 #include <QApplication>
 #include <QItemSelectionModel>
 #include <QPainter>
@@ -300,6 +301,16 @@ void ArchiveTreeView::mouseMoveEvent(QMouseEvent *event)
     m_dragActive = true;
     startDrag(Qt::CopyAction);
     m_dragActive = false;
+}
+
+void ArchiveTreeView::wheelEvent(QWheelEvent *event)
+{
+    if (event->modifiers() & Qt::ControlModifier) {
+        emit zoomRequested(event->angleDelta().y());
+        event->accept();
+        return;
+    }
+    QTreeView::wheelEvent(event);
 }
 
 void ArchiveTreeView::startDrag(Qt::DropActions supportedActions)

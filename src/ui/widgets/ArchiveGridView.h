@@ -10,6 +10,7 @@
 #include <QStringList>
 
 class QMouseEvent;
+class QWheelEvent;
 
 // Icon-mode view sharing FileListModel/FilterProxyModel with ArchiveTreeView.
 // It starts the existing drag-out workflow instead of Qt's internal model drag.
@@ -27,10 +28,12 @@ public:
 signals:
     void entryActivated(const QString &path);
     void dragOutRequested(const QStringList &paths);
+    void zoomRequested(int direction);
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
 private:
     QPoint m_dragStartPos;
