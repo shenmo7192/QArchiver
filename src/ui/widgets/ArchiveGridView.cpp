@@ -56,9 +56,10 @@ public:
         const QRect cellRect = view ? view->visualRect(index) : opt.rect;
         const QRect layoutRect = cellRect.isValid() ? cellRect : opt.rect;
         const QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
-        const QSize iconSize = opt.decorationSize.isValid()
-            ? opt.decorationSize
-            : (view ? view->iconSize() : QSize(56, 56));
+        const QSize iconSize = (view && view->iconSize().isValid())
+            ? view->iconSize()
+            : (opt.decorationSize.isValid() ? opt.decorationSize
+                                            : QSize(56, 56));
         const QString text = opt.text;
 
         opt.rect = layoutRect;
@@ -74,7 +75,14 @@ public:
         iconRect.moveCenter(QPoint(layoutRect.center().x(),
                                    layoutRect.top() + topPad
                                        + iconSize.height() / 2));
-        icon.paint(painter, iconRect, Qt::AlignCenter, QIcon::Normal);
+        if (!icon.isNull()) {
+            // QIcon::paint() draws at the icon's native pixmap size and does
+            // not enlarge a 64px file-type icon to the configured 96px cell.
+            // Request a pixmap at the exact size instead.
+            // QIcon::paint() 按图标原始 pixmap 大小绘制，不会把 64px 文件图标
+            // 放大到配置的 96px；这里显式请求目标尺寸的 pixmap。
+            painter->drawPixmap(iconRect, icon.pixmap(iconRect.size()));
+        }
 
         if (!text.isEmpty()) {
             painter->setPen(opt.palette.color(

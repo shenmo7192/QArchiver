@@ -14,37 +14,31 @@ HaoZip style and can be switched instantly back to the classic layout in
 
 ## Downloads
 
-Pushing a `v*` tag makes the release workflow publish two separate releases:
-
-**Installers** (tag `vX.Y.Z`, Windows setup.exe + Linux deb):
+Pushing a `v*` tag makes the release workflow publish one release containing
+both the installers and the portable Windows ZIP:
 
 | Platform | Artifact |
 | --- | --- |
 | Linux x86_64 | `qarchiver_<version>_amd64.deb` |
 | Linux ARM64 | `qarchiver_<version>_arm64.deb` |
-| Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe` |
-| Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe` |
-
-**Portable** (tag `vX.Y.Z-portable`, Windows ZIP):
-
-| Platform | Artifact |
-| --- | --- |
-| Windows x86_64 | `QArchiver-<version>-windows-x64.zip` |
-| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip` |
+| Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe` (installer) |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe` (installer) |
+| Windows x86_64 | `QArchiver-<version>-windows-x64.zip` (portable) |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip` (portable) |
 
 The Windows installer asks whether to associate archive formats (checked by
 default), adds Start Menu/desktop shortcuts, an uninstall entry and the Explorer
 context menus (open, one-click extract, dynamic "add to <name>.zip", compress
 to 7z/ZIP/tar...). The installer is bilingual (Simplified Chinese/English).
 The portable ZIP needs no installation: unzip and run `QArchiver.exe`; the
-context-menu scripts are in the same directory. Each release has its own
-`SHA256SUMS`.
+context-menu scripts are in the same directory. The release includes one
+`SHA256SUMS` for all assets.
 
 Publish a release:
 
 ```bash
-git tag v2.3.0
-git push origin v2.3.0
+git tag v2.3.1
+git push origin v2.3.1
 ```
 
 ## Features

@@ -4,7 +4,7 @@
 ; Build from the staged portable package:
 ; 从已部署好的便携包目录构建：
 ;
-;   ISCC.exe QArchiver.iss /DAppVersion=2.3.0 ^
+;   ISCC.exe QArchiver.iss /DAppVersion=2.3.1 ^
 ;       /DSourceDir=C:\path\to\staged ^
 ;       /DOutputDir=C:\path\to\dist /DArch=x64
 ;
@@ -17,7 +17,7 @@
 ; 新增格式时请同步修改两处。
 
 #ifndef AppVersion
-  #define AppVersion "2.3.0"
+  #define AppVersion "2.3.1"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\..\build-windows\package"
@@ -61,14 +61,18 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 ShowLanguageDialog=yes
+LanguageDetectionMethod=locale
 CloseApplications=yes
 RestartApplications=no
 ArchitecturesAllowed={#ArchAllowed}
 ArchitecturesInstallIn64BitMode={#ArchAllowed}
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+; Chinese first: when LanguageDetectionMethod cannot decide, this is the
+; preselected language on Chinese systems.
+; 中文放在首位：无法自动判断时中文系统默认选中中文。
 Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

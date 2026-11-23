@@ -15,8 +15,6 @@
 #include <QSize>
 #include <QLineEdit>
 #include <QResizeEvent>
-#include <QSignalBlocker>
-#include <QSlider>
 #include <QToolButton>
 
 namespace {
@@ -138,7 +136,7 @@ ModernNavBar::ModernNavBar(QWidget *parent)
     // 视图切换旁的小型排序菜单（网格视图没有表头可用）。
     m_sortButton = new QToolButton(this);
     m_sortButton->setObjectName(QStringLiteral("ModernNavButton"));
-    m_sortButton->setIcon(Icons::modern(QStringLiteral("sort-down.png")));
+    m_sortButton->setIcon(Icons::modern(QStringLiteral("sort.png")));
     m_sortButton->setIconSize(QSize(18, 18));
     m_sortButton->setFixedSize(30, 28);
     m_sortButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -148,19 +146,6 @@ ModernNavBar::ModernNavBar(QWidget *parent)
             m_sortButton->mapToGlobal(QPoint(0, m_sortButton->height())));
     });
     layout->addWidget(m_sortButton);
-
-    // Item-size slider (the grid can also be zoomed with Ctrl + wheel).
-    // 图标/条目大小滑块（网格视图也支持 Ctrl + 滚轮缩放）。
-    m_sizeSlider = new QSlider(Qt::Horizontal, this);
-    m_sizeSlider->setObjectName(QStringLiteral("ModernSizeSlider"));
-    m_sizeSlider->setRange(48, 128);
-    m_sizeSlider->setSingleStep(8);
-    m_sizeSlider->setPageStep(16);
-    m_sizeSlider->setFixedWidth(96);
-    m_sizeSlider->setToolTip(tr("Icon size (Ctrl + wheel)"));
-    connect(m_sizeSlider, &QSlider::valueChanged, this,
-            &ModernNavBar::itemSizeChanged);
-    layout->addWidget(m_sizeSlider);
 
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setObjectName(QStringLiteral("ModernSearchEdit"));
@@ -207,23 +192,12 @@ void ModernNavBar::setViewMode(const QString &mode)
 
 void ModernNavBar::setSortState(const QString &tooltip, bool descending)
 {
+    Q_UNUSED(descending);
     if (!m_sortButton) {
         return;
     }
     m_sortButton->setToolTip(tooltip);
-    m_sortButton->setIcon(
-        Icons::modern(descending ? QStringLiteral("sort-down.png")
-                                 : QStringLiteral("sort-up.png")));
-}
-
-void ModernNavBar::setItemSize(int size)
-{
-    if (!m_sizeSlider) {
-        return;
-    }
-    const QSignalBlocker blocker(m_sizeSlider);
-    m_sizeSlider->setValue(qBound(m_sizeSlider->minimum(), size,
-                                  m_sizeSlider->maximum()));
+    m_sortButton->setIcon(Icons::modern(QStringLiteral("sort.png")));
 }
 
 void ModernNavBar::setNavigationState(bool canGoBack, bool canGoForward,

@@ -38,6 +38,7 @@ class QLineEdit;
 class QMenu;
 class QProgressBar;
 class QAbstractItemView;
+class QSlider;
 
 // Main application window.
 // It owns two interchangeable chrome layouts share the same models, actions and
@@ -265,6 +266,7 @@ private:
     QProgressBar *m_busyBar = nullptr;
     QLabel *m_statusSummaryLeft = nullptr;
     QLabel *m_statusSummaryRight = nullptr;
+    QSlider *m_sizeSlider = nullptr;
 
     // State / 状态
     QString m_currentPassword;   // Password for the current archive / 当前压缩包密码

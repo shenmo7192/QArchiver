@@ -1,3 +1,15 @@
+qarchiver (2.3.1) unstable; urgency=medium
+
+  * Sort button uses the standard two-arrow icon (centred), the item-size
+    slider moved to the bottom-right status bar, and Ctrl+wheel zoom remains.
+  * Taller near-square folder icon.
+  * Modern layout uses a 10.5pt font, tighter 128x152 grid cells (icon and
+    label fill about 80%), and a darker sidebar for better contrast.
+  * Installer defaults to Simplified Chinese on Chinese systems.
+  * Installers and portable ZIP stay in a single GitHub Release.
+
+ -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 22:40:00 +0800
+
 qarchiver (2.3.0) unstable; urgency=medium
 
   * Windows Explorer context menu now uses a small in-process shell extension:
@@ -17,8 +29,8 @@ qarchiver (2.3.0) unstable; urgency=medium
     10pt default font, larger grid items and clearer sidebar contrast.
   * One-click extraction honours the current selection.
   * Windows installer is bilingual (Simplified Chinese / English).
-  * Releases are split: vX.Y.Z contains installers (Windows setup.exe + Linux
-    .deb), vX.Y.Z-portable contains the portable Windows ZIP.
+  * Each release contains both installers (Windows setup.exe + Linux .deb)
+    and the portable Windows ZIP.
 
  -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 21:40:00 +0800
 

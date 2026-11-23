@@ -488,6 +488,7 @@ QHash<QString, QString> modernTokens(bool dark)
         tokens.insert(QStringLiteral("rowHover"), QStringLiteral("#26313e"));
         tokens.insert(QStringLiteral("rowHoverBorder"), QStringLiteral("#33404e"));
         tokens.insert(QStringLiteral("detailsBg"), QStringLiteral("#151b23"));
+        tokens.insert(QStringLiteral("sidebarBg"), QStringLiteral("#161c24"));
         tokens.insert(QStringLiteral("welcomeBg"), QStringLiteral("#1b2330"));
         tokens.insert(QStringLiteral("welcomeBorder"), QStringLiteral("#31465e"));
         tokens.insert(QStringLiteral("buttonBg"), QStringLiteral("#242b35"));
@@ -542,6 +543,7 @@ QHash<QString, QString> modernTokens(bool dark)
         tokens.insert(QStringLiteral("rowHover"), QStringLiteral("#f2f7ff"));
         tokens.insert(QStringLiteral("rowHoverBorder"), QStringLiteral("#e3edf8"));
         tokens.insert(QStringLiteral("detailsBg"), QStringLiteral("#e4edf8"));
+        tokens.insert(QStringLiteral("sidebarBg"), QStringLiteral("#d7dfe9"));
         tokens.insert(QStringLiteral("welcomeBg"), QStringLiteral("#f3f9ff"));
         tokens.insert(QStringLiteral("welcomeBorder"), QStringLiteral("#bfd5ea"));
         tokens.insert(QStringLiteral("buttonBg"), QStringLiteral("#ffffff"));
@@ -613,7 +615,7 @@ void applyFont(QApplication &app)
     }
     // Windows 7 uses 9 pt Segoe UI for standard dialogs.
     // Windows 7 标准对话框使用 9 pt Segoe UI。
-    font.setPointSizeF(10.0);
+    font.setPointSizeF(10.5);
     app.setFont(font);
 }
 
