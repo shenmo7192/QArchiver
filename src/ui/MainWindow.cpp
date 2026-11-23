@@ -5,11 +5,6 @@
 // MainWindow：构造、页面切换、后端信号处理与输入事件。布局构建、动作、
 // 导航、解压与拖出位于同级 MainWindow*.cpp 文件中。
 
-// QArchiver / 小Q解压
-// MainWindow implementation: modern and classic layouts, actions, drag/drop,
-// previews, one-click extraction and dialogs.
-// MainWindow 实现：现代与经典布局、动作、拖放、预览、一键解压与对话框。
-
 #include "common/FormatRegistry.h"
 
 #include "ui/MainWindow.h"
@@ -111,6 +106,22 @@ MainWindow::MainWindow(QWidget *parent)
     m_model = new FileListModel(this);
     m_proxyModel = new FilterProxyModel(this);
     m_proxyModel->setSourceModel(m_model);
+
+    // Slider ticks and Ctrl+wheel events arrive in bursts.  Update the view
+    // immediately but persist the size only after the interaction settles.
+    // 滑块拖动与 Ctrl+滚轮会连续触发事件；界面立即更新，停止操作后再持久化。
+    m_itemSizeSaveTimer = new QTimer(this);
+    m_itemSizeSaveTimer->setSingleShot(true);
+    m_itemSizeSaveTimer->setInterval(400);
+    connect(m_itemSizeSaveTimer, &QTimer::timeout, this, [this]() {
+        AppSettings::instance().setItemSize(m_itemSize);
+    });
+    connect(qApp, &QCoreApplication::aboutToQuit, this, [this]() {
+        if (m_itemSizeSaveTimer && m_itemSizeSaveTimer->isActive()) {
+            m_itemSizeSaveTimer->stop();
+            AppSettings::instance().setItemSize(m_itemSize);
+        }
+    });
 
     setupActions();
     m_modernUi = AppSettings::instance().uiLayoutMode() == QStringLiteral("modern");
@@ -222,7 +233,7 @@ void MainWindow::buildUi()
         setupClassicUi();
     }
     setupStatusBar();
-    applyItemSize(m_itemSize);
+    applyItemSizeInternal(m_itemSize, false);
     applyContentViewMode();
 
     if (ArchiveManager::instance().backend()) {
@@ -821,6 +832,10 @@ void MainWindow::dropEvent(QDropEvent *event)
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    if (m_itemSizeSaveTimer && m_itemSizeSaveTimer->isActive()) {
+        m_itemSizeSaveTimer->stop();
+        AppSettings::instance().setItemSize(m_itemSize);
+    }
     if (m_progressDialog) {
         m_progressDialog->close();
         m_progressDialog = nullptr;

@@ -1,3 +1,21 @@
+qarchiver (0.1.3) unstable; urgency=medium
+
+  * Classic layout: add Forward/Back/Up buttons to the left of the filter field
+    (Forward, Back, Up) with shared history and Alt+Right/Left/Up shortcuts.
+  * Classic grid view now shows image thumbnails; classic list/tree keep the
+    regular image icon. Modern list thumbnails are fitted to the row height
+    with a bounded width.
+  * Classic list/tree use a compact 16px icon and 24px row height; the classic
+    content-view setting now applies to both layouts.
+  * Fix Linux mimeapps.list corruption by replacing QSettings writes with an
+    atomic, format-preserving MimeAppsList implementation.
+  * Fix .r?? suffix misclassification, split-volume target names and icons,
+    grid-mode ".." entries, classic folder double-click after a layout switch,
+    dialog-only exit, itemSize persistence and a ThumbnailManager build warning.
+  * Add missing classic/modern icons and a static Windows issue review document.
+
+ -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 23:59:00 +0800
+
 qarchiver (2.3.0) unstable; urgency=medium
 
   * Windows Explorer context menu now uses a small in-process shell extension:

@@ -54,7 +54,7 @@ NEUTRAL_GLYPHS = {"check", "minus", "radio-dot"}
 
 # Icons that are also used as themed glyphs (written to both places).
 # 同时作为主题字形使用的图标（两处都写）。
-DUAL_ICONS = {"search.png"}
+DUAL_ICONS = {"search.png", "close.png"}
 
 
 def output_path(name: str) -> Path:
@@ -66,6 +66,11 @@ def output_path(name: str) -> Path:
         return GLYPHS_DARK / (stem[: -len("-light")] + ".png")
     if stem in NEUTRAL_GLYPHS:
         return GLYPHS_ROOT / name
+    if name in DUAL_ICONS:
+        # These are toolbar icons and themed glyphs at the same time.  Write
+        # the toolbar copy first, then duplicate it into light/ below.
+        # 这些图标既用于工具栏又作为主题字形；先写工具栏副本，再复制到 light/。
+        return ICONS / name
     if stem in GLYPH_NAMES:
         return GLYPHS_LIGHT / name
     if stem.startswith("file-") or stem in ("file", "folder"):

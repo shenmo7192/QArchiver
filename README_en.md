@@ -43,8 +43,8 @@ context-menu scripts are in the same directory. Each release has its own
 Publish a release:
 
 ```bash
-git tag v2.3.0
-git push origin v2.3.0
+git tag v0.1.3
+git push origin v0.1.3
 ```
 
 ## Features
@@ -69,7 +69,8 @@ git push origin v2.3.0
   prompt and "close the program after extraction"; extracts only the selection when items are selected
 - 7-Zip benchmark (`7z b`): live output, thread count selection, stop, and copy results
 - Modern and classic layouts can be switched instantly in Preferences; the classic layout keeps the
-  original toolbar, recent-files sidebar, background image, and toolbar style options
+  original toolbar, recent-files sidebar, background image, and toolbar style options. Its filter row
+  also hosts Forward, Back and Up buttons to the left of the search field
 - Browse archive contents in a grid by default, switchable between grid, list, and tree views; filtering and sorting supported;
   grid icons are centred and long filenames wrap across multiple lines
 - Extraction: all or selected entries, overwrite strategies (ask/overwrite/skip/rename), password, encoding hints
@@ -81,7 +82,10 @@ git push origin v2.3.0
   this threshold only controls whether the prompt appears and does not limit the total batch extraction size
 - Icons for common file kinds: images, audio/video, PDF, Office, code, fonts, disk images, e-books, databases, torrents, design files, subtitles, 3D/CAD, packages, and more
 - Native system file dialogs; compression sources ask for files or a folder, then use the native dialog
-- Archive images show real thumbnails in grid/list views (extracted in the background and persistently cached); double-click opens the system viewer for continuous browsing
+- Archive images show real thumbnails (extracted in the background and persistently cached): modern
+  grid/list/tree views all show them, with modern list thumbnails fitted to the row height and a bounded
+  width; the classic layout only shows thumbnails in the grid view, while its list/tree keep the regular
+  image icon. Double-click still opens the system viewer for continuous browsing
 - Drag-out: drag selected entries directly to a file manager/desktop to extract them while preserving directory structure
   (extraction happens in the background to a staging directory, cancellable with `Esc`; a second drag of the same selection is zero-latency)
 
@@ -149,6 +153,8 @@ One-click extraction configuration keys:
 Other configurable items (Preferences):
 
 - Interface layout: `ui/layoutMode`, `modern` (default) or `classic`;
+- Content view: `ui/contentViewMode`, `grid` (default) / `tree` / `list`;
+- Icon size: `ui/itemSize`, default 96, range 48–128; classic list/tree use a fixed compact size;
 - Continuous image viewing preparation dialog threshold: `preview/continuousImageDialogThreshold`, default 200, range 0–9999;
 - Recent files limit: `history/recentFilesLimit`, default 20, range 1–100; lowering it trims immediately and refreshes the sidebar.
 

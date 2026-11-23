@@ -27,6 +27,7 @@ public:
     // Switch between hierarchical tree and flat list presentation.
     // 在层次树和扁平列表展示之间切换。
     void setFlatMode(bool flat);
+    bool isFlatMode() const { return m_flatMode; }
 
     // Selected archive entry paths (full internal paths, e.g. "dir/file.txt")
     // 选中的压缩包条目路径（完整内部路径，例如 "dir/file.txt"）

@@ -10,6 +10,7 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QHash>
+#include <QRegularExpression>
 #include <QSet>
 
 namespace {
@@ -46,9 +47,16 @@ FileTypeHelper::Kind FileTypeHelper::kindFor(const QString &fileName, bool isDir
 
     const QString suffix = FormatRegistry::kindSuffix(fileName);
 
-    // Archive suffixes (including compound ones) come from FormatRegistry.
-    // 压缩包后缀（含复合后缀）由 FormatRegistry 提供。
-    if (FormatRegistry::archiveLikeSuffixes().contains(suffix)) {
+    // Archive suffixes (including compound ones and split volumes) come from
+    // FormatRegistry.  formatFromSuffix()/isSplitVolume() understand the
+    // normalized forms (partNN.rar, r00, zip.001), while archiveLikeSuffixes()
+    // covers recognized-but-not-openable formats such as cab/arj/ace.
+    // 压缩包后缀（含复合后缀与分卷）由 FormatRegistry 提供；
+    // formatFromSuffix()/isSplitVolume() 能识别规范化形式（partNN.rar、r00、
+    // zip.001），archiveLikeSuffixes() 补充 cab/arj/ace 等可识别但不可打开的格式。
+    if (FormatRegistry::isSplitVolume(fileName)
+        || FormatRegistry::formatFromSuffix(fileName) != ArchiveFormat::Unknown
+        || FormatRegistry::archiveLikeSuffixes().contains(suffix)) {
         return Kind::Archive;
     }
 
@@ -287,12 +295,16 @@ QString FileTypeHelper::iconPath(const QString &fileName, bool isDir, bool moder
     case Kind::Package:      return fileTypePath("file-package.png");
     case Kind::Archive: {
         const QString suffix = FormatRegistry::kindSuffix(fileName);
-        if (suffix == QLatin1String("zip")) {
+        if (suffix == QLatin1String("zip")
+            || suffix == QLatin1String("zip.001")) {
             return fileTypePath("file-zip.png");
         }
+        static const QRegularExpression oldRarVolumeRe(
+            QStringLiteral("^r\\d{2,}$"),
+            QRegularExpression::CaseInsensitiveOption);
         if (suffix == QLatin1String("rar")
-            || suffix == QLatin1String("part1.rar")
-            || suffix == QLatin1String("partNN.rar")) {
+            || suffix == QLatin1String("partNN.rar")
+            || oldRarVolumeRe.match(suffix).hasMatch()) {
             return fileTypePath("file-rar.png");
         }
         if (suffix == QLatin1String("7z")

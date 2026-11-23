@@ -4,10 +4,14 @@
 
 #include "ui/models/FileListViewDelegate.h"
 
+#include "ui/models/FileListModel.h"
 #include "ui/theme/AeroRowColors.h"
 #include "ui/widgets/ArchiveTreeView.h"
 
 #include "ui/theme/ThemeManager.h"
+
+#include <QIcon>
+#include <QPixmap>
 
 #include <QApplication>
 #include <QPainter>
@@ -20,12 +24,85 @@ FileListViewDelegate::FileListViewDelegate(QObject *parent)
 {
 }
 
+QSize FileListViewDelegate::thumbnailDisplaySize(const QSize &source,
+                                                  const QSize &limit)
+{
+    if (source.isEmpty() || limit.isEmpty()) {
+        return {};
+    }
+    QSize scaled = source.scaled(limit, Qt::KeepAspectRatio);
+    // QSize::scaled() rounds independently and can collapse an extremely thin
+    // panorama to zero height. Keep both dimensions drawable.
+    // QSize::scaled() 会分别取整，极端扁长的全景图可能被算成 0 高；
+    // 保证两个维度都至少为 1 像素。
+    scaled.setWidth(qMax(1, scaled.width()));
+    scaled.setHeight(qMax(1, scaled.height()));
+    return scaled;
+}
+
+void FileListViewDelegate::initStyleOption(
+    QStyleOptionViewItem *option, const QModelIndex &index) const
+{
+    QStyledItemDelegate::initStyleOption(option, index);
+
+    // Only the modern flat list needs this: its rows stay 26px high while a
+    // thumbnail can be much larger. Tree and grid views keep their existing
+    // icon sizing, and classic views do not enable thumbnails here.
+    // 只处理现代扁平列表：行高固定为 26px，而缩略图可能更大。树/网格
+    // 保持现有图标尺寸，经典视图的缩略图开关也不在这里处理。
+    if (!ThemeManager::isModernLayout()
+        || !index.data(FileListModel::IsThumbnailRole).toBool()) {
+        return;
+    }
+    const auto *view = qobject_cast<const ArchiveTreeView *>(option->widget);
+    if (!view || !view->isFlatMode() || option->rect.height() <= 4) {
+        return;
+    }
+
+    const int targetHeight = option->rect.height() - 4;
+    const QSize limit(96, targetHeight);
+    const QIcon source = option->icon;
+    if (source.isNull()) {
+        return;
+    }
+
+    QSize sourceSize;
+    for (const QSize &candidate : source.availableSizes()) {
+        if (!sourceSize.isValid()
+            || candidate.width() * candidate.height()
+                > sourceSize.width() * sourceSize.height()) {
+            sourceSize = candidate;
+        }
+    }
+    if (!sourceSize.isValid()) {
+        sourceSize = QSize(128, 128);
+    }
+
+    const QPixmap sourcePixmap = source.pixmap(sourceSize);
+    if (sourcePixmap.isNull()) {
+        return;
+    }
+    const QSize target = thumbnailDisplaySize(sourcePixmap.size(), limit);
+    if (!target.isValid()) {
+        return;
+    }
+
+    const QPixmap scaled = sourcePixmap.scaled(
+        target, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    option->icon = QIcon(scaled);
+    option->decorationSize = scaled.size();
+}
+
 QSize FileListViewDelegate::sizeHint(const QStyleOptionViewItem &option,
                                      const QModelIndex &index) const
 {
     QSize size = QStyledItemDelegate::sizeHint(option, index);
-    // Slightly taller rows for readability / 行高略增以提升可读性
-    const int minimumHeight = ThemeManager::isModernLayout() ? 26 : 24;
+    // Modern rows keep their existing height. Classic rows must fit their icon
+    // so a larger decoration size can never overlap the next row.
+    // 现代行高保持不变；经典行高必须容纳图标，避免图标尺寸变化后与下一行重叠。
+    const int minimumHeight = ThemeManager::isModernLayout()
+        ? 26
+        : qMax(24, option.decorationSize.height() + 4);
     if (size.height() < minimumHeight) {
         size.setHeight(minimumHeight);
     }

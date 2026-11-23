@@ -3,11 +3,6 @@
 // dialogs that drive them.
 // MainWindow 解压：解压/添加流程、一键解压以及驱动它们的对话框。
 
-// QArchiver / 小Q解压
-// MainWindow implementation: modern and classic layouts, actions, drag/drop,
-// previews, one-click extraction and dialogs.
-// MainWindow 实现：现代与经典布局、动作、拖放、预览、一键解压与对话框。
-
 #include "common/FormatRegistry.h"
 
 #include "ui/MainWindow.h"
@@ -319,7 +314,16 @@ bool MainWindow::askOneClickClosePreference()
 void MainWindow::beginOneClickExtract()
 {
     auto &manager = ArchiveManager::instance();
-    if (!manager.backend() || manager.isBusy()) {
+    if (!manager.backend()) {
+        // A shell --oneclick invocation owns a hidden window; never leave it
+        // running when there is no archive backend to extract with.
+        // 外壳 --oneclick 使用隐藏窗口；没有可用后端时必须退出，不能留下进程。
+        if (m_dialogOnly) {
+            finishDialogOnly();
+        }
+        return;
+    }
+    if (manager.isBusy()) {
         return;
     }
     if (!m_listReady) {
@@ -331,16 +335,21 @@ void MainWindow::beginOneClickExtract()
     m_oneClickPending = false;
     const bool closeAfter = askOneClickClosePreference();
 
+    const auto failPreflight = [this](const QString &message) {
+        MessageBoxUtils::showWarning(this, tr("One-click Extract"), message);
+        if (m_dialogOnly) {
+            finishDialogOnly();
+        }
+    };
+
     const QString root = oneClickDestinationRoot();
     if (root.isEmpty() || !QDir().mkpath(root)) {
-        MessageBoxUtils::showWarning(
-            this, tr("One-click Extract"),
+        failPreflight(
             tr("Cannot create the destination directory:\n%1").arg(root));
         return;
     }
     if (!QFileInfo(root).isDir() || !QFileInfo(root).isWritable()) {
-        MessageBoxUtils::showWarning(
-            this, tr("One-click Extract"),
+        failPreflight(
             tr("The destination directory is not writable:\n%1").arg(root));
         return;
     }

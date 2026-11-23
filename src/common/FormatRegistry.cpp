@@ -121,8 +121,13 @@ ArchiveFormat formatFromSuffix(const QString &filePath)
     if (ext == QLatin1String(".rar") || ext == QLatin1String(".partNN.rar")) {
         return ArchiveFormat::Rar5;
     }
-    if (ext.startsWith(QLatin1Char('.')) && ext.at(1) == QLatin1Char('r')
-        && ext.size() >= 4) {
+    // Old RAR volumes are .r00, .r01, ... (at least two digits).  Do not treat
+    // every .r?? suffix as RAR: .rtf, .rpm and .rst are ordinary files.
+    // 旧式 RAR 分卷是 .r00、.r01 等（至少两位数字）；不能把所有 .r?? 都当作
+    // RAR，否则 .rtf、.rpm、.rst 等普通文件会被误判。
+    static const QRegularExpression rar4SuffixRe(
+        QStringLiteral("^\\.r\\d{2,}$"));
+    if (rar4SuffixRe.match(ext).hasMatch()) {
         return ArchiveFormat::Rar4;
     }
     if (ext == QLatin1String(".gz")) {
@@ -209,11 +214,34 @@ bool isArchivePath(const QString &filePath)
 QString stripArchiveExtension(const QString &fileName)
 {
     QString name = fileName;
+    QString removedSuffix;
     for (const QString &suffix : openableSuffixes()) {
         if (name.endsWith(suffix, Qt::CaseInsensitive)) {
+            removedSuffix = suffix;
             name.chop(suffix.size());
             break;
         }
+    }
+
+    // RAR5 split volumes are named "archive.part1.rar"; after removing .rar the
+    // part number is not part of the archive name.  Drop it so one-click
+    // extraction uses "archive" rather than "archive.part1".
+    // RAR5 分卷名为 "archive.part1.rar"；去掉 .rar 后 part 编号不属于压缩包
+    // 名称，需要一并去掉，否则一键解压目录会变成 "archive.part1"。
+    if (removedSuffix.compare(QLatin1String(".rar"), Qt::CaseInsensitive) == 0) {
+        static const QRegularExpression rarPartRe(
+            QStringLiteral("\\.part\\d+$"),
+            QRegularExpression::CaseInsensitiveOption);
+        name.remove(rarPartRe);
+    } else if (removedSuffix.isEmpty()) {
+        // Old RAR volumes have no openable suffix in the table above; their
+        // .r00/.r01 suffix is still part of the volume name, not the base name.
+        // 旧式 RAR 分卷不在上面的可打开后缀表中；.r00/.r01 仍是分卷后缀，
+        // 不属于压缩包基名。
+        static const QRegularExpression rar4PartRe(
+            QStringLiteral("\\.r\\d{2,}$"),
+            QRegularExpression::CaseInsensitiveOption);
+        name.remove(rar4PartRe);
     }
 
     // Split-volume names resolve to "archive.7z" / "archive.zip" after the
@@ -238,7 +266,6 @@ const QStringList &archiveLikeSuffixes()
         QStringLiteral("tar.gz"), QStringLiteral("tar.xz"),
         QStringLiteral("tar.bz2"), QStringLiteral("tar.zst"),
         QStringLiteral("7z.001"), QStringLiteral("zip.001"),
-        QStringLiteral("part1"), QStringLiteral("part1.rar"),
         // Recognized archive types that need an external tool / 需要外部工具的压缩包类型
         QStringLiteral("cab"), QStringLiteral("arj"), QStringLiteral("lzh"),
         QStringLiteral("lha"), QStringLiteral("ace")

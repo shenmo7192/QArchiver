@@ -3,6 +3,49 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [0.1.3] - 2026-11-23
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Added / 新增
+
+- 经典布局在“按名称或路径筛选”搜索框左侧新增前进、后退、上一级按钮，
+  顺序为前进→后退→上一级；复用现代导航栏的历史与目录状态，并保留
+  `Alt+Right` / `Alt+Left` / `Alt+Up` 快捷键。
+- 经典布局网格视图支持图片缩略图；经典列表/树保持普通图片图标。现代布局
+  所有视图继续显示缩略图，其中现代列表缩略图按行高等比缩放，宽度上限 96px。
+- 经典布局的内容视图设置与现代布局共用，网格/列表/树均可生效；经典列表/树
+  使用 16px 图标与 24px 行高，避免图标重叠。
+- 补齐经典布局的 `add.png`、`test.png`、`left.ico`、`right.ico` 及现代布局的
+  `close.png` 等资源，并同步资源清单与图标检查脚本。
+- Linux 文件关联改为自维护 `mimeapps.list` 读写，保留无关的节、注释和 freedesktop
+  标准格式；新增 `MimeAppsList` 单元测试。
+- Windows 问题静态审查记录：`WINDOWS_ISSUES.md`（仅记录，未修改 Windows 代码）。
+
+### Fixed / 修复
+
+- Linux 文件关联通过 `QSettings` 写入时产生 `[Default%20Applications]`、
+  `application\zip` 等非法内容，可能损坏 `mimeapps.list`；现改为原子写入并
+  保留原有格式。
+- `.r00`/`.r01` 之外的文件（如 `.rtf`、`.rpm`、`.rst`）被误判为 RAR4；分卷
+  目标文件夹名与图标识别不完整，`data.part1.rar`、`.zip.001`、`.7z.001` 等
+  现在能正确归类并生成目标名。
+- 现代列表的图片缩略图超出 26px 行高、上下被裁切；现在按行高缩放并保持比例。
+- 从现代布局切到经典布局后，经典列表的双击文件夹无反应；现在始终同步
+  `ArchiveTreeView` 的 flat 状态，列表/网格双击可进入目录，树状视图继续展开/收起。
+- 网格视图进入子目录后错误显示 `..`；现在网格隐藏该行，通过“上一级”返回，
+  列表模式仍保留 `..`，树模式不受影响。
+- 经典列表/树图标过大导致行间重叠；现代布局尺寸保持不变。
+- `--oneclick` 无后端或目标不可写时隐藏窗口进程不退出；现在会显示提示并结束
+  dialog-only 流程。
+- `ui/itemSize` 只在拖动结束时持久化，异常退出可能丢失；现在延迟保存并在
+  `closeEvent`/`aboutToQuit` 兜底。
+- `ThumbnailManager` 忽略 `QtConcurrent::run()` 的 nodiscard 返回值产生编译警告；
+  改用 `QThreadPool::start()`。
+- 资源检查脚本漏检 lambda 中的图标调用；现代/经典缺失图标已补齐（包括
+  `folder.png` 与 `close.png`）。
+- 清理 `MainWindow` 拆分文件中重复的头注释，更新 README、设计文档和配置项说明。
+
 ## [2.3.0] - 2026-11-23
 
 作者：shenmo <shenmo@spark-app.store>
@@ -178,6 +221,7 @@ All notable changes to QArchiver (小Q解压) are documented here.
 - 修正后台取色/透明度测试在不同渲染后端上的舍入误差。
 - 清理 mk-build-deps 遗留文件与 Qt 5 时代文档描述。
 
+[0.1.3]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.3
 [0.1.2]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.2
 [2.1.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.1.1
 [2.2.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.2.0

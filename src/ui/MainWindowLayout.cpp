@@ -4,11 +4,6 @@
 // MainWindow 布局：现代与经典界面外观、工具栏、侧边栏、内容视图、
 // 状态栏与视图模式切换。
 
-// QArchiver / 小Q解压
-// MainWindow implementation: modern and classic layouts, actions, drag/drop,
-// previews, one-click extraction and dialogs.
-// MainWindow 实现：现代与经典布局、动作、拖放、预览、一键解压与对话框。
-
 #include "ui/MainWindow.h"
 
 #include "ui/MainWindowHelpers.h"
@@ -90,6 +85,7 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolButton>
 #include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -295,7 +291,28 @@ void MainWindow::setupClassicCentralWidget()
     archiveLayout->setContentsMargins(0, 0, 0, 0);
     archiveLayout->setSpacing(2);
 
-    m_searchEdit = new QLineEdit(archivePage);
+    // Classic navigation sits immediately left of the filter field, in the
+    // requested order: Forward, Back, Up, Search.
+    // 经典导航按钮位于筛选框左侧，按指定顺序排列：前进、后退、上一级、搜索。
+    auto *searchRow = new QWidget(archivePage);
+    searchRow->setObjectName(QStringLiteral("ClassicSearchRow"));
+    auto *searchRowLayout = new QHBoxLayout(searchRow);
+    searchRowLayout->setContentsMargins(0, 0, 0, 0);
+    searchRowLayout->setSpacing(2);
+
+    auto addNavButton = [searchRow, searchRowLayout](QAction *action) {
+        auto *button = new QToolButton(searchRow);
+        button->setDefaultAction(action);
+        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        button->setIconSize(QSize(20, 20));
+        button->setAutoRaise(true);
+        searchRowLayout->addWidget(button);
+    };
+    addNavButton(m_forwardAct);
+    addNavButton(m_backAct);
+    addNavButton(m_upAct);
+
+    m_searchEdit = new QLineEdit(searchRow);
     m_searchEdit->setObjectName(QStringLiteral("SearchEdit"));
     m_searchEdit->setPlaceholderText(tr("Filter by name or path (wildcards allowed)..."));
     m_searchEdit->setClearButtonEnabled(true);
@@ -305,7 +322,8 @@ void MainWindow::setupClassicCentralWidget()
     updateSearchIcon();
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &MainWindow::onSearchChanged);
-    archiveLayout->addWidget(m_searchEdit);
+    searchRowLayout->addWidget(m_searchEdit, 1);
+    archiveLayout->addWidget(searchRow);
 
     m_viewStack = new QStackedWidget(archivePage);
     m_treeView = createArchiveTree(m_viewStack);
@@ -460,8 +478,26 @@ void MainWindow::applyContentViewMode()
     const bool modeChanged = m_model->isFlatMode() != flat;
     if (modeChanged) {
         m_model->setFlatMode(flat);
+    }
+    // A newly created view starts in tree mode even when the model is already
+    // flat (e.g. switching from modern list to classic). Always synchronize the
+    // view itself, not just when the model changes, or double-clicking folders
+    // is handled as expand/collapse instead of navigation.
+    // 新建视图默认是树模式，即使模型已经是扁平模式（例如从现代列表切到
+    // 经典布局）。必须始终同步视图自身状态，否则双击文件夹会被当成展开/收起
+    // 而不是进入目录。
+    if (m_treeView->isFlatMode() != flat) {
         m_treeView->setFlatMode(flat);
     }
+    // List mode keeps the synthetic ".." row; grid mode navigates with the
+    // Up action only. Tree mode never uses the row.
+    // 列表模式保留合成的 ".." 行；网格模式只通过“上一级”动作返回；
+    // 树模式本身不使用该行。
+    m_model->setShowParentEntry(mode == QStringLiteral("list"));
+    // Modern views show thumbnails everywhere; classic only in the grid.
+    // 现代视图全部显示缩略图；经典布局只在网格视图显示。
+    m_model->setThumbnailsEnabled(m_modernUi
+                                  || mode == QStringLiteral("grid"));
     applyHeaderColumns();
 
     // Sort through the shared sort state: the grid view has no header and the
@@ -486,14 +522,19 @@ void MainWindow::applyContentViewMode()
         m_treeView->scrollToTop();
     }
 
+    // Switching between flat list/grid and hierarchical tree changes what
+    // "current directory" means.  Reset the shared history for both layouts;
+    // otherwise a stale tree/list directory can leave Back/Up enabled after
+    // the view switch.  Grid <-> list keeps the current directory and history.
+    // 在扁平列表/网格与层次树之间切换时，“当前目录”的含义会变化；两种布局
+    // 都要重置共享历史，否则树/列表切换后可能残留 Back/Up 状态。网格与列表
+    // 之间切换保留当前目录和历史。
+    if (!m_localBrowse && (modeChanged || m_navHistory.isEmpty())) {
+        resetNavigationHistory(m_model->currentDirectory());
+    }
     if (m_modernUi) {
-        if (!m_localBrowse) {
-            if (modeChanged || m_navHistory.isEmpty()) {
-                resetNavigationHistory(m_model->currentDirectory());
-            }
-            if (m_folderPane) {
-                m_folderPane->setCurrentDirectory(m_navCurrentDir);
-            }
+        if (!m_localBrowse && m_folderPane) {
+            m_folderPane->setCurrentDirectory(m_navCurrentDir);
         }
         if (m_modernNavBar) {
             m_modernNavBar->setViewMode(mode);
@@ -605,9 +646,16 @@ void MainWindow::updateSortUi()
 
 void MainWindow::applyItemSize(int size)
 {
+    applyItemSizeInternal(size, true);
+}
+
+void MainWindow::applyItemSizeInternal(int size, bool persist)
+{
     size = qBound(48, size, 128);
     m_itemSize = size;
-    AppSettings::instance().setItemSize(size);
+    if (persist && m_itemSizeSaveTimer) {
+        m_itemSizeSaveTimer->start();
+    }
     if (m_modernNavBar) {
         m_modernNavBar->setItemSize(size);
     }
@@ -617,7 +665,12 @@ void MainWindow::applyItemSize(int size)
             QSize(qMax(150, size + 48), size + 72));
     }
     if (m_treeView) {
-        const int treeIcon = qMin(48, size);
+        // Classic list/tree rows are designed for compact Explorer-like rows;
+        // using the modern 48px icon there would exceed the 24px row height
+        // and overlap neighbouring rows.  Keep the modern sizing untouched.
+        // 经典列表/树使用紧凑的资源管理器式行高；沿用现代的 48px 图标会
+        // 超过 24px 行高并与相邻行重叠。现代布局的尺寸保持不变。
+        const int treeIcon = m_modernUi ? qMin(48, size) : 16;
         m_treeView->setIconSize(QSize(treeIcon, treeIcon));
     }
 }
