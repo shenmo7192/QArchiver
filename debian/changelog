@@ -1,3 +1,27 @@
+qarchiver (2.3.0) unstable; urgency=medium
+
+  * Windows Explorer context menu now uses a small in-process shell extension:
+    the label includes the selected file name ("添加到 xx.zip"), archive files
+    are excluded from the compress commands, and the format submenu is
+    generated dynamically.
+  * Installer asks whether to associate archive formats (default checked);
+    Preferences/Tools gained a cross-platform file-association manager
+    (Windows ProgIDs / Linux mimeapps.list + xdg-mime).
+  * Shell context-menu compression and extraction run dialog-only: no main
+    window is shown; only the options/progress dialogs appear.
+  * Windows compression/extraction now reports progress and log lines
+    (7-Zip -bsp1, CR/LF progress parsing).
+  * Thumbnails keep the original aspect ratio instead of being cropped into a
+    square; WebP/TIFF support via the Qt imageformats module.
+  * Modern layout: sort-button icon fix, icon-size slider and Ctrl+wheel zoom,
+    10pt default font, larger grid items and clearer sidebar contrast.
+  * One-click extraction honours the current selection.
+  * Windows installer is bilingual (Simplified Chinese / English).
+  * Releases are split: vX.Y.Z contains installers (Windows setup.exe + Linux
+    .deb), vX.Y.Z-portable contains the portable Windows ZIP.
+
+ -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 21:40:00 +0800
+
 qarchiver (2.2.0) unstable; urgency=medium
 
   * Browse the local file system when no archive is open (Windows and Linux):

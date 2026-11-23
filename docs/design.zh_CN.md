@@ -1,6 +1,6 @@
 # QArchiver（小Q解压）设计文档
 
-> 适用版本：2.2.0
+> 适用版本：2.3.0
 > 文档位置：`docs/design.zh_CN.md`（根目录 `项目设计文档.md` 为指向本文件的索引）
 > 技术栈：C++20 + Qt 6.4+ Widgets
 > 平台：Linux / Windows

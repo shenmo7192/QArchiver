@@ -34,6 +34,7 @@
 #include "ui/dialogs/ProgressDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
 #include "ui/dialogs/BenchmarkDialog.h"
+#include "ui/dialogs/FileAssociationDialog.h"
 #include "utils/Logger.h"
 #include "utils/MimeTypeHelper.h"
 #include "utils/SevenZipTool.h"
@@ -344,6 +345,13 @@ void MainWindow::setupMenuBar()
         Icons::modern(QStringLiteral("toolbox.png")), tr("7-Zip Benchmark..."));
     connect(benchmarkAction, &QAction::triggered,
             this, &MainWindow::onBenchmark);
+    auto *associationsAction = toolsMenu->addAction(
+        Icons::modern(QStringLiteral("settings.png")),
+        tr("File Associations..."));
+    connect(associationsAction, &QAction::triggered, this, [this]() {
+        FileAssociationDialog dialog(this);
+        dialog.exec();
+    });
     toolsMenu->addAction(m_prefsAct);
 
     auto *helpMenu = bar->addMenu(tr("&Help"));

@@ -70,6 +70,43 @@ install(TARGETS QArchiver
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# Explorer context-menu extension (dynamic menu labels / archive exclusion).
+# 资源管理器右键菜单扩展（动态文案 / 排除压缩包）。
+if(WIN32)
+    add_library(QArchiverShell SHARED
+        windows/QArchiverShell.cpp
+        windows/QArchiverShell.def
+    )
+    target_compile_definitions(QArchiverShell PRIVATE
+        UNICODE _UNICODE _WIN32_WINNT=0x0601 WINVER=0x0601
+    )
+    target_link_libraries(QArchiverShell PRIVATE
+        ole32 shell32 shlwapi advapi32 uuid
+    )
+    set_target_properties(QArchiverShell PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "QArchiverShell"
+    )
+    if(MSVC)
+        # Menu labels contain Chinese text; tell MSVC the source is UTF-8.
+        # 菜单文案包含中文；告知 MSVC 源文件使用 UTF-8。
+        target_compile_options(QArchiverShell PRIVATE /utf-8)
+    endif()
+    if(MINGW)
+        # Explorer loads the in-proc server from its own process; do not depend
+        # on MinGW runtime DLLs that live next to QArchiver.exe.
+        # 资源管理器在自己的进程中加载该 DLL，不能依赖 QArchiver.exe 旁的
+        # MinGW 运行库。
+        target_link_options(QArchiverShell PRIVATE
+            -static -static-libgcc -static-libstdc++
+        )
+    endif()
+    qarchiver_set_warnings(QArchiverShell)
+    install(TARGETS QArchiverShell
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
+
 install(FILES
     "${PROJECT_SOURCE_DIR}/README.md"
     "${PROJECT_SOURCE_DIR}/CHANGELOG.md"

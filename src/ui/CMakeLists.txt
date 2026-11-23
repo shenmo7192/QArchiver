@@ -61,6 +61,8 @@ add_library(qarchiver_ui STATIC
     dialogs/PreferencesDialog.h
     dialogs/BenchmarkDialog.cpp
     dialogs/BenchmarkDialog.h
+    dialogs/FileAssociationDialog.cpp
+    dialogs/FileAssociationDialog.h
 
     # Reusable custom widgets.
     # 可复用自定义控件。

@@ -89,6 +89,10 @@ jobs:
         with:
           version: '6.8.2'
           arch: ${{ matrix.qt_arch }}
+          # WebP/TIFF/ICNS image plugins live in the separate qtimageformats
+          # module; thumbnails need them.
+          # WebP/TIFF/ICNS 图片插件位于独立的 qtimageformats 模块，缩略图需要。
+          modules: 'qtimageformats'
           cache: true
 
       - name: Configure (Windows)
@@ -142,6 +146,10 @@ jobs:
           } catch {
             Write-Host "Could not change the execution policy: $($_.Exception.Message)"
           }
+          # The bundled Simplified Chinese language file requires Inno Setup
+          # 6.5+; upgrade the runner image copy when necessary.
+          # 简体中文语言文件需要 Inno Setup 6.5+；必要时升级镜像自带版本。
+          choco upgrade innosetup -y --no-progress
           # The runner image normally ships Inno Setup 6; install it through
           # Chocolatey when it is missing.
           # 运行器镜像通常自带 Inno Setup 6；缺失时通过 Chocolatey 安装。
@@ -173,13 +181,24 @@ jobs:
             exit 1
           }
 
-      - name: Upload Windows package
+      - name: Upload Windows installer
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v4
         with:
-          name: qarchiver-windows-${{ matrix.arch }}
-          path: |
-            QArchiver-*-windows-${{ matrix.arch }}.zip
-            QArchiver-*-windows-${{ matrix.arch }}-setup.exe
+          # One artifact per deliverable: the installer artifact contains only
+          # the bare setup.exe, the portable artifact only the ZIP.
+          # 每种产物单独上传：安装器 artifact 只包含 setup.exe，
+          # 便携版 artifact 只包含 ZIP。
+          name: qarchiver-windows-${{ matrix.arch }}-installer
+          path: QArchiver-*-windows-${{ matrix.arch }}-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Windows portable package
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qarchiver-windows-${{ matrix.arch }}-portable
+          path: QArchiver-*-windows-${{ matrix.arch }}.zip
           if-no-files-found: error
           retention-days: 14

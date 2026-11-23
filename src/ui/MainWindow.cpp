@@ -116,6 +116,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_modernUi = AppSettings::instance().uiLayoutMode() == QStringLiteral("modern");
     m_sortColumn = AppSettings::instance().sortColumn();
     m_sortOrder = AppSettings::instance().sortOrder();
+    m_itemSize = AppSettings::instance().itemSize();
     buildUi();
 
     // The background image is a presentation option, independent of the
@@ -221,6 +222,7 @@ void MainWindow::buildUi()
         setupClassicUi();
     }
     setupStatusBar();
+    applyItemSize(m_itemSize);
     applyContentViewMode();
 
     if (ArchiveManager::instance().backend()) {
@@ -391,14 +393,29 @@ void MainWindow::showProgressDialog(const QString &title)
         m_progressDialog->close();
         m_progressDialog = nullptr;
     }
-    auto *dlg = new ProgressDialog(this);
+    // In shell-integration mode the main window is hidden; make the progress
+    // dialog a top-level window so it is visible and gets focus.
+    // 外壳集成模式下主窗口是隐藏的；把进度对话框设为顶层窗口，确保可见并
+    // 获得焦点。
+    auto *dlg = new ProgressDialog(m_dialogOnly ? nullptr : this);
     dlg->setOperation(title);
     connect(dlg, &ProgressDialog::cancelled, this, []() {
         ArchiveManager::instance().cancelCurrentOperation();
     });
     m_progressDialog = dlg;
     dlg->show();
+    dlg->raise();
+    dlg->activateWindow();
     QTimer::singleShot(0, this, &MainWindow::updateActionsState);
+}
+
+void MainWindow::finishDialogOnly()
+{
+    if (!m_dialogOnly) {
+        return;
+    }
+    m_dialogOnly = false;
+    QTimer::singleShot(0, qApp, &QCoreApplication::quit);
 }
 
 void MainWindow::setBusyIndicatorVisible(bool visible, const QString &text)
@@ -569,6 +586,7 @@ void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
         updateNavLocation();
         updateNavigationState();
         updateActionsState();
+        finishDialogOnly();
         return;
     }
 
@@ -582,6 +600,7 @@ void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
             msg);
         updateActionsState();
         updateStatusSummary();
+        finishDialogOnly();
         return;
     }
 
@@ -626,6 +645,7 @@ void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
     updateNavigationState();
     updateActionsState();
     updateStatusSummary();
+    finishDialogOnly();
 }
 
 void MainWindow::onOperationFinished(bool success, const QString &msg)
@@ -647,6 +667,7 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
         updateNavLocation();
         updateNavigationState();
         updateActionsState();
+        finishDialogOnly();
         return;
     }
 
@@ -667,7 +688,11 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
             m_compressCloseAfter = false;
             // Explorer menu / command-line compression is a one-shot task.
             // 资源管理器菜单/命令行压缩是一次性任务。
-            QTimer::singleShot(500, this, [this]() { close(); });
+            if (m_dialogOnly) {
+                finishDialogOnly();
+            } else {
+                QTimer::singleShot(500, this, [this]() { close(); });
+            }
         }
         m_lastCompressTarget.clear();
     }
@@ -682,7 +707,11 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
         if (closeAfter) {
             // Let the progress dialog disappear before closing the window.
             // 先关闭进度对话框，再关闭主窗口。
-            QTimer::singleShot(650, this, [this]() { close(); });
+            if (m_dialogOnly) {
+                finishDialogOnly();
+            } else {
+                QTimer::singleShot(650, this, [this]() { close(); });
+            }
             updateActionsState();
             return;
         }
@@ -712,6 +741,7 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
 
     updateStatusSummary();
     updateActionsState();
+    finishDialogOnly();
 }
 
 void MainWindow::onSelectionChanged()

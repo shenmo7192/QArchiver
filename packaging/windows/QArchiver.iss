@@ -4,7 +4,7 @@
 ; Build from the staged portable package:
 ; 从已部署好的便携包目录构建：
 ;
-;   ISCC.exe QArchiver.iss /DAppVersion=2.2.0 ^
+;   ISCC.exe QArchiver.iss /DAppVersion=2.3.0 ^
 ;       /DSourceDir=C:\path\to\staged ^
 ;       /DOutputDir=C:\path\to\dist /DArch=x64
 ;
@@ -17,7 +17,7 @@
 ; 新增格式时请同步修改两处。
 
 #ifndef AppVersion
-  #define AppVersion "2.2.0"
+  #define AppVersion "2.3.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\..\build-windows\package"
@@ -60,6 +60,7 @@ UninstallDisplayName={#AppDisplayName}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+ShowLanguageDialog=yes
 CloseApplications=yes
 RestartApplications=no
 ArchitecturesAllowed={#ArchAllowed}
@@ -67,10 +68,12 @@ ArchitecturesInstallIn64BitMode={#ArchAllowed}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "shellmenu"; Description: "添加资源管理器右键菜单（打开 / 解压 / 添加到 ZIP / 压缩到…）"; GroupDescription: "集成选项："
+Name: "associate"; Description: "关联压缩包格式（.zip/.7z/.rar/.tar/.gz 等，默认选中）"; GroupDescription: "集成选项："
 
 [Files]
 ; The whole portable payload: exe, 7zip\, Qt runtime and plugins, helper scripts.
@@ -84,6 +87,12 @@ Name: "{autodesktop}\QArchiver"; Filename: "{app}\{#AppExeName}"; Tasks: desktop
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,QArchiver}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExeName}"; Parameters: "--register-associations"; Flags: runhidden waituntilterminated runasoriginaluser; Tasks: associate; StatusMsg: "正在注册文件关联..."
+Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\QArchiverShell.dll"""; Flags: runhidden waituntilterminated; Tasks: shellmenu; StatusMsg: "正在注册资源管理器右键菜单..."
+
+[UninstallRun]
+Filename: "{app}\{#AppExeName}"; Parameters: "--unregister-associations"; Flags: runhidden waituntilterminated; RunOnceId: "QArchiverUnregisterAssociations"
+Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\QArchiverShell.dll"""; Flags: runhidden waituntilterminated; RunOnceId: "QArchiverUnregisterShell"
 
 [Code]
 function ArchiveExtensions: TArrayOfString;
@@ -113,50 +122,6 @@ begin
   RegWriteStringValue(HKLM, BaseKey + '\shell\' + Verb + '\command', '', Command);
 end;
 
-procedure RegisterCompressMenu(BaseKey, TargetToken: String);
-var
-  Ids, Labels, Tokens: TArrayOfString;
-  I: Integer;
-  SubKey, Command, Exe: String;
-begin
-  Exe := ExpandConstant('{app}\{#AppExeName}');
-
-  // "Add to <name>.zip" / “添加到同名 ZIP 压缩包”
-  SubKey := BaseKey + '\shell\QArchiver.AddToZip';
-  RegWriteStringValue(HKLM, SubKey, '', '添加到同名 ZIP 压缩包');
-  RegWriteStringValue(HKLM, SubKey, 'MUIVerb', '添加到同名 ZIP 压缩包');
-  RegWriteStringValue(HKLM, SubKey, 'Icon', Exe + ',0');
-  Command := '"' + Exe + '" --compress zip "' + TargetToken + '"';
-  RegWriteStringValue(HKLM, SubKey + '\command', '', Command);
-
-  // "Compress to..." submenu / “压缩到…”二级菜单
-  SubKey := BaseKey + '\shell\QArchiver.CompressTo';
-  RegWriteStringValue(HKLM, SubKey, 'MUIVerb', '压缩到...');
-  RegWriteStringValue(HKLM, SubKey, 'SubCommands', '');
-  RegWriteStringValue(HKLM, SubKey, 'Icon', Exe + ',0');
-
-  SetArrayLength(Ids, 6);
-  SetArrayLength(Labels, 6);
-  SetArrayLength(Tokens, 6);
-  Ids[0] := '01zip';    Labels[0] := 'ZIP 压缩包 (.zip)';   Tokens[0] := 'zip';
-  Ids[1] := '02sevenz'; Labels[1] := '7z 压缩包 (.7z)';      Tokens[1] := '7z';
-  Ids[2] := '03targz';  Labels[2] := 'Gzip tar (.tar.gz)';   Tokens[2] := 'tar.gz';
-  Ids[3] := '04tarxz';  Labels[3] := 'Xz tar (.tar.xz)';     Tokens[3] := 'tar.xz';
-  Ids[4] := '05tarbz2'; Labels[4] := 'Bzip2 tar (.tar.bz2)'; Tokens[4] := 'tar.bz2';
-  Ids[5] := '06tar';    Labels[5] := 'Tar (.tar)';           Tokens[5] := 'tar';
-
-  for I := 0 to GetArrayLength(Ids) - 1 do begin
-    RegWriteStringValue(HKLM, SubKey + '\shell\' + Ids[I], 'MUIVerb', Labels[I]);
-    Command := '"' + Exe + '" --compress ' + Tokens[I] + ' "' + TargetToken + '"';
-    RegWriteStringValue(HKLM, SubKey + '\shell\' + Ids[I] + '\command', '', Command);
-  end;
-
-  SubKey := BaseKey + '\shell\QArchiver.CompressTo\shell\99custom';
-  RegWriteStringValue(HKLM, SubKey, 'MUIVerb', '自定义压缩选项...');
-  Command := '"' + Exe + '" --compress-dialog "' + TargetToken + '"';
-  RegWriteStringValue(HKLM, SubKey + '\command', '', Command);
-end;
-
 procedure RegisterShellMenu;
 var
   Exts: TArrayOfString;
@@ -175,11 +140,10 @@ begin
                         '"' + Exe + '" --oneclick "%1"');
   end;
 
-  // Files, folders and the folder background.
-  // 文件、文件夹与文件夹空白处。
-  RegisterCompressMenu('Software\Classes\*', '%1');
-  RegisterCompressMenu('Software\Classes\Directory', '%1');
-  RegisterCompressMenu('Software\Classes\Directory\Background', '%V');
+  // File/folder compress commands come from QArchiverShell.dll (registered by
+  // regsvr32 in [Run]); the extract verbs above stay static.
+  // 文件/文件夹压缩命令由 QArchiverShell.dll 提供（[Run] 中 regsvr32 注册），
+  // 上面的解压命令保持静态注册。
 end;
 
 procedure UnregisterShellMenu;
@@ -212,6 +176,33 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then begin
+    // Remove static compress verbs from QArchiver <= 2.2.0; the shell
+    // extension replaces them.
+    // 删除 2.2.0 及更早版本的静态压缩菜单；改由右键菜单扩展提供。
+    RegDeleteKeyIncludingSubkeys(HKLM,
+      'Software\Classes\*\shell\QArchiver.AddToZip');
+    RegDeleteKeyIncludingSubkeys(HKLM,
+      'Software\Classes\*\shell\QArchiver.CompressTo');
+    RegDeleteKeyIncludingSubkeys(HKLM,
+      'Software\Classes\Directory\shell\QArchiver.AddToZip');
+    RegDeleteKeyIncludingSubkeys(HKLM,
+      'Software\Classes\Directory\shell\QArchiver.CompressTo');
+    RegDeleteKeyIncludingSubkeys(HKLM,
+      'Software\Classes\Directory\Background\shell\QArchiver.AddToZip');
+    RegDeleteKeyIncludingSubkeys(HKLM,
+      'Software\Classes\Directory\Background\shell\QArchiver.CompressTo');
+    RegDeleteKeyIncludingSubkeys(HKCU,
+      'Software\Classes\*\shell\QArchiver.AddToZip');
+    RegDeleteKeyIncludingSubkeys(HKCU,
+      'Software\Classes\*\shell\QArchiver.CompressTo');
+    RegDeleteKeyIncludingSubkeys(HKCU,
+      'Software\Classes\Directory\shell\QArchiver.AddToZip');
+    RegDeleteKeyIncludingSubkeys(HKCU,
+      'Software\Classes\Directory\shell\QArchiver.CompressTo');
+    RegDeleteKeyIncludingSubkeys(HKCU,
+      'Software\Classes\Directory\Background\shell\QArchiver.AddToZip');
+    RegDeleteKeyIncludingSubkeys(HKCU,
+      'Software\Classes\Directory\Background\shell\QArchiver.CompressTo');
     if WizardIsTaskSelected('shellmenu') then
       RegisterShellMenu;
   end;

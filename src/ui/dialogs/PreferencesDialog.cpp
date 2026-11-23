@@ -6,6 +6,7 @@
 #include "ui/dialogs/PreferencesDialog.h"
 
 #include "ui/dialogs/BenchmarkDialog.h"
+#include "ui/dialogs/FileAssociationDialog.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -481,6 +482,27 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
                "Interface."), toolsPage);
 
         toolsLayout->addWidget(toolsGroup);
+
+        // File associations / 文件关联
+        auto *assocGroup = new QGroupBox(tr("File Associations"), toolsPage);
+        auto *assocLayout = new QVBoxLayout(assocGroup);
+        assocLayout->setSpacing(10);
+        auto *assocIntro = hintLabel(
+            tr("Choose which archive formats should open with QArchiver. "
+               "Windows stores per-user associations; Linux updates the "
+               "desktop MIME defaults."),
+            toolsPage);
+        auto *assocButton = new QPushButton(
+            Icons::modern(QStringLiteral("settings.png")),
+            tr("Manage File Associations..."), toolsPage);
+        assocButton->setIconSize(QSize(18, 18));
+        connect(assocButton, &QPushButton::clicked, this, [this]() {
+            FileAssociationDialog dialog(this);
+            dialog.exec();
+        });
+        assocLayout->addWidget(assocIntro);
+        assocLayout->addWidget(assocButton, 0, Qt::AlignLeft);
+        toolsLayout->addWidget(assocGroup);
         toolsLayout->addWidget(note);
         toolsLayout->addStretch(1);
     }

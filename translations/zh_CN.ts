@@ -1840,6 +1840,10 @@ Overwrite it?</source>
         <source>Descending</source>
         <translation>降序</translation>
     </message>
+    <message>
+        <source>File Associations...</source>
+        <translation>文件关联...</translation>
+    </message>
 </context>
 <context>
     <name>ModernNavBar</name>
@@ -1891,6 +1895,10 @@ Overwrite it?</source>
     <message>
         <source>Sort</source>
         <translation>排序</translation>
+    </message>
+    <message>
+        <source>Icon size (Ctrl + wheel)</source>
+        <translation>图标大小（Ctrl + 滚轮）</translation>
     </message>
 </context>
 <context>
@@ -2422,6 +2430,18 @@ Overwrite it?</source>
         <location line="-349"/>
         <source>Applies to the next archive you open; the currently open archive keeps the backend it started with.</source>
         <translation>此设置在下一次打开压缩包时生效；当前已打开的压缩包继续使用原来的读取方式，不会被打断。</translation>
+    </message>
+    <message>
+        <source>File Associations</source>
+        <translation>文件关联</translation>
+    </message>
+    <message>
+        <source>Choose which archive formats should open with QArchiver. Windows stores per-user associations; Linux updates the desktop MIME defaults.</source>
+        <translation>选择哪些压缩包格式由 小Q解压 打开。Windows 写入当前用户关联；Linux 更新桌面 MIME 默认值。</translation>
+    </message>
+    <message>
+        <source>Manage File Associations...</source>
+        <translation>管理文件关联...</translation>
     </message>
 </context>
 <context>
@@ -3181,6 +3201,132 @@ The file may be missing, or there may be no associated application, insufficient
         <location line="+3"/>
         <source>Remove from list</source>
         <translation>从列表中移除</translation>
+    </message>
+</context>
+<context>
+    <name>FileAssociationDialog</name>
+    <message>
+        <source>File Associations</source>
+        <translation>文件关联</translation>
+    </message>
+    <message>
+        <source>Choose the archive formats that should open with QArchiver. This changes the current user's associations only.</source>
+        <translation>选择哪些压缩包格式由 小Q解压 打开。仅修改当前用户的关联。</translation>
+    </message>
+    <message>
+        <source>On Windows 10/11, Windows may keep the previous default app. Use "Open Default Apps" to confirm the choice if needed.</source>
+        <translation>Windows 10/11 可能保留此前的默认应用；如未生效，请使用“打开默认应用设置”确认。</translation>
+    </message>
+    <message>
+        <source>On Linux the desktop environment stores the default application. The 'qarchiver.desktop' entry must be installed for associations to work.</source>
+        <translation>Linux 由桌面环境保存默认应用；需要已安装 qarchiver.desktop 条目，关联才会生效。</translation>
+    </message>
+    <message>
+        <source>File associations are not supported on this platform.</source>
+        <translation>当前平台不支持文件关联。</translation>
+    </message>
+    <message>
+        <source>Select All</source>
+        <translation>全选</translation>
+    </message>
+    <message>
+        <source>Select None</source>
+        <translation>全不选</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>应用</translation>
+    </message>
+    <message>
+        <source>Open Default Apps</source>
+        <translation>打开默认应用设置</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Could not update the file associations.</source>
+        <translation>无法更新文件关联。</translation>
+    </message>
+    <message>
+        <source>Associations removed.</source>
+        <translation>已取消文件关联。</translation>
+    </message>
+    <message>
+        <source>Associated %1 format(s).</source>
+        <translation>已关联 %1 种格式。</translation>
+    </message>
+    <message>
+        <source>Open the system default apps settings and choose QArchiver for the archive formats.</source>
+        <translation>请在系统默认应用设置中为压缩包格式选择 小Q解压。</translation>
+    </message>
+    <message>
+        <source>No archive format is associated with QArchiver.</source>
+        <translation>尚未关联任何压缩包格式。</translation>
+    </message>
+    <message>
+        <source>%1 of %2 archive formats are associated with QArchiver.</source>
+        <translation>已关联 %1 / %2 种压缩包格式。</translation>
+    </message>
+</context>
+<context>
+    <name>FileAssociations</name>
+    <message>
+        <source>ZIP archive</source>
+        <translation>ZIP 压缩包</translation>
+    </message>
+    <message>
+        <source>7z archive</source>
+        <translation>7z 压缩包</translation>
+    </message>
+    <message>
+        <source>RAR archive</source>
+        <translation>RAR 压缩包</translation>
+    </message>
+    <message>
+        <source>TAR archive</source>
+        <translation>TAR 归档</translation>
+    </message>
+    <message>
+        <source>Gzip file</source>
+        <translation>Gzip 压缩文件</translation>
+    </message>
+    <message>
+        <source>Bzip2 file</source>
+        <translation>Bzip2 压缩文件</translation>
+    </message>
+    <message>
+        <source>Xz file</source>
+        <translation>Xz 压缩文件</translation>
+    </message>
+    <message>
+        <source>Gzip tar archive</source>
+        <translation>Gzip tar 归档</translation>
+    </message>
+    <message>
+        <source>Xz tar archive</source>
+        <translation>Xz tar 归档</translation>
+    </message>
+    <message>
+        <source>Bzip2 tar archive</source>
+        <translation>Bzip2 tar 归档</translation>
+    </message>
+    <message>
+        <source>Could not write the association for %1.</source>
+        <translation>无法写入 %1 的关联。</translation>
+    </message>
+    <message>
+        <source>Could not register %1. Install the desktop entry and the 'xdg-mime' tool.</source>
+        <translation>无法注册 %1。请安装桌面条目与 xdg-mime 工具。</translation>
+    </message>
+    <message>
+        <source>Could not open the Windows default apps page.</source>
+        <translation>无法打开 Windows 默认应用设置页。</translation>
+    </message>
+    <message>
+        <source>File associations are not supported on this platform.</source>
+        <translation>当前平台不支持文件关联。</translation>
     </message>
 </context>
 </TS>

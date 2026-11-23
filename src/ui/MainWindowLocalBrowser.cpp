@@ -423,11 +423,13 @@ void MainWindow::compressPathsWithDialog(const QStringList &sources)
         items = chooseSourceItems(tr("Select Files to Compress"));
     }
     if (items.isEmpty()) {
+        finishDialogOnly();
         return;
     }
 
     CompressDialog dlg(items, this);
     if (dlg.exec() != QDialog::Accepted) {
+        finishDialogOnly();
         return;
     }
     const CompressOptions options = dlg.options();
@@ -448,6 +450,7 @@ void MainWindow::compressFromCommandLine(const QStringList &sources,
         QMessageBox::critical(
             this, tr("Unsupported Format"),
             tr("The archive format \"%1\" is not supported.").arg(formatName));
+        finishDialogOnly();
         return;
     }
 
@@ -462,8 +465,15 @@ void MainWindow::compressFromCommandLine(const QStringList &sources,
         QMessageBox::critical(
             this, tr("Create Archive"),
             tr("No existing files or folders were passed to QArchiver."));
+        finishDialogOnly();
         return;
     }
 
     compressPaths(existing, format, targetPath, true);
+    // If the request stopped before an operation started (for example the
+    // overwrite prompt was declined), close the hidden shell window.
+    // 若请求在启动操作前停止（例如用户拒绝覆盖），关闭隐藏的外壳窗口。
+    if (!ArchiveManager::instance().isBusy() && m_currentOp != UiOp::Compress) {
+        finishDialogOnly();
+    }
 }

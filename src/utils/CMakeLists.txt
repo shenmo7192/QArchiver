@@ -22,6 +22,11 @@ add_library(qarchiver_utils STATIC
     EncodingDetector.cpp
     EncodingDetector.h
 
+    # Per-user archive file associations (Windows registry / Linux mimeapps).
+    # 当前用户的压缩包格式关联（Windows 注册表 / Linux mimeapps）。
+    FileAssociations.cpp
+    FileAssociations.h
+
     # MIME/archive format detection.
     # MIME/压缩格式检测。
     MimeTypeHelper.cpp
@@ -45,6 +50,12 @@ target_link_libraries(qarchiver_utils PUBLIC
     qarchiver_common
     Qt6::Core
 )
+
+if(WIN32)
+    # RegCreateKeyEx / RegGetValueW and SHChangeNotify.
+    # RegCreateKeyEx / RegGetValueW 与 SHChangeNotify。
+    target_link_libraries(qarchiver_utils PRIVATE advapi32 shell32)
+endif()
 
 # Static libraries are linked into the (position independent) executable.
 # 静态库会被链接进（位置无关的）可执行文件。

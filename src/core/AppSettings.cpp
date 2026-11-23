@@ -247,6 +247,16 @@ void AppSettings::setSort(int column, Qt::SortOrder order)
                                           : QStringLiteral("asc"));
 }
 
+int AppSettings::itemSize() const
+{
+    return std::clamp(value(QStringLiteral("ui/itemSize"), 96).toInt(), 48, 128);
+}
+
+void AppSettings::setItemSize(int size)
+{
+    setValue(QStringLiteral("ui/itemSize"), std::clamp(size, 48, 128));
+}
+
 void AppSettings::setDefaultCompressFormat(ArchiveFormat fmt)
 {
     setValue(QStringLiteral("compress/defaultFormat"), toInt(fmt));

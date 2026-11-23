@@ -87,10 +87,11 @@ Windows 使用 `cmake --install` + `qt_generate_deploy_app_script()` 部署 Qt�
 `cpack` 生成 `QArchiver-<version>-windows-<arch>.zip`，再由
 `packaging/windows/build-installer.ps1` 调用 Inno Setup（`QArchiver.iss`）
 生成 `QArchiver-<version>-windows-<arch>-setup.exe` 安装器。安装器提供开始
-菜单、可选桌面快捷方式、卸载入口和可选的资源管理器右键菜单；便携包则通过
-`packaging/windows/install-shell-menu.ps1` 为当前用户注册同一套菜单：
-“用 小Q解压 打开”“一键解压”“添加到同名 ZIP 压缩包”和“压缩到...”二级菜单
-（7z/ZIP/tar.gz/tar.xz/tar.bz2/tar）。交叉编译与更多细节见
+菜单、可选桌面快捷方式、卸载入口，并询问是否注册资源管理器右键菜单
+（`QArchiverShell.dll`，动态“添加到 xx.zip”文案）与关联压缩包格式
+（默认选中）。便携包则通过 `packaging/windows/install-shell-menu.ps1`
+为当前用户注册同一套菜单；文件关联也可在“偏好设置 → 工具”中管理
+（Windows 注册表 / Linux xdg-mime）。交叉编译与更多细节见
 `packaging/windows/README.md`。
 
 ## GitHub Actions
@@ -103,5 +104,6 @@ Windows 使用 `cmake --install` + `qt_generate_deploy_app_script()` 部署 Qt�
   内置原生 ARM64 7-Zip，生成 `QArchiver-<version>-windows-arm64.zip`
   及其安装器。
 
-推送 `v*` 标签会触发 `release.yml`，自动创建 Release 并上传两个 deb、
-两个 Windows ZIP、两个安装器以及 `SHA256SUMS`。
+推送 `v*` 标签会触发 `release.yml`，并创建两个 Release：`vX.Y.Z` 上传
+安装包（Windows setup.exe + Linux deb），`vX.Y.Z-portable` 上传 Windows
+便携 ZIP；各自附带 `SHA256SUMS`。

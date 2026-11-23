@@ -276,6 +276,12 @@ QString MainWindow::oneClickDestinationRoot() const
 
 bool MainWindow::askOneClickClosePreference()
 {
+    // Shell integration never keeps a hidden window around: close as soon as
+    // the extraction finishes.
+    // 外壳集成模式不会保留隐藏窗口：解压完成后立即退出。
+    if (m_dialogOnly) {
+        return true;
+    }
     AppSettings &settings = AppSettings::instance();
     if (settings.oneClickCloseAsked()) {
         return settings.oneClickCloseAfterExtract();
@@ -355,6 +361,14 @@ void MainWindow::beginOneClickExtract()
     options.overwrite = OverwritePolicy::Always;
     options.password = m_currentPassword;
     options.openDestAfterFinish = false;
+
+    // One-click extraction applies to the current selection.  With no
+    // selection the whole archive is extracted.
+    // 一键解压处理当前选择；没有选择时解压整个压缩包。
+    const QStringList selected = selectedEntryPaths();
+    if (!selected.isEmpty()) {
+        options.selectedFiles = selected;
+    }
 
     m_oneClickExtractActive = true;
     m_oneClickCloseAfter = closeAfter;
