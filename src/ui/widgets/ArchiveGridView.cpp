@@ -76,12 +76,17 @@ public:
                                    layoutRect.top() + topPad
                                        + iconSize.height() / 2));
         if (!icon.isNull()) {
-            // QIcon::paint() draws at the icon's native pixmap size and does
-            // not enlarge a 64px file-type icon to the configured 96px cell.
-            // Request a pixmap at the exact size instead.
-            // QIcon::paint() 按图标原始 pixmap 大小绘制，不会把 64px 文件图标
-            // 放大到配置的 96px；这里显式请求目标尺寸的 pixmap。
-            painter->drawPixmap(iconRect, icon.pixmap(iconRect.size()));
+            // QIcon::pixmap() keeps the source aspect ratio (a 16:9 thumbnail
+            // yields e.g. 100x56). Draw it at that size and centre it; drawing
+            // it into the square iconRect would stretch the preview.
+            // QIcon::pixmap() 会保持原比例（例如 16:9 缩略图返回 100x56），
+            // 按它自己的尺寸居中绘制；直接画进方形 iconRect 会拉伸预览。
+            const QPixmap pixmap = icon.pixmap(iconRect.size());
+            if (!pixmap.isNull()) {
+                QRect target(QPoint(0, 0), pixmap.size());
+                target.moveCenter(iconRect.center());
+                painter->drawPixmap(target, pixmap);
+            }
         }
 
         if (!text.isEmpty()) {

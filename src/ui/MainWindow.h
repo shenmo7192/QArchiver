@@ -210,6 +210,8 @@ private:
     QStringList selectedLocalPaths() const;
     QString localPathForEntry(const ArchiveEntry &entry) const;
     void openLocalEntry(const QString &name);
+    void openLocalWith(const QString &path);
+    void openEntryWith(const QString &path);
     void updateLocalModeUi();
     QMenu *createCompressToMenu(const QStringList &sources, QWidget *parent);
     QString suggestedArchivePath(const QStringList &sources,
