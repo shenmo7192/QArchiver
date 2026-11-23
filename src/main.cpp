@@ -3,13 +3,16 @@
 // 应用入口：日志、翻译、主题与主窗口。
 
 #include <QApplication>
+#include <QGuiApplication>
 #include <QCommandLineParser>
 #include <QTranslator>
 #include <QLibraryInfo>
 #include <QLocale>
 #include <QDir>
+#include <QFileInfo>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QTimer>
 
 #include "ui/MainWindow.h"
 #include "utils/Logger.h"
@@ -21,13 +24,12 @@
 
 int main(int argc, char *argv[])
 {
-    // Force Qt's own file dialogs so the Aero control theme is consistent on
-    // every platform. Linux already uses the widget dialog in most setups.
-    // 强制使用 Qt 自带的文件对话框，保证各平台的 Aero 控件主题一致。
-    // 大多数 Linux 桌面本来也使用 Qt 控件对话框。
-    QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
-
     QApplication app(argc, argv);
+
+    // Let the desktop associate the window with qarchiver.desktop: this is
+    // what launchers and docks use to pick the installed application icon.
+    // 让桌面把窗口关联到 qarchiver.desktop；启动器/任务栏据此显示安装的应用图标。
+    QGuiApplication::setDesktopFileName(QStringLiteral("qarchiver"));
 
     QCoreApplication::setOrganizationName(QStringLiteral("QArchiver"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("qarchiver.local"));
@@ -53,6 +55,25 @@ int main(int argc, char *argv[])
         QStringLiteral("Use <lang> (e.g. --lang en or --lang zh_CN)."),
         QStringLiteral("lang"));
     parser.addOption(langOption);
+
+    const QCommandLineOption oneClickOption(
+        QStringLiteral("oneclick"),
+        QStringLiteral("Extract the given archive with one-click extraction."));
+    parser.addOption(oneClickOption);
+
+    const QCommandLineOption preferencesOption(
+        QStringLiteral("preferences"),
+        QStringLiteral("Open Preferences on startup."));
+    parser.addOption(preferencesOption);
+
+    const QCommandLineOption benchmarkOption(
+        QStringLiteral("benchmark"),
+        QStringLiteral("Open the 7-Zip benchmark dialog on startup."));
+    parser.addOption(benchmarkOption);
+
+    parser.addPositionalArgument(
+        QStringLiteral("archive"),
+        QStringLiteral("Archive to open (or to extract with --oneclick)."));
     parser.process(app);
 
     const QString qtTranslationsDir =
@@ -76,10 +97,9 @@ int main(int argc, char *argv[])
             return false;
         }
 
-        // Qt's own catalogs localize standard dialog buttons and the
-        // non-native file dialog.  They are optional: distributions may
-        // not install qt6-translations-l10n.
-        // Qt 自身的翻译目录用于本地化标准对话框按钮和非原生文件对话框。
+        // Qt's own catalogs localize standard dialog buttons.  They are
+        // optional: distributions may not install qt6-translations-l10n.
+        // Qt 自身的翻译目录用于本地化标准对话框按钮。
         // 该目录是可选的：发行版未必安装 qt6-translations-l10n。
         const QString qtCatalog = QStringLiteral("qtbase_") + name;
         auto *qtTranslator = new QTranslator(&app);
@@ -97,6 +117,7 @@ int main(int argc, char *argv[])
     };
 
     bool translationLoaded = false;
+    QString activeLanguage;
 
     // --lang: explicit language name. / --lang：显式指定语言名称。
     if (parser.isSet(langOption)) {
@@ -105,6 +126,9 @@ int main(int argc, char *argv[])
             QStringLiteral("^[A-Za-z][A-Za-z0-9_.-]*$"));
         if (langNameRe.match(lang).hasMatch()) {
             translationLoaded = loadTranslator(lang);
+            if (translationLoaded) {
+                activeLanguage = lang;
+            }
         }
     }
 
@@ -113,7 +137,11 @@ int main(int argc, char *argv[])
     // 默认：跟随系统区域设置。翻译目录由 qt_add_translations() 嵌入可执行文件，
     // 运行时路径为 :/translations/<lang>.qm。
     if (!translationLoaded) {
-        translationLoaded = loadTranslator(QLocale::system().name());
+        const QString systemLanguage = QLocale::system().name();
+        translationLoaded = loadTranslator(systemLanguage);
+        if (translationLoaded) {
+            activeLanguage = systemLanguage;
+        }
     }
     if (!translationLoaded) {
         // Some platforms report BCP-47 names (zh-CN); Qt catalogs use zh_CN.
@@ -128,9 +156,17 @@ int main(int argc, char *argv[])
             }
             if (loadTranslator(candidate)) {
                 translationLoaded = true;
+                activeLanguage = candidate;
                 break;
             }
         }
+    }
+
+    // Keep locale-dependent formatting (file sizes, standard dialogs) in the
+    // same language as the user-visible text.
+    // 让与区域相关的格式（文件大小、标准对话框）与用户可见文本使用同一语言。
+    if (!activeLanguage.isEmpty()) {
+        QLocale::setDefault(QLocale(activeLanguage));
     }
 
     // Apply the configured theme before any widget is created.
@@ -139,6 +175,33 @@ int main(int argc, char *argv[])
 
     MainWindow window;
     window.show();
+
+    // Open a file passed by the desktop environment, a file manager or a
+    // Windows shell integration.  --oneclick runs the configured one-click
+    // extraction (and optionally closes the window afterwards).
+    // 打开桌面环境、文件管理器或 Windows 外壳集成传入的文件。
+    // --oneclick 会执行配置好的一键解压（并按设置决定是否关闭窗口）。
+    const QStringList positional = parser.positionalArguments();
+    if (!positional.isEmpty()) {
+        const QString archivePath =
+            QFileInfo(positional.first()).absoluteFilePath();
+        if (parser.isSet(oneClickOption)) {
+            QTimer::singleShot(0, &window, [&window, archivePath]() {
+                window.extractOneClickPath(archivePath);
+            });
+        } else {
+            QTimer::singleShot(0, &window, [&window, archivePath]() {
+                window.openArchivePath(archivePath);
+            });
+        }
+    }
+
+    if (parser.isSet(preferencesOption)) {
+        QTimer::singleShot(0, &window, [&window]() { window.openPreferences(); });
+    }
+    if (parser.isSet(benchmarkOption)) {
+        QTimer::singleShot(0, &window, [&window]() { window.openBenchmark(); });
+    }
 
     const int ret = app.exec();
     LOG_INFO("main", "QArchiver exiting with code %d", ret);

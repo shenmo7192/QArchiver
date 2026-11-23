@@ -4,8 +4,10 @@
 
 #include "FileListModel.h"
 
+#include "utils/FileTypeHelper.h"
 #include "utils/FileUtils.h"
 
+#include <QApplication>
 #include <QFont>
 #include <QIcon>
 #include <QLocale>
@@ -155,17 +157,19 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const
         return {};
     case Qt::DecorationRole:
         if (index.column() == NameColumn) {
-            static const QIcon folderIcon(QStringLiteral(":/icons/folder.png"));
-            static const QIcon fileIcon(QStringLiteral(":/icons/file.png"));
-            static const QIcon parentIcon(QStringLiteral(":/icons/up.ico"));
+            const bool modern = qApp->property("modernUi").toBool();
             if (node->isParent) {
-                return parentIcon;
+                return QIcon(modern ? QStringLiteral(":/modern/up.png")
+                                    : QStringLiteral(":/icons/up.ico"));
             }
-            return entry.isDir ? folderIcon : fileIcon;
+            return FileTypeHelper::icon(displayName(node), entry.isDir, modern);
         }
         return {};
     case Qt::FontRole:
-        if (entry.isDir) {
+        // The modern HaoZip-style list keeps folders at the normal weight;
+        // the classic Explorer-like list uses bold directories.
+        // 现代好压风格列表中的文件夹保持正常字重；经典资源管理器风格加粗。
+        if (entry.isDir && !qApp->property("modernUi").toBool()) {
             QFont font;
             font.setBold(true);
             return font;
@@ -178,7 +182,19 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const
         case SizeColumn:
             return entry.isDir ? QString() : QLocale().formattedDataSize(entry.size);
         case PackedSizeColumn:
-            return entry.isDir ? QString() : QLocale().formattedDataSize(entry.packedSize);
+            if (entry.isDir) {
+                return QString();
+            }
+            // Some read backends do not expose the compressed size; show a
+            // dash instead of a misleading "0 bytes" for non-empty files.
+            // 某些读取后端不提供压缩后大小；对非空文件显示 “-”，避免误报 0 字节。
+            return (entry.size > 0 && entry.packedSize == 0)
+                ? QStringLiteral("-")
+                : QLocale().formattedDataSize(entry.packedSize);
+        case TypeColumn:
+            return node->isParent
+                ? QString()
+                : FileTypeHelper::description(displayName(node), entry.isDir);
         case ModifiedColumn:
             return entry.mtime.isValid()
                 ? entry.mtime.toString(QStringLiteral("yyyy-MM-dd HH:mm"))
@@ -198,13 +214,21 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const
 
 QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-    if (role != Qt::DisplayRole || orientation != Qt::Horizontal) {
+    if (orientation != Qt::Horizontal) {
+        return {};
+    }
+    if (role == Qt::TextAlignmentRole
+        && (section == SizeColumn || section == PackedSizeColumn)) {
+        return static_cast<int>(Qt::AlignRight | Qt::AlignVCenter);
+    }
+    if (role != Qt::DisplayRole) {
         return {};
     }
     switch (section) {
     case NameColumn:       return tr("Name");
     case SizeColumn:       return tr("Size");
     case PackedSizeColumn: return tr("Packed");
+    case TypeColumn:       return tr("Type");
     case ModifiedColumn:   return tr("Modified");
     case EncryptedColumn:  return tr("Encrypted");
     default:               break;
@@ -535,6 +559,11 @@ void FileListModel::sortFlatNodes()
                 return 0;
             }
             return a->entry.packedSize < b->entry.packedSize ? -1 : 1;
+        case TypeColumn:
+            return QString::compare(
+                FileTypeHelper::description(displayName(a), a->entry.isDir),
+                FileTypeHelper::description(displayName(b), b->entry.isDir),
+                Qt::CaseInsensitive);
         case ModifiedColumn:
             if (a->entry.mtime == b->entry.mtime) {
                 return 0;

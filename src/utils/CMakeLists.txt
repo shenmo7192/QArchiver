@@ -5,6 +5,7 @@ target_sources(QArchiver PRIVATE
     # 外部进程执行与压缩工具查找。
     ProcessRunner.cpp
     ProcessRunner.h
+    PlatformProcess.h
     SevenZipTool.cpp
     SevenZipTool.h
 
@@ -18,10 +19,12 @@ target_sources(QArchiver PRIVATE
     EncodingDetector.cpp
     EncodingDetector.h
 
-    # MIME/format detection.
-    # MIME/格式检测。
+    # MIME/format detection and file-kind presentation.
+    # MIME/格式检测与文件类型展示。
     MimeTypeHelper.cpp
     MimeTypeHelper.h
+    FileTypeHelper.cpp
+    FileTypeHelper.h
 
     # Application theme and logging support.
     # 应用主题与日志支持。

@@ -1,0 +1,63 @@
+# Release workflow: push a version tag (e.g. v2.1.0) to build all four
+# artifacts and publish them on GitHub Releases.
+# 发布工作流：推送版本标签（如 v2.1.0）后构建四种产物并发布到 GitHub Releases。
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          ls -l
+          sha256sum -- *.deb *.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: QArchiver ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            ## Downloads
+
+            | Platform | Package |
+            | --- | --- |
+            | Linux x86_64 | `qarchiver_*_amd64.deb` |
+            | Linux ARM64 | `qarchiver_*_arm64.deb` |
+            | Windows x86_64 | `QArchiver-*-windows-x64.zip` |
+            | Windows ARM64 | `QArchiver-*-windows-arm64.zip` |
+
+            Windows ZIP packages are portable: unzip, then run `QArchiver.exe`.
+            Optional Explorer integration scripts are in the same directory.
+
+            Debian/Ubuntu: `sudo apt install ./qarchiver_*_<arch>.deb`.
+            The packages use the bundled 7-Zip helper (x64/ARM64 native).
+          files: |
+            dist/*.deb
+            dist/*.zip
+            dist/SHA256SUMS

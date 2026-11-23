@@ -1,0 +1,22 @@
+qarchiver (2.1.0) unstable; urgency=medium
+
+  * New 2.1.0 release: modern HaoZip-style UI, grid/list/tree archive views,
+    one-click extraction, 7-Zip benchmark, Windows x64/ARM64 packaging,
+    more compression formats and file-type icons, native file dialogs.
+
+ -- shenmo <shenmo@spark-app.store>  Sun, 22 Nov 2026 21:50:00 +0800
+
+qarchiver (0.2.0) unstable; urgency=medium
+
+  * Modern HaoZip-style interface with a switchable classic layout.
+  * One-click extraction with automatic folder naming, an optional
+    close-after-extraction mode and a first-use prompt.
+  * 7-Zip benchmark in Preferences and in the Tools menu.
+  * Windows build support: icon/version resource, per-monitor DPI manifest,
+    hidden-console process launching, Win32 filename encoding conversion,
+    process-liveness cleanup and Qt deployment/CPack packaging.
+  * Transparent add/delete on read-only libarchive backends by reopening the
+    archive with the command-line backend.
+  * Debian packaging (debian/control) and build-dependency tooling.
+
+ -- shenmo <shenmo@spark-app.store>  Sat, 22 Nov 2026 20:00:00 +0800

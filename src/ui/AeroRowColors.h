@@ -47,6 +47,40 @@ inline AeroRowColors aeroHoverRowColors(bool dark)
                          QColor(QStringLiteral("#cfe8fb"))};
 }
 
+// Flat HaoZip-style row colours used by the modern layout.
+// 现代好压布局使用的扁平行配色。
+inline AeroRowColors modernSelectedRowColors(bool dark, bool active)
+{
+    if (dark) {
+        return active
+            ? AeroRowColors{QColor(QStringLiteral("#24425f")),
+                            QColor(QStringLiteral("#24425f")),
+                            QColor(QStringLiteral("#3b6f9e"))}
+            : AeroRowColors{QColor(QStringLiteral("#2a3340")),
+                            QColor(QStringLiteral("#2a3340")),
+                            QColor(QStringLiteral("#3a4552"))};
+    }
+    return active
+        ? AeroRowColors{QColor(QStringLiteral("#dcebff")),
+                        QColor(QStringLiteral("#dcebff")),
+                        QColor(QStringLiteral("#b9d7fb"))}
+        : AeroRowColors{QColor(QStringLiteral("#eef1f5")),
+                        QColor(QStringLiteral("#eef1f5")),
+                        QColor(QStringLiteral("#e1e6ec"))};
+}
+
+inline AeroRowColors modernHoverRowColors(bool dark)
+{
+    if (dark) {
+        return AeroRowColors{QColor(QStringLiteral("#26313e")),
+                             QColor(QStringLiteral("#26313e")),
+                             QColor(QStringLiteral("#33404e"))};
+    }
+    return AeroRowColors{QColor(QStringLiteral("#f2f7ff")),
+                         QColor(QStringLiteral("#f2f7ff")),
+                         QColor(QStringLiteral("#e3edf8"))};
+}
+
 inline QLinearGradient aeroRowGradient(const QRect &rect,
                                        const AeroRowColors &colors)
 {

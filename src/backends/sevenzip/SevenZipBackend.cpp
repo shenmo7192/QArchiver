@@ -65,7 +65,12 @@ QStringList buildExtractionSelection(const QList<ArchiveEntry> &entries,
     QSet<QString> seen;
     auto add = [&](const QString &rawPath) {
         const QString normalized = FileUtils::normalizeEntryPath(rawPath);
-        if (normalized.isEmpty() || isUnderSkipped(normalized, skipped)
+        // The archive-root "." entry expands to the whole tree in 7-Zip and
+        // would defeat the member filter, including skipped symlinks.
+        // 归档根目录的 "." 条目会让 7-Zip 展开整棵树，从而绕过成员过滤
+        // （包括被跳过的符号链接），因此必须排除。
+        if (normalized.isEmpty() || normalized == QStringLiteral(".")
+            || isUnderSkipped(normalized, skipped)
             || seen.contains(normalized)) {
             return;
         }

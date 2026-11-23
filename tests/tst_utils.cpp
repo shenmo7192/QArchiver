@@ -169,6 +169,9 @@ void TestUtils::safeSymlinkTargets()
 
 void TestUtils::unsafeExtractedSymlinks()
 {
+#ifdef Q_OS_WIN
+    QSKIP("QFile::link creates .lnk shortcuts on Windows, not Unix symlinks");
+#endif
     QTemporaryDir temp;
     QVERIFY(temp.isValid());
     QVERIFY(QDir(temp.path()).mkpath(QStringLiteral("sub")));

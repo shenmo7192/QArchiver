@@ -12,6 +12,7 @@ class QSpinBox;
 class QCheckBox;
 class QLabel;
 class QLineEdit;
+class QPushButton;
 
 // Preferences dialog (design doc 4.6).
 // 偏好设置对话框（设计文档 4.6）。
@@ -24,6 +25,9 @@ private slots:
     void saveSettings();
 
 private:
+    void updateOneClickControls();
+    void updateBackgroundControls();
+
     QComboBox *m_defaultFormatCombo = nullptr;
     QSpinBox *m_defaultLevelSpin = nullptr;
     QComboBox *m_overwriteCombo = nullptr;
@@ -36,10 +40,17 @@ private:
     QCheckBox *m_libArchiveCheck = nullptr;
     QLabel *m_libArchiveHint = nullptr;
     QComboBox *m_themeCombo = nullptr;
+    QComboBox *m_layoutModeCombo = nullptr;
     QComboBox *m_viewModeCombo = nullptr;
     QComboBox *m_toolbarStyleCombo = nullptr;
     QCheckBox *m_showRecentFilesCheck = nullptr;
     QSpinBox *m_recentFilesLimitSpin = nullptr;
+
+    // One-click extraction / 一键解压
+    QComboBox *m_oneClickDestModeCombo = nullptr;
+    QLineEdit *m_oneClickDestEdit = nullptr;
+    QPushButton *m_oneClickBrowseButton = nullptr;
+    QCheckBox *m_oneClickCloseCheck = nullptr;
 
     // Optional semi-transparent background image.
     // 可选的半透明背景图片。
@@ -48,6 +59,7 @@ private:
     QSpinBox *m_backgroundWidthSpin = nullptr;
     QSpinBox *m_backgroundHeightSpin = nullptr;
     QSpinBox *m_backgroundOpacitySpin = nullptr;
+    QPushButton *m_backgroundClearButton = nullptr;
 };
 
 #endif // PREFERENCESDIALOG_H

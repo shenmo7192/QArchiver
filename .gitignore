@@ -12,6 +12,7 @@
 
 # Bundled 7-Zip engine: 7z.dll is required next to 7z.exe.
 !third_party/7zip/win/x64/7z.dll
+!third_party/7zip/win/arm64/7z.dll
 
 # Qt-es
 object_script.*.Release
@@ -61,3 +62,29 @@ compile_commands.json
 
 # Local drag & drop investigation logs (user's own records, not part of the repo)
 /*.log
+
+# Windows cross-build staging
+build-windows/
+build-windows-host-qt/
+
+# Build tooling scripts whose names match *build-*
+!tools/build-windows-cross.sh
+!tools/uninstall-build-deps.sh
+
+# Debian build artifacts
+obj-*/
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/qarchiver/
+debian/qarchiver.debhelper.log
+debian/qarchiver.substvars
+debian/*.debhelper
+qarchiver-build-deps_*
+
+# Cross-build lock
+.build-windows.lock
+
+# CI/release staging
+dist/
+_CPack_Packages/

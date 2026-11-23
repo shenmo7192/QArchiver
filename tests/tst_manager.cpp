@@ -14,7 +14,9 @@
 
 #include <memory>
 
+#ifdef QARCHIVER_HAS_LIBARCHIVE
 #include "backends/archive/LibArchiveBackend.h"
+#endif
 #include "backends/rar/RarBackend.h"
 #include "backends/sevenzip/SevenZipBackend.h"
 #include "backends/tar/TarBackend.h"
@@ -52,6 +54,7 @@ private slots:
     void openFailurePreservesCurrentArchive();
     void unsafeSymlinkRequiresDecision();
     void backendSelectionHonoursPreference();
+    void addDeleteReopensReadOnlyBackend();
 };
 
 // Prepare the manager test environment.
@@ -435,6 +438,9 @@ void TestManager::openFailurePreservesCurrentArchive()
 // 在命令行解压器运行前检测危险符号链接；用户可跳过，或中止且不创建目标目录。
 void TestManager::unsafeSymlinkRequiresDecision()
 {
+#ifdef Q_OS_WIN
+    QSKIP("Unix symlink archives are not represented by QFile::link on Windows");
+#endif
     const QString tar = QStandardPaths::findExecutable(QStringLiteral("tar"));
     if (tar.isEmpty()) {
         QSKIP("the tar tool is required for this test");
@@ -520,6 +526,109 @@ void TestManager::unsafeSymlinkRequiresDecision()
 
 // Backend selection follows preference and split-volume rules.
 // 后端选择遵循偏好设置与分卷规则。
+// libarchive is read-only.  Adding/deleting through it must transparently
+// reopen the archive with the CLI backend and replay the operation.
+// libarchive 是只读的。通过它添加/删除时必须透明地用命令行后端重新打开
+// 压缩包并重放操作。
+void TestManager::addDeleteReopensReadOnlyBackend()
+{
+#ifndef QARCHIVER_HAS_LIBARCHIVE
+    QSKIP("built without the libarchive read backend");
+#else
+    if (!ArchiveManager::isLibArchiveAvailable()
+        || ArchiveManager::isLibArchiveDisabledByEnvironment()) {
+        QSKIP("libarchive read backend is unavailable");
+    }
+
+    AppSettings &settings = AppSettings::instance();
+    const bool savedPreference = settings.useLibArchiveBackend();
+    settings.setUseLibArchiveBackend(true);
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+
+    const QString source = temp.filePath(QStringLiteral("first.txt"));
+    {
+        QFile file(source);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("first") == 5);
+    }
+    const QString archive = temp.filePath(QStringLiteral("write-through.zip"));
+    {
+        ZipBackend backend;
+        CompressOptions options;
+        options.archivePath = archive;
+        options.sourceFiles = {source};
+        bool finished = false;
+        bool success = false;
+        connect(&backend, &ArchiveBackend::operationFinished, &backend,
+                [&finished, &success](bool ok, const QString &) {
+                    finished = true;
+                    success = ok;
+                });
+        backend.compress(options);
+        QVERIFY(finished);
+        QVERIFY(success);
+    }
+
+    ArchiveManager &manager = ArchiveManager::instance();
+    QSignalSpy openedSpy(&manager, &ArchiveManager::archiveOpened);
+    manager.openArchive(archive);
+    QTRY_COMPARE_WITH_TIMEOUT(openedSpy.count(), 1, 10000);
+    QVERIFY(qobject_cast<LibArchiveBackend *>(manager.backend()) != nullptr);
+    QVERIFY(!manager.backend()->supportsAppend());
+
+    const QString added = temp.filePath(QStringLiteral("added.txt"));
+    {
+        QFile file(added);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("added") == 5);
+    }
+
+    QSignalSpy addFinished(&manager, &ArchiveManager::operationFinished);
+    AddFilesOptions addOptions;
+    addOptions.archivePath = archive;
+    addOptions.sourceFiles = {added};
+    manager.addFiles(addOptions);
+    QTRY_COMPARE_WITH_TIMEOUT(addFinished.count(), 1, 15000);
+    QVERIFY2(addFinished.first().at(0).toBool(), "addFiles should succeed after reopening with the CLI backend");
+    QVERIFY(manager.backend() != nullptr);
+    QVERIFY(qobject_cast<LibArchiveBackend *>(manager.backend()) == nullptr);
+    QVERIFY(manager.backend()->supportsAppend());
+
+    QSignalSpy listSpy(&manager, &ArchiveManager::fileListReady);
+    manager.listContents();
+    QTRY_COMPARE_WITH_TIMEOUT(listSpy.count(), 1, 10000);
+    bool found = false;
+    for (const ArchiveEntry &entry : manager.entries()) {
+        if (entry.path.contains(QStringLiteral("added.txt"))) {
+            found = true;
+            break;
+        }
+    }
+    QVERIFY2(found, "the added file must appear in the archive");
+
+    QSignalSpy deleteFinished(&manager, &ArchiveManager::operationFinished);
+    DeleteFilesOptions deleteOptions;
+    deleteOptions.archivePath = archive;
+    deleteOptions.targetEntries = {QStringLiteral("added.txt")};
+    manager.deleteFiles(deleteOptions);
+    QTRY_COMPARE_WITH_TIMEOUT(deleteFinished.count(), 1, 15000);
+    QVERIFY2(deleteFinished.first().at(0).toBool(), "deleteFiles should succeed on the CLI backend");
+
+    QSignalSpy finalListSpy(&manager, &ArchiveManager::fileListReady);
+    manager.listContents();
+    QTRY_COMPARE_WITH_TIMEOUT(finalListSpy.count(), 1, 10000);
+    for (const ArchiveEntry &entry : manager.entries()) {
+        QVERIFY2(!entry.path.endsWith(QStringLiteral("added.txt")),
+                 "the deleted file must be gone");
+    }
+
+    manager.closeArchive();
+    settings.setUseLibArchiveBackend(savedPreference);
+#endif
+}
+
 void TestManager::backendSelectionHonoursPreference()
 {
 #ifdef QARCHIVER_HAS_LIBARCHIVE

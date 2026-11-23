@@ -7,10 +7,118 @@
 #include <QProcess>
 #include <QStringConverter>
 
+#include <climits>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#else
 #include <cerrno>
 #include <iconv.h>
+#endif
 
 namespace {
+
+#ifdef Q_OS_WIN
+
+// Windows provides the same legacy code pages through MultiByteToWideChar, so
+// iconv is not required (MSVC does not ship it).
+// Windows 通过 MultiByteToWideChar 提供相同的旧代码页，因此不需要 iconv
+// （MSVC 不提供 iconv）。
+UINT codePageForName(const char *name)
+{
+    const QByteArray normalized = QByteArray(name).toUpper();
+    if (normalized == "UTF-8" || normalized == "UTF8"
+        || normalized == "CP65001") {
+        return 65001;
+    }
+    if (normalized == "GBK" || normalized == "GB2312"
+        || normalized == "GB18030" || normalized == "CP936") {
+        return 54936; // GB18030; the retry below falls back to CP936.
+    }
+    if (normalized == "BIG5" || normalized == "CP950") {
+        return 950;
+    }
+    if (normalized == "SHIFT-JIS" || normalized == "SJIS"
+        || normalized == "CP932") {
+        return 932;
+    }
+    if (normalized == "ISO-8859-1" || normalized == "LATIN1") {
+        return 28591;
+    }
+    return 0;
+}
+
+QString fromIconv(const QByteArray &data, const char *fromEncoding)
+{
+    if (data.isEmpty() || data.size() > INT_MAX) {
+        return QString();
+    }
+    UINT codePage = codePageForName(fromEncoding);
+    if (codePage == 0) {
+        return QString();
+    }
+
+    int length = MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS,
+                                     data.constData(),
+                                     static_cast<int>(data.size()), nullptr, 0);
+    if (length <= 0 && codePage == 54936) {
+        // Some Windows versions reject MB_ERR_INVALID_CHARS for CP54936.
+        codePage = 936;
+        length = MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS,
+                                     data.constData(),
+                                     static_cast<int>(data.size()), nullptr, 0);
+    }
+    if (length <= 0) {
+        return QString();
+    }
+
+    QString result;
+    result.resize(length);
+    const int written = MultiByteToWideChar(
+        codePage, MB_ERR_INVALID_CHARS, data.constData(),
+        static_cast<int>(data.size()), reinterpret_cast<LPWSTR>(result.data()),
+        length);
+    if (written <= 0) {
+        return QString();
+    }
+    result.resize(written);
+    return result;
+}
+
+QByteArray toIconv(const QString &text, const char *toEncoding)
+{
+    if (text.isEmpty() || text.size() > INT_MAX) {
+        return QByteArray();
+    }
+    const UINT codePage = codePageForName(toEncoding);
+    if (codePage == 0 || codePage == 65001) {
+        return text.toUtf8();
+    }
+
+    BOOL usedDefault = FALSE;
+    const int length = WideCharToMultiByte(
+        codePage, WC_NO_BEST_FIT_CHARS,
+        reinterpret_cast<LPCWCH>(text.utf16()), static_cast<int>(text.size()),
+        nullptr, 0, nullptr, &usedDefault);
+    if (length <= 0 || usedDefault) {
+        // The text contains characters that this code page cannot represent.
+        return QByteArray();
+    }
+
+    QByteArray result;
+    result.resize(length);
+    const int written = WideCharToMultiByte(
+        codePage, WC_NO_BEST_FIT_CHARS,
+        reinterpret_cast<LPCWCH>(text.utf16()), static_cast<int>(text.size()),
+        result.data(), length, nullptr, &usedDefault);
+    if (written <= 0 || usedDefault) {
+        return QByteArray();
+    }
+    result.resize(written);
+    return result;
+}
+
+#else // !Q_OS_WIN
 
 // RAII wrapper for the libc iconv handle so every early return closes it.
 // libc iconv 句柄的 RAII 封装，确保每个提前返回路径都会关闭它。
@@ -118,6 +226,8 @@ QByteArray toIconv(const QString &text, const char *toEncoding)
     output.resize(used);
     return output;
 }
+
+#endif // Q_OS_WIN
 
 QString decodeWithIconv(const QByteArray &data, const QString &encodingHint)
 {
@@ -250,6 +360,10 @@ int EncodingDetector::codePageId(const QString &encodingHint)
 
 bool EncodingDetector::isLocaleAvailable(const QString &localeName)
 {
+#ifdef Q_OS_WIN
+    Q_UNUSED(localeName);
+    return true; // Windows always has the Unicode/legacy code page APIs.
+#else
     QProcess proc;
     proc.start(QStringLiteral("locale"), {QStringLiteral("-a")});
     if (!proc.waitForFinished(3000)) {
@@ -263,4 +377,5 @@ bool EncodingDetector::isLocaleAvailable(const QString &localeName)
         }
     }
     return false;
+#endif
 }

@@ -99,6 +99,11 @@ public:
     // 检查条目路径是否会逃逸目标目录（Zip Slip）。
     static bool isPathTraversal(const QString &entryPath, const QString &destDir);
 
+    // Whether a process with the given PID is still running.  Used to clean
+    // preview/drag staging directories left by crashed instances.
+    // 指定 PID 的进程是否仍在运行。用于清理崩溃实例遗留的预览/拖出暂存目录。
+    static bool isProcessRunning(qint64 pid);
+
     // Generate a non-existing sibling path: "name (1).ext", "name (2).ext", ...
     // 生成不存在的同级路径："name (1).ext"、"name (2).ext"……
     static QString uniqueDestinationPath(const QString &path);

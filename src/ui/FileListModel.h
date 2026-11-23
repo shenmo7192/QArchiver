@@ -25,6 +25,7 @@ public:
         NameColumn = 0,
         SizeColumn,
         PackedSizeColumn,
+        TypeColumn,
         ModifiedColumn,
         EncryptedColumn,
         ColumnCount

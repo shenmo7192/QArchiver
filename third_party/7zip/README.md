@@ -11,8 +11,10 @@ the application independent from the host's `7z` / `tar` / `unrar` installation.
 
 ```text
 linux/<arch>/7zzs   statically linked 7-Zip (no runtime library dependencies)
-win/x64/7z.exe      7-Zip console executable
+win/x64/7z.exe      7-Zip console executable (x64)
 win/x64/7z.dll      7-Zip engine required by 7z.exe (same version!)
+win/arm64/7z.exe    7-Zip console executable (Windows ARM64)
+win/arm64/7z.dll    7-Zip engine for the ARM64 executable
 ```
 
 `7z.exe` cannot run without the matching `7z.dll`; always distribute the pair
@@ -32,6 +34,7 @@ stable.
   <https://www.7-zip.org/a/7z2606-linux-arm.tar.xz>
 - Windows x64: <https://www.7-zip.org/a/7z2606-x64.exe> (or the `.msi`
   package)
+- Windows ARM64: <https://www.7-zip.org/a/7z2606-arm64.exe>
 
 Only `7zzs` and `7z.exe` + `7z.dll` are copied from the upstream packages.
 
@@ -44,7 +47,7 @@ binaries and in the installed documentation directory.
 ## Updating
 
 1. Download the new upstream packages for every architecture.
-2. Replace the binaries in `linux/<arch>/`, `win/x64/`.
+2. Replace the binaries in `linux/<arch>/`, `win/x64/`, `win/arm64/`.
 3. Update `VERSION` and the version in this file.
 4. Keep `License.txt` in sync with the upstream package.
 5. Rebuild and run `ctest`; the CLI backend tests exercise the bundled helper

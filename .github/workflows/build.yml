@@ -1,0 +1,135 @@
+# Reusable build workflow for Linux (amd64/arm64) and Windows (x64/arm64).
+# 可复用的 Linux（amd64/arm64）与 Windows（x64/arm64）构建工作流。
+
+name: Build
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64 (deb)
+            os: ubuntu-24.04
+            platform: linux
+            arch: amd64
+          - name: Linux ARM64 (deb)
+            os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+          - name: Windows x86_64 (portable zip)
+            os: windows-latest
+            platform: windows
+            arch: x64
+            qt_arch: win64_msvc2022_64
+            cmake_arch: x64
+            run_tests: true
+          - name: Windows ARM64 (portable zip)
+            os: windows-latest
+            platform: windows
+            arch: arm64
+            qt_arch: win64_msvc2022_arm64_cross_compiled
+            cmake_arch: ARM64
+            run_tests: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------------
+      # Linux / Debian package
+      # ---------------------------------------------------------------------
+      - name: Install Debian build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            --no-install-recommends build-essential devscripts equivs fakeroot
+          sudo DEBIAN_FRONTEND=noninteractive \
+            mk-build-deps --install --remove \
+            --tool "apt-get -y --no-install-recommends" debian/control
+
+      - name: Build and test (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build build --parallel "$(nproc)"
+          ctest --test-dir build --output-on-failure
+
+      - name: Build Debian package (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          mkdir -p dist
+          dpkg-buildpackage -us -uc -b -jauto
+          cp ../qarchiver_*_${{ matrix.arch }}.deb dist/
+
+      - name: Upload Debian package
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qarchiver-deb-${{ matrix.arch }}
+          path: dist/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+      # ---------------------------------------------------------------------
+      # Windows / portable ZIP
+      # ---------------------------------------------------------------------
+      - name: Install Qt (Windows)
+        if: matrix.platform == 'windows'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          arch: ${{ matrix.qt_arch }}
+          cache: true
+
+      - name: Configure (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $testing = if ('${{ matrix.run_tests }}' -eq 'true') { 'ON' } else { 'OFF' }
+          $cmakeArgs = @(
+            '-S', '.', '-B', 'build',
+            '-G', 'Visual Studio 17 2022',
+            '-A', '${{ matrix.cmake_arch }}',
+            '-DCMAKE_BUILD_TYPE=Release',
+            "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR",
+            '-DQARCHIVER_USE_LIBARCHIVE=OFF',
+            "-DBUILD_TESTING=$testing"
+          )
+          if ($env:QT_HOST_PATH) {
+            $cmakeArgs += "-DQT_HOST_PATH=$env:QT_HOST_PATH"
+          }
+          cmake @cmakeArgs
+
+      - name: Build (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
+
+      - name: Test (Windows x64)
+        if: matrix.platform == 'windows' && matrix.run_tests
+        shell: pwsh
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: cpack --config build/CPackConfig.cmake -C Release
+
+      - name: Upload Windows package
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qarchiver-windows-${{ matrix.arch }}
+          path: QArchiver-*-windows-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          retention-days: 14

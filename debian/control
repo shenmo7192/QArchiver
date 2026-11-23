@@ -1,0 +1,31 @@
+Source: qarchiver
+Section: utils
+Priority: optional
+Maintainer: shenmo <shenmo@spark-app.store>
+Build-Depends: debhelper-compat (= 13),
+               cmake (>= 3.20),
+               g++ (>= 12) | clang (>= 15),
+               qt6-base-dev (>= 6.4),
+               qt6-tools-dev (>= 6.4),
+               libarchive-dev (>= 3.4),
+               pkg-config
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/shenmo7192/QArchiver
+
+Package: qarchiver
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: libarchive13 | libarchive13t64,
+            qt6-translations-l10n
+Suggests: rar
+Description: Qt 6 archive manager with a modern HaoZip-style interface
+ QArchiver (小Q解压) browses, extracts, creates, appends to, deletes from
+ and tests 7z, zip, tar, gz, bz2, xz and rar archives.  Archives are read
+ in-process through libarchive when possible and fall back to the bundled
+ 7-Zip helper otherwise.
+ .
+ The default modern layout follows HaoZip: a flat colourful toolbar, a
+ folder pane, a details pane, one-click extraction and an optional
+ 7-Zip benchmark.  The previous classic layout remains available in
+ Preferences.

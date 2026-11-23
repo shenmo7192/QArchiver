@@ -18,6 +18,11 @@
 
 #ifndef Q_OS_WIN
 #include <unistd.h>
+#else
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #endif
 
 namespace {
@@ -454,6 +459,30 @@ QStringList FileUtils::unsafeExtractedSymlinks(const QString &srcDir)
         }
     }
     return unsafe;
+}
+
+bool FileUtils::isProcessRunning(qint64 pid)
+{
+    if (pid <= 0) {
+        return false;
+    }
+#ifdef Q_OS_WIN
+    HANDLE handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
+                                static_cast<DWORD>(pid));
+    if (!handle) {
+        // Access denied usually means another user's process; a stale cache
+        // directory is safer to remove than to leak forever.
+        // 拒绝访问通常意味着其他用户的进程；清理过期缓存目录比永久泄漏更安全。
+        return false;
+    }
+    DWORD exitCode = 0;
+    const bool alive = GetExitCodeProcess(handle, &exitCode)
+        && exitCode == STILL_ACTIVE;
+    CloseHandle(handle);
+    return alive;
+#else
+    return QFileInfo::exists(QStringLiteral("/proc/%1").arg(pid));
+#endif
 }
 
 QString FileUtils::uniqueDestinationPath(const QString &path)

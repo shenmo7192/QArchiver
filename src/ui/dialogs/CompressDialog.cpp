@@ -61,6 +61,9 @@ CompressDialog::CompressDialog(const QStringList &sourceFiles, QWidget *parent)
     m_formatCombo->addItem(tr("Gzip tar (.tar.gz)"), static_cast<int>(ArchiveFormat::TarGz));
     m_formatCombo->addItem(tr("Xz tar (.tar.xz)"), static_cast<int>(ArchiveFormat::TarXz));
     m_formatCombo->addItem(tr("Bzip2 tar (.tar.bz2)"), static_cast<int>(ArchiveFormat::TarBz2));
+    m_formatCombo->addItem(tr("Gzip stream (.gz)"), static_cast<int>(ArchiveFormat::Gzip));
+    m_formatCombo->addItem(tr("Bzip2 stream (.bz2)"), static_cast<int>(ArchiveFormat::Bzip2));
+    m_formatCombo->addItem(tr("Xz stream (.xz)"), static_cast<int>(ArchiveFormat::Xz));
     const int formatIndex = m_formatCombo->findData(
         static_cast<int>(AppSettings::instance().defaultCompressFormat()));
     m_formatCombo->setCurrentIndex(formatIndex >= 0 ? formatIndex : 0);
@@ -174,9 +177,12 @@ void CompressDialog::onFormatChanged()
     // 去掉已知压缩包扩展名，再追加当前选择的扩展名。
     QString current = m_targetEdit->text();
     const QStringList knownExtensions = {
-        QStringLiteral(".7z"), QStringLiteral(".zip"), QStringLiteral(".rar"),
         QStringLiteral(".tar.gz"), QStringLiteral(".tar.xz"),
-        QStringLiteral(".tar.bz2"), QStringLiteral(".tar")
+        QStringLiteral(".tar.bz2"), QStringLiteral(".tgz"),
+        QStringLiteral(".txz"), QStringLiteral(".tbz2"),
+        QStringLiteral(".7z"), QStringLiteral(".zip"), QStringLiteral(".rar"),
+        QStringLiteral(".tar"), QStringLiteral(".gz"), QStringLiteral(".bz2"),
+        QStringLiteral(".xz")
     };
     for (const QString &known : knownExtensions) {
         if (current.endsWith(known, Qt::CaseInsensitive)) {
@@ -221,12 +227,25 @@ void CompressDialog::updateOptionAvailability()
         m_solidCheck->setChecked(false);
     }
 
+    const bool pureStream = fmt == ArchiveFormat::Gzip
+        || fmt == ArchiveFormat::Bzip2 || fmt == ArchiveFormat::Xz;
+    m_followSymlinksCheck->setEnabled(!pureStream);
+    m_storeFullPathCheck->setEnabled(!pureStream);
+    m_excludeEdit->setEnabled(!pureStream);
+    m_formatCombo->setToolTip(
+        pureStream
+            ? tr("A .gz / .bz2 / .xz stream can contain exactly one regular file.")
+            : QString());
+
     switch (fmt) {
     case ArchiveFormat::Tar:
         m_levelSpin->setEnabled(false);
         break;
     case ArchiveFormat::TarGz:
     case ArchiveFormat::TarBz2:
+    case ArchiveFormat::Gzip:
+    case ArchiveFormat::Bzip2:
+    case ArchiveFormat::Xz:
         m_levelSpin->setEnabled(true);
         m_levelSpin->setRange(1, 9);
         if (m_levelSpin->value() == 0) {
@@ -265,15 +284,19 @@ CompressOptions CompressDialog::options() const
             * m_volumeUnit->currentData().toLongLong();
     }
 
-    opts.followSymlinks = m_followSymlinksCheck->isChecked();
+    opts.followSymlinks = m_followSymlinksCheck->isEnabled()
+        && m_followSymlinksCheck->isChecked();
     opts.solidMode = m_solidCheck->isEnabled() && m_solidCheck->isChecked();
-    opts.storeFullPath = m_storeFullPathCheck->isChecked();
+    opts.storeFullPath = m_storeFullPathCheck->isEnabled()
+        && m_storeFullPathCheck->isChecked();
 
-    const QStringList patterns = m_excludeEdit->text().split(
-        QLatin1Char(';'), Qt::SkipEmptyParts);
-    for (const QString &pattern : patterns) {
-        if (!pattern.trimmed().isEmpty()) {
-            opts.excludePatterns << pattern.trimmed();
+    if (m_excludeEdit->isEnabled()) {
+        const QStringList patterns = m_excludeEdit->text().split(
+            QLatin1Char(';'), Qt::SkipEmptyParts);
+        for (const QString &pattern : patterns) {
+            if (!pattern.trimmed().isEmpty()) {
+                opts.excludePatterns << pattern.trimmed();
+            }
         }
     }
 
@@ -292,6 +315,20 @@ void CompressDialog::accept()
     if (m_sourceFiles.isEmpty()) {
         QMessageBox::warning(this, tr("Create Archive"),
                              tr("No source files were selected."));
+        return;
+    }
+
+    const ArchiveFormat format = selectedFormat();
+    const bool pureStream = format == ArchiveFormat::Gzip
+        || format == ArchiveFormat::Bzip2 || format == ArchiveFormat::Xz;
+    if (pureStream
+        && (m_sourceFiles.size() != 1
+            || QFileInfo(m_sourceFiles.first()).isDir())) {
+        QMessageBox::warning(
+            this, tr("Create Archive"),
+            tr("A .gz / .bz2 / .xz stream can contain exactly one regular "
+               "file. Select a single file, or choose .tar.gz / .tar.bz2 / "
+               ".tar.xz to compress multiple files."));
         return;
     }
 

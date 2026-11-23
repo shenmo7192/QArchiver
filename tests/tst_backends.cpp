@@ -118,6 +118,7 @@ private slots:
     void tarStreamDetection();
     void tarDotPrefixAndNonAscii();
     void tarUnsafeSymlinkCleansTemporaryTree();
+    void tarSkippedSymlinkIsExcluded();
     void rarBackendCapabilities();
     void rarCreateArchive();
     void rarCreateSplitVolumes();
@@ -132,6 +133,7 @@ private slots:
     void legacyGbkZipSelectedExtract();
 #endif
     void gzipStream();
+    void streamCompressRoundTrip();
 
 private:
     struct OperationResult {
@@ -477,9 +479,14 @@ void TestBackends::tarStreamDetection()
     QVERIFY(QFile::rename(tarGz, disguised));
     QCOMPARE(MimeTypeHelper::detect(disguised), ArchiveFormat::TarGz);
 
+    const QString gzipProgram =
+        QStandardPaths::findExecutable(QStringLiteral("gzip"));
+    if (gzipProgram.isEmpty()) {
+        QSKIP("system gzip is not available for the compatibility fixture");
+    }
     const QString plainGz = temp.filePath(QStringLiteral("plain.gz"));
     QProcess gzip;
-    gzip.start(QStringLiteral("gzip"), {QStringLiteral("-c"), source});
+    gzip.start(gzipProgram, {QStringLiteral("-c"), source});
     QVERIFY(gzip.waitForFinished(10000));
     QCOMPARE(gzip.exitCode(), 0);
     QVERIFY(writeFile(plainGz, gzip.readAllStandardOutput()));
@@ -542,6 +549,67 @@ void TestBackends::tarDotPrefixAndNonAscii()
     QCOMPARE(readFile(QDir(dest).filePath(fileName)), QString::fromUtf8(payload));
 }
 
+// A symlink explicitly skipped by the user must not be extracted even when
+// the rest of the archive is selected.  The archive-root "." entry must not
+// be passed to 7-Zip, otherwise it expands the whole tree and re-adds the link.
+// 用户明确跳过的符号链接在解压其余条目时也不能被解出。归档根目录 "." 条目
+// 不能传给 7-Zip，否则它会展开整棵树并重新加入该链接。
+void TestBackends::tarSkippedSymlinkIsExcluded()
+{
+#ifdef Q_OS_WIN
+    QSKIP("Unix symlink archives are not represented by QFile::link on Windows");
+#endif
+    const QString tar = QStandardPaths::findExecutable(QStringLiteral("tar"));
+    if (tar.isEmpty()) {
+        QSKIP("the tar tool is required for this test");
+    }
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString src = temp.filePath(QStringLiteral("src"));
+    QVERIFY(QDir().mkpath(src));
+    QVERIFY(writeFile(QDir(src).filePath(QStringLiteral("safe.txt")),
+                      QByteArrayLiteral("safe")));
+    QVERIFY(QFile::link(QStringLiteral("/etc/passwd"),
+                        QDir(src).filePath(QStringLiteral("escape"))));
+
+    const QString archive = temp.filePath(QStringLiteral("skip-link.tar"));
+    {
+        QProcess process;
+        process.start(tar, {QStringLiteral("-cf"), archive,
+                            QStringLiteral("-C"), src, QStringLiteral(".")});
+        QVERIFY(process.waitForFinished(30000));
+        QCOMPARE(process.exitCode(), 0);
+    }
+
+    TarBackend backend(ArchiveFormat::Tar);
+    backend.openArchive(archive);
+    bool listed = false;
+    const QList<ArchiveEntry> entries = list(backend, &listed);
+    QVERIFY2(listed, "tar list failed");
+
+    QString linkPath;
+    for (const ArchiveEntry &entry : entries) {
+        if (entry.isSymLink) {
+            linkPath = entry.path;
+            break;
+        }
+    }
+    QVERIFY2(!linkPath.isEmpty(), "tar did not expose the symlink entry");
+
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    ExtractOptions options;
+    options.destDir = dest;
+    options.overwrite = OverwritePolicy::Always;
+    options.skippedSymlinks = {linkPath};
+    options.symlinkPreflightDone = true;
+    const OperationResult result = extract(backend, options);
+    QVERIFY2(result.finished && result.success,
+             qPrintable(result.message));
+    QVERIFY(QFileInfo::exists(QDir(dest).filePath(QStringLiteral("safe.txt"))));
+    QVERIFY(!QFileInfo::exists(QDir(dest).filePath(QStringLiteral("escape"))));
+}
+
 // RAR is read-only, supports RAR4/RAR5 and rejects writes.
 // RAR 为只读，支持 RAR4/RAR5，并拒绝写操作。
 // The backend-level move-time check rejects an escaping symlink and removes
@@ -549,6 +617,9 @@ void TestBackends::tarDotPrefixAndNonAscii()
 // 后端在移动前拒绝逃逸符号链接，并删除临时解压目录。
 void TestBackends::tarUnsafeSymlinkCleansTemporaryTree()
 {
+#ifdef Q_OS_WIN
+    QSKIP("Unix symlink archives are not represented by QFile::link on Windows");
+#endif
     const QString tar = QStandardPaths::findExecutable(QStringLiteral("tar"));
     if (tar.isEmpty()) {
         QSKIP("the tar tool is required for this test");
@@ -1054,6 +1125,60 @@ void TestBackends::legacyGbkZipSelectedExtract()
 }
 #endif
 
+// Create pure gzip/bzip2/xz streams through StreamBackend and read them back.
+// 通过 StreamBackend 创建纯 gzip/bzip2/xz 流并重新读取。
+void TestBackends::streamCompressRoundTrip()
+{
+    const struct {
+        ArchiveFormat format;
+        QString suffix;
+    } cases[] = {
+        {ArchiveFormat::Gzip, QStringLiteral(".gz")},
+        {ArchiveFormat::Bzip2, QStringLiteral(".bz2")},
+        {ArchiveFormat::Xz, QStringLiteral(".xz")},
+    };
+
+    for (const auto &item : cases) {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const QString source = temp.filePath(QStringLiteral("stream.txt"));
+        const QByteArray payload = QByteArrayLiteral("stream-compress-data");
+        QVERIFY(writeFile(source, payload));
+
+        const QString archive = temp.filePath(
+            QStringLiteral("payload") + item.suffix);
+        StreamBackend writer(item.format);
+        CompressOptions options;
+        options.archivePath = archive;
+        options.sourceFiles = {source};
+        options.compressionLevel = 6;
+        const OperationResult compressed = compress(writer, options);
+        QVERIFY2(compressed.finished && compressed.success,
+                 qPrintable(compressed.message));
+        QVERIFY(QFileInfo::exists(archive));
+
+        StreamBackend reader(item.format);
+        reader.openArchive(archive);
+        bool listed = false;
+        const QList<ArchiveEntry> entries = list(reader, &listed);
+        QVERIFY2(listed, "stream list failed");
+        QCOMPARE(entries.size(), 1);
+
+        const QString dest = temp.filePath(QStringLiteral("out"));
+        ExtractOptions extractOptions;
+        extractOptions.destDir = dest;
+        extractOptions.overwrite = OverwritePolicy::Always;
+        const OperationResult extracted = extract(reader, extractOptions);
+        QVERIFY2(extracted.finished && extracted.success,
+                 qPrintable(extracted.message));
+
+        const QStringList files = QDir(dest).entryList(
+            QDir::Files | QDir::NoDotAndDotDot);
+        QCOMPARE(files.size(), 1);
+        QCOMPARE(readFile(QDir(dest).filePath(files.first())), QString::fromUtf8(payload));
+    }
+}
+
 // Read a pure gzip stream as a single entry.
 // 将纯 gzip 流作为单个条目读取。
 void TestBackends::gzipStream()
@@ -1064,8 +1189,13 @@ void TestBackends::gzipStream()
     QVERIFY(writeFile(source, QByteArrayLiteral("stream-data")));
 
     const QString gz = temp.filePath(QStringLiteral("stream.txt.gz"));
+    const QString gzipProgram =
+        QStandardPaths::findExecutable(QStringLiteral("gzip"));
+    if (gzipProgram.isEmpty()) {
+        QSKIP("system gzip is not available for the compatibility fixture");
+    }
     QProcess gzip;
-    gzip.start(QStringLiteral("gzip"), {QStringLiteral("-c"), source});
+    gzip.start(gzipProgram, {QStringLiteral("-c"), source});
     QVERIFY(gzip.waitForFinished(10000));
     QCOMPARE(gzip.exitCode(), 0);
     QVERIFY(writeFile(gz, gzip.readAllStandardOutput()));
