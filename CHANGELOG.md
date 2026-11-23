@@ -3,6 +3,24 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [2.1.1] - 2026-11-23
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Added / 新增
+
+- 现代网格/列表视图中的归档图片显示实际缩略图：后台按需解压到缩略图缓存，
+  不阻塞界面；加载完成后自动刷新对应图标。
+- 缩略图写入持久缓存（`QStandardPaths::CacheLocation/thumbnails`），再次打开
+  同一压缩包时直接复用；加密图片在获得密码后自动重试。
+- 双击图片仍可打开系统图片查看器进行连续看图。
+- 合并上游项目结构整理：资源、主题、图标、模型、服务与主窗口实现按职责拆分，
+  由分层静态库组织；本版本保持 2.1.1 版本号。
+
+### Fixed / 修复
+
+- 缩略图线程使用独立读取后端，不干扰主窗口的列表/解压操作。
+
 ## [0.1.2] - 2026-11-23
 
 作者：shenmo <shenmo@spark-app.store>
@@ -106,3 +124,4 @@ All notable changes to QArchiver (小Q解压) are documented here.
 - 清理 mk-build-deps 遗留文件与 Qt 5 时代文档描述。
 
 [0.1.2]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.2
+[2.1.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.1.1

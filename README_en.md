@@ -29,8 +29,8 @@ Explorer integration scripts are in the same directory. `SHA256SUMS` is attached
 Publish a release:
 
 ```bash
-git tag v0.1.2
-git push origin v0.1.2
+git tag v2.1.1
+git push origin v2.1.1
 ```
 
 ## Features
@@ -56,6 +56,7 @@ git push origin v0.1.2
   this threshold only controls whether the prompt appears and does not limit the total batch extraction size
 - Icons for common file kinds: images, audio/video, PDF, Office, code, fonts, disk images, e-books, databases, torrents, design files, subtitles, 3D/CAD, packages, and more
 - Native system file dialogs; compression sources ask for files or a folder, then use the native dialog
+- Archive images show real thumbnails in grid/list views (extracted in the background and persistently cached); double-click opens the system viewer for continuous browsing
 - Drag-out: drag selected entries directly to a file manager/desktop to extract them while preserving directory structure
   (extraction happens in the background to a staging directory, cancellable with `Esc`; a second drag of the same selection is zero-latency)
 

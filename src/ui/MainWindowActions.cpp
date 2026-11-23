@@ -517,6 +517,7 @@ void MainWindow::onCloseArchive()
     // Staged drag data belongs to the archive that is being closed.
     DragOutManager::instance().clearCache();
     m_model->setEntries({});
+    m_model->setArchiveContext(QString(), ArchiveFormat::Unknown, QString());
     m_listReady = false;
     m_oneClickPending = false;
     m_oneClickExtractActive = false;

@@ -21,6 +21,7 @@
 #include "ui/models/FilterProxyModel.h"
 #include "ui/models/FileListViewDelegate.h"
 #include "ui/services/PreviewManager.h"
+#include "ui/services/ThumbnailManager.h"
 #include "ui/services/PreviewUtils.h"
 #include "ui/services/DragOutManager.h"
 #include "ui/widgets/ArchiveTreeView.h"
@@ -138,6 +139,14 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onErrorOccurred);
     connect(&manager, &ArchiveManager::operationFinished,
             this, &MainWindow::onOperationFinished);
+
+    connect(&ThumbnailManager::instance(),
+            &ThumbnailManager::thumbnailReady, this,
+            [this](const QString &archivePath, const QString &entryPath) {
+        if (archivePath == ArchiveManager::instance().currentPath()) {
+            m_model->refreshThumbnail(entryPath);
+        }
+    });
 
     manager.setSymlinkDecisionCallback(
         [this](const QString &path, const QString &target) {
@@ -403,6 +412,9 @@ void MainWindow::onArchiveOpened(const QString &filePath)
 {
     m_currentPassword = m_sessionPassword;
     m_listReady = false;
+    ThumbnailManager::instance().clearFailures();
+    m_model->setArchiveContext(
+        filePath, ArchiveManager::instance().currentFormat(), m_currentPassword);
 
     // A new archive means new content: drop staging prepared for the previous
     // one.  (The staging directories themselves are removed on exit.)
@@ -434,6 +446,9 @@ void MainWindow::onFileListReady(const QList<ArchiveEntry> &entries)
         m_currentOp = UiOp::None;
     }
     m_listReady = true;
+    m_model->setArchiveContext(
+        ArchiveManager::instance().currentPath(),
+        ArchiveManager::instance().currentFormat(), m_currentPassword);
     m_model->setEntries(entries);
     if (!m_model->isFlatMode()) {
         m_treeView->expandToDepth(0);
@@ -489,6 +504,10 @@ void MainWindow::onPasswordRequested()
     if (dlg.rememberPassword()) {
         m_sessionPassword = m_currentPassword;
     }
+    ThumbnailManager::instance().clearFailures();
+    m_model->setArchiveContext(
+        ArchiveManager::instance().currentPath(),
+        ArchiveManager::instance().currentFormat(), m_currentPassword);
     setBusyIndicatorVisible(true, tr("Processing..."));
     ArchiveManager::instance().retryWithPassword(m_currentPassword);
 }

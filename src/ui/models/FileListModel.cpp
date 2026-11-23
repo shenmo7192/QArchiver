@@ -7,6 +7,7 @@
 #include "ui/models/FileListModel.h"
 
 #include "ui/icons/FileTypeHelper.h"
+#include "ui/services/ThumbnailManager.h"
 #include "utils/FileUtils.h"
 
 #include <QApplication>
@@ -164,6 +165,14 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const
                 return modern ? Icons::modern(QStringLiteral("up.png"))
                               : Icons::aero(QStringLiteral("up.ico"));
             }
+            if (modern && !entry.isDir && !m_archivePath.isEmpty()
+                && FileTypeHelper::kindFor(displayName(node), false)
+                       == FileTypeHelper::Kind::Image
+                && (!entry.isEncrypted || !m_archivePassword.isEmpty())) {
+                return ThumbnailManager::instance().icon(
+                    m_archivePath, m_archiveFormat, entry.path, entry.size,
+                    m_archivePassword);
+            }
             return FileTypeHelper::icon(displayName(node), entry.isDir, modern);
         }
         return {};
@@ -277,6 +286,24 @@ FileListModel::Node *FileListModel::ensureDirectory(Node *parent, const QString 
 FileListModel::Node *FileListModel::findNode(const QString &path) const
 {
     return m_nodes.value(path, nullptr);
+}
+
+void FileListModel::setArchiveContext(const QString &archivePath,
+                                      ArchiveFormat format,
+                                      const QString &password)
+{
+    m_archivePath = archivePath;
+    m_archiveFormat = format;
+    m_archivePassword = password;
+}
+
+void FileListModel::refreshThumbnail(const QString &entryPath)
+{
+    const QModelIndex index = indexForPath(entryPath);
+    if (!index.isValid()) {
+        return;
+    }
+    emit dataChanged(index, index, {Qt::DecorationRole});
 }
 
 void FileListModel::setEntries(const QList<ArchiveEntry> &entries)

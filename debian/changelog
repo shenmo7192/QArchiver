@@ -1,3 +1,12 @@
+qarchiver (2.1.1) unstable; urgency=medium
+
+  * Add lazy image thumbnails for archive entries in the modern grid/list
+    views, with a persistent thumbnail cache and password retry.
+  * Merge the upstream project-structure cleanup (layered libraries and
+    separated resources/services).
+
+ -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 18:40:00 +0800
+
 qarchiver (0.1.2) unstable; urgency=medium
 
   * New 0.1.2 release: modern HaoZip-style interface with a switchable classic
