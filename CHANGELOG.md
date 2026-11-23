@@ -3,6 +3,29 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [2.3.0] - 2026-11-23
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Added / 新增
+
+- 资源管理器右键菜单改为进程内扩展（`QArchiverShell.dll`）：文案动态显示
+  “添加到 xx.zip”，压缩包文件不再出现“添加到压缩文件”，格式子菜单动态生成。
+- Windows 安装器增加“关联压缩包格式”任务（默认选中）；偏好设置/工具菜单
+  新增文件关联管理工具，Windows 写入当前用户 ProgID，Linux 使用 xdg-mime /
+  mimeapps.list。
+- 从右键菜单启动压缩/解压时只显示对话框（选项/进度），不再弹出主窗口。
+- 安装版与便携版分开发布：`vX.Y.Z` 为安装版（Windows setup.exe + Linux deb），
+  `vX.Y.Z-portable` 为 Windows 绿色版。
+- 缩略图保持原始比例（不再裁剪成正方形）；通过 Qt imageformats 模块支持
+  WebP/TIFF 等格式。
+
+### Fixed / 修复
+
+- Windows 压缩/解压进度与日志不显示：7-Zip 增加 `-bsp1`，并按 `\r`/`\n`
+  解析进度输出。
+- 通用 Windows 安装器的关联注册、右键菜单注册与卸载清理。
+
 ## [2.2.0] - 2026-11-23
 
 作者：shenmo <shenmo@spark-app.store>
@@ -153,3 +176,4 @@ All notable changes to QArchiver (小Q解压) are documented here.
 [0.1.2]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.2
 [2.1.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.1.1
 [2.2.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.2.0
+[2.3.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.3.0

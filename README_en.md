@@ -14,26 +14,36 @@ HaoZip style and can be switched instantly back to the classic layout in
 
 ## Downloads
 
-Pushing a `v*` tag makes the release workflow publish:
+Pushing a `v*` tag makes the release workflow publish two separate releases:
+
+**Installers** (tag `vX.Y.Z`, Windows setup.exe + Linux deb):
 
 | Platform | Artifact |
 | --- | --- |
 | Linux x86_64 | `qarchiver_<version>_amd64.deb` |
 | Linux ARM64 | `qarchiver_<version>_arm64.deb` |
-| Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe` (installer) |
-| Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe` (installer) |
-| Windows portable | `QArchiver-<version>-windows-*.zip` |
+| Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe` |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe` |
 
-The Windows installer adds Start Menu/desktop shortcuts, an uninstall entry and
-the Explorer context menus. The portable ZIP needs no installation: unzip and run
-`QArchiver.exe`; the context-menu scripts are in the same directory.
-`SHA256SUMS` is attached as well.
+**Portable** (tag `vX.Y.Z-portable`, Windows ZIP):
+
+| Platform | Artifact |
+| --- | --- |
+| Windows x86_64 | `QArchiver-<version>-windows-x64.zip` |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip` |
+
+The Windows installer asks whether to associate archive formats (checked by
+default), adds Start Menu/desktop shortcuts, an uninstall entry and the Explorer
+context menus (open, one-click extract, dynamic "add to <name>.zip", compress
+to 7z/ZIP/tar...). The portable ZIP needs no installation: unzip and run
+`QArchiver.exe`; the context-menu scripts are in the same directory. Each
+release has its own `SHA256SUMS`.
 
 Publish a release:
 
 ```bash
-git tag v2.2.0
-git push origin v2.2.0
+git tag v2.3.0
+git push origin v2.3.0
 ```
 
 ## Features
@@ -46,6 +56,11 @@ git push origin v2.2.0
 - The navigation bar above the archive list provides grid/list/tree switching on both the welcome and archive pages
 - Sort menu in the context menu and next to the view switcher: name/size/type/modified,
   ascending or descending, remembered across sessions (also applies to the grid view)
+- File-association manager (Preferences → Tools): Windows per-user ProgIDs,
+  Linux xdg-mime / mimeapps.list; the installer asks to associate formats
+- Explorer context menu is an in-process extension: dynamic "add to <name>.zip"
+  labels, no compress commands for archive files, and shell launches show only
+  the operation dialogs (no main window)
 - One-click extraction: automatically extracts into a separate folder named after the archive;
   on directory conflicts it automatically uses unique names such as `name (1)`; supports a first-use
   prompt and "close the program after extraction"

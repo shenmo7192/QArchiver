@@ -261,11 +261,31 @@ ProcessResult ProcessRunner::run(const QString &program,
     };
 
     auto drainCompleteLines = [&](QByteArray &buffer, bool isError) {
-        int newline = -1;
-        while ((newline = buffer.indexOf('\n')) >= 0) {
-            const QByteArray line = buffer.left(newline);
-            buffer.remove(0, newline + 1);
-            appendLine(line, isError);
+        // 7-Zip uses '\r' for progress updates on Windows and '\n' for normal
+        // output; accept both as line separators.
+        // 7-Zip 在 Windows 上用 '\r' 刷新进度、用 '\n' 输出普通行；两者都按
+        // 行分隔符处理。
+        int start = 0;
+        for (;;) {
+            int separator = -1;
+            for (int i = start; i < buffer.size(); ++i) {
+                if (buffer.at(i) == '\n' || buffer.at(i) == '\r') {
+                    separator = i;
+                    break;
+                }
+            }
+            if (separator < 0) {
+                break;
+            }
+            appendLine(buffer.mid(start, separator - start), isError);
+            start = separator + 1;
+            if (start < buffer.size() && buffer.at(separator) == '\r'
+                && buffer.at(start) == '\n') {
+                ++start;
+            }
+        }
+        if (start > 0) {
+            buffer.remove(0, start);
         }
     };
 

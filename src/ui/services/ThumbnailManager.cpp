@@ -18,9 +18,7 @@
 #include <QImage>
 #include <QImageReader>
 #include <QMetaObject>
-#include <QPainter>
 #include <QPixmap>
-#include <QRect>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QtConcurrent>
@@ -30,6 +28,9 @@
 namespace {
 constexpr int kThumbnailSize = 128;
 constexpr int kMaxSourceSize = 512;
+// Bump when the thumbnail rendering changes so stale disk caches are ignored.
+// 缩略图渲染方式变化时递增，避免复用旧缓存。
+constexpr int kThumbnailCacheVersion = 2;
 
 QString cacheRoot()
 {
@@ -51,7 +52,9 @@ QString thumbnailKey(const QString &archivePath, const QString &entryPath,
     return QString::fromLatin1(
         QCryptographicHash::hash(
             (archiveIdentity(archivePath) + QLatin1Char('|') + entryPath
-             + QLatin1Char('|') + QString::number(entrySize)).toUtf8(),
+             + QLatin1Char('|') + QString::number(entrySize)
+             + QLatin1Char('|') + QString::number(kThumbnailCacheVersion))
+                .toUtf8(),
             QCryptographicHash::Md5).toHex());
 }
 } // namespace
@@ -193,24 +196,18 @@ void ThumbnailManager::requestThumbnail(const QString &key,
                 }
                 const QImage image = reader.read();
                 if (!image.isNull()) {
-                    const QImage scaled = image.scaled(
+                    // Keep the original aspect ratio: fit inside the thumbnail
+                    // box instead of cropping/expanding it into a square.
+                    // 保持原始比例：缩放至缩略图框内，而不是裁剪成正方形。
+                    const QImage thumbnail = image.scaled(
                         kThumbnailSize, kThumbnailSize,
-                        Qt::KeepAspectRatioByExpanding,
+                        Qt::KeepAspectRatio,
                         Qt::SmoothTransformation);
-                    QImage square(kThumbnailSize, kThumbnailSize,
-                                  QImage::Format_ARGB32_Premultiplied);
-                    square.fill(Qt::transparent);
-                    QPainter painter(&square);
-                    painter.drawImage(
-                        QRect(0, 0, kThumbnailSize, kThumbnailSize), scaled,
-                        QRect((scaled.width() - kThumbnailSize) / 2,
-                              (scaled.height() - kThumbnailSize) / 2,
-                              kThumbnailSize, kThumbnailSize));
-                    painter.end();
 
                     const QString temporary = cacheFile
                         + QStringLiteral(".tmp");
-                    if (square.save(temporary, "PNG")) {
+                    if (!thumbnail.isNull()
+                        && thumbnail.save(temporary, "PNG")) {
                         QFile::remove(cacheFile);
                         success = QFile::rename(temporary, cacheFile);
                     }

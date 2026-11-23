@@ -65,6 +65,10 @@ public:
     // 打开偏好设置或性能测试对话框（命令行便利入口）。
     void openPreferences();
     void openBenchmark();
+    // Shell-integration mode: keep the main window hidden and show only the
+    // operation dialogs; quit when the operation finishes.
+    // 外壳集成模式：不显示主窗口，只显示操作对话框，操作结束后退出。
+    void setDialogOnly(bool enabled) { m_dialogOnly = enabled; }
 
     // Browse a local directory while no archive is open.  The same view,
     // search and navigation machinery is reused for local folders.
@@ -148,6 +152,7 @@ private:
     void createBusyWidget();
     ArchiveTreeView *createArchiveTree(QWidget *parent);
     ArchiveGridView *createArchiveGrid(QWidget *parent);
+    void finishDialogOnly();
 
     // View state / 视图状态
     void applyContentViewMode();
@@ -289,6 +294,9 @@ private:
     // 立即压缩状态（右键菜单/命令行）
     bool m_compressCloseAfter = false;
     QString m_lastCompressTarget;
+
+    // Shell-integration dialog-only mode / 外壳集成“仅对话框”模式
+    bool m_dialogOnly = false;
 
     enum class UiOp { None, Open, List, Extract, Compress, Add, Delete, Test };
     UiOp m_currentOp = UiOp::None;

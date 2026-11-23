@@ -29,6 +29,12 @@ struct Options {
     // --compress-dialog: open the compress dialog for the given paths.
     // --compress-dialog：为指定路径打开压缩对话框。
     bool compressDialog = false;
+    // --register-associations / --unregister-associations: update the current
+    // user's archive associations and exit (installer/uninstaller helper).
+    // --register-associations / --unregister-associations：更新当前用户的
+    // 压缩包格式关联后退出（安装器/卸载器辅助）。
+    bool registerAssociations = false;
+    bool unregisterAssociations = false;
     // --preferences: open the preferences dialog on startup. / --preferences：启动时打开偏好设置。
     bool preferences = false;
     // --benchmark: open the 7-Zip benchmark dialog on startup. / --benchmark：启动时打开 7-Zip 测试对话框。

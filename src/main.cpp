@@ -13,6 +13,7 @@
 #include "app/Translations.h"
 #include "ui/MainWindow.h"
 #include "ui/theme/ThemeManager.h"
+#include "utils/FileAssociations.h"
 #include "utils/Logger.h"
 
 #ifndef QARCHIVER_VERSION
@@ -52,8 +53,34 @@ int main(int argc, char *argv[])
     // 在创建任何控件前应用配置的主题。
     ThemeManager::applyTheme(app);
 
+    // Installer/uninstaller helper: update associations without opening a
+    // window, then exit immediately.
+    // 安装器/卸载器辅助：更新文件关联后直接退出，不打开窗口。
+    if (options.registerAssociations || options.unregisterAssociations) {
+        QString error;
+        const bool success = options.registerAssociations
+            ? FileAssociations::registerFormats(FileAssociations::extensions(),
+                                                &error)
+            : FileAssociations::unregisterFormats(
+                  FileAssociations::extensions(), &error);
+        if (!success) {
+            LOG_WARN("main", "File association update failed: %s",
+                     error.toUtf8().constData());
+        }
+        return success ? 0 : 1;
+    }
+
+    // Shell context-menu invocations should never show the main window; only
+    // the operation dialogs (compress options / progress / errors) are shown.
+    // 资源管理器右键菜单调用不显示主窗口，只显示操作对话框。
+    const bool dialogOnly = (options.oneClick && !options.archives.isEmpty())
+        || !options.compressFormat.isEmpty() || options.compressDialog;
+
     MainWindow window;
-    window.show();
+    window.setDialogOnly(dialogOnly);
+    if (!dialogOnly) {
+        window.show();
+    }
 
     // Compress from the Explorer context menu / a script: no dialog, the
     // archive is created next to the sources and the window closes afterwards.

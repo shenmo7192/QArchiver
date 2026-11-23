@@ -89,6 +89,10 @@ jobs:
         with:
           version: '6.8.2'
           arch: ${{ matrix.qt_arch }}
+          # WebP/TIFF/ICNS image plugins live in the separate qtimageformats
+          # module; thumbnails need them.
+          # WebP/TIFF/ICNS 图片插件位于独立的 qtimageformats 模块，缩略图需要。
+          modules: 'qtimageformats'
           cache: true
 
       - name: Configure (Windows)

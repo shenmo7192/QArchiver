@@ -32,6 +32,24 @@ bool isMissingVolumeError(const ProcessResult &result)
         .contains(QStringLiteral("Missing volume"), Qt::CaseInsensitive);
 }
 
+// Parse 7-Zip progress lines such as " 42% 3 + file" (stdout with -bsp1).
+// 解析 7-Zip 的进度行，例如“ 42% 3 + file”（配合 -bsp1 输出到 stdout）。
+int sevenZipPercent(const QString &line)
+{
+    const QString trimmed = line.trimmed();
+    int digits = 0;
+    while (digits < trimmed.size() && trimmed.at(digits).isDigit()) {
+        ++digits;
+    }
+    if (digits == 0 || digits >= trimmed.size()
+        || trimmed.at(digits) != QLatin1Char('%')) {
+        return -1;
+    }
+    bool ok = false;
+    const int value = trimmed.left(digits).toInt(&ok);
+    return ok ? qBound(0, value, 100) : -1;
+}
+
 bool isUnderSkipped(const QString &path, const QSet<QString> &skipped)
 {
     if (skipped.isEmpty()) {
@@ -173,7 +191,8 @@ void SevenZipBackend::listContents(const ListOptions &options)
 
     QStringList args;
     args << QStringLiteral("l") << QStringLiteral("-slt")
-         << QStringLiteral("-sccUTF-8");
+         << QStringLiteral("-sccUTF-8")
+         << QStringLiteral("-bsp1");
     appendPassword(args, options.password);
     args << QStringLiteral("--") << targetPath();
 
@@ -271,7 +290,8 @@ void SevenZipBackend::extract(const ExtractOptions &options)
          << QStringLiteral("-o") + tempDir
          << QStringLiteral("-y")
          << QStringLiteral("-spd")
-         << QStringLiteral("-sccUTF-8");
+         << QStringLiteral("-sccUTF-8")
+         << QStringLiteral("-bsp1");
     appendPassword(args, options.password);
 
     // Pass selected members through a listfile instead of the command line:
@@ -319,15 +339,22 @@ void SevenZipBackend::extract(const ExtractOptions &options)
             if (isError || line.isEmpty()) {
                 return;
             }
+            const int percent = sevenZipPercent(line);
+            if (percent >= 0) {
+                const int current =
+                    total > 0 ? qBound(0, total * percent / 100, total) : 0;
+                emit progressChanged(percent, total, current, -1);
+                return;
+            }
             emit outputReady(line);
             if (line.startsWith(QLatin1String("- "))
                 || line.startsWith(QLatin1String("+ "))
                 || line.startsWith(QLatin1String("U "))) {
                 ++processed;
-                const int percent = total > 0
+                const int progress = total > 0
                     ? qBound(0, processed * 100 / total, 100)
                     : 0;
-                emit progressChanged(percent, total, processed, -1);
+                emit progressChanged(progress, total, processed, -1);
             }
         },
         outputOptions);
@@ -420,7 +447,8 @@ void SevenZipBackend::compress(const CompressOptions &options)
     }
     args << QStringLiteral("-mx=%1").arg(validateLevel(options.compressionLevel))
          << QStringLiteral("-mmt=on")
-         << QStringLiteral("-sccUTF-8");
+         << QStringLiteral("-sccUTF-8")
+         << QStringLiteral("-bsp1");
 
     if (m_format == ArchiveFormat::SevenZip && options.solidMode) {
         args << QStringLiteral("-ms=on");
@@ -483,13 +511,20 @@ void SevenZipBackend::compress(const CompressOptions &options)
             if (isError || line.isEmpty()) {
                 return;
             }
+            const int percent = sevenZipPercent(line);
+            if (percent >= 0) {
+                const int current =
+                    total > 0 ? qBound(0, total * percent / 100, total) : 0;
+                emit progressChanged(percent, total, current, -1);
+                return;
+            }
             emit outputReady(line);
             if (line.startsWith(QLatin1String("+ "))) {
                 ++processed;
-                const int percent = total > 0
+                const int progress = total > 0
                     ? qBound(0, processed * 100 / total, 100)
                     : 0;
-                emit progressChanged(percent, total, processed, -1);
+                emit progressChanged(progress, total, processed, -1);
             }
         },
         outputOptions);
@@ -539,7 +574,8 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
         args << formatSwitch();
     }
     args << QStringLiteral("-mx=%1").arg(validateLevel(options.compressionLevel))
-         << QStringLiteral("-sccUTF-8");
+         << QStringLiteral("-sccUTF-8")
+         << QStringLiteral("-bsp1");
     if (m_encrypted && options.password.isEmpty()) {
         emit passwordRequested();
         return;
@@ -610,7 +646,8 @@ void SevenZipBackend::deleteFiles(const DeleteFilesOptions &options)
     if (!formatSwitch().isEmpty()) {
         args << formatSwitch();
     }
-    args << QStringLiteral("-spd") << QStringLiteral("-sccUTF-8");
+    args << QStringLiteral("-spd") << QStringLiteral("-sccUTF-8")
+         << QStringLiteral("-bsp1");
     if (m_encrypted && options.password.isEmpty()) {
         emit passwordRequested();
         return;
@@ -676,7 +713,8 @@ void SevenZipBackend::testArchive(const TestOptions &options)
     }
 
     QStringList args;
-    args << QStringLiteral("t") << QStringLiteral("-sccUTF-8");
+    args << QStringLiteral("t") << QStringLiteral("-sccUTF-8")
+         << QStringLiteral("-bsp1");
     appendPassword(args, options.password);
     args << QStringLiteral("--") << targetPath();
 

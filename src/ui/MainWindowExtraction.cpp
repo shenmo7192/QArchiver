@@ -276,6 +276,12 @@ QString MainWindow::oneClickDestinationRoot() const
 
 bool MainWindow::askOneClickClosePreference()
 {
+    // Shell integration never keeps a hidden window around: close as soon as
+    // the extraction finishes.
+    // 外壳集成模式不会保留隐藏窗口：解压完成后立即退出。
+    if (m_dialogOnly) {
+        return true;
+    }
     AppSettings &settings = AppSettings::instance();
     if (settings.oneClickCloseAsked()) {
         return settings.oneClickCloseAfterExtract();

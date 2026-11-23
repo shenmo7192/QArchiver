@@ -17,7 +17,8 @@ Package: qarchiver
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: libarchive13 | libarchive13t64,
-            qt6-translations-l10n
+            qt6-translations-l10n,
+            qt6-image-formats-plugins
 Suggests: rar
 Description: Qt 6 archive manager with a modern HaoZip-style interface
  QArchiver (小Q解压) browses, extracts, creates, appends to, deletes from

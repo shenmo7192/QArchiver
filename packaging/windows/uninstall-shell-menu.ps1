@@ -53,5 +53,19 @@ foreach ($base in @(
     }
 }
 
+# Remove the in-process context-menu extension (dynamic labels).
+# 移除提供动态文案的进程内右键菜单扩展。
+$shellDll = Join-Path $PSScriptRoot 'QArchiverShell.dll'
+if (Test-Path -LiteralPath $shellDll) {
+    $regsvr = if ([Environment]::Is64BitProcess) {
+        Join-Path $env:SystemRoot 'System32\regsvr32.exe'
+    } else {
+        Join-Path $env:SystemRoot 'Sysnative\regsvr32.exe'
+    }
+    Start-Process -FilePath $regsvr `
+        -ArgumentList @('/u', '/s', ('"{0}"' -f $shellDll)) `
+        -Wait -WindowStyle Hidden
+}
+
 Write-Host "QArchiver shell menu removed ($Scope scope)."
 Write-Host "已移除 QArchiver 右键菜单。"

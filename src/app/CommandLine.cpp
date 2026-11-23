@@ -71,6 +71,19 @@ Options parse(QCoreApplication &app)
         QStringLiteral("Open the compress dialog for the given files."));
     parser.addOption(compressDialogOption);
 
+    // Association helpers used by the Windows installer/uninstaller.
+    // Windows 安装器/卸载器使用的文件关联辅助选项。
+    const QCommandLineOption registerAssocOption(
+        QStringLiteral("register-associations"),
+        QStringLiteral("Register archive file associations for the current "
+                       "user and exit."));
+    parser.addOption(registerAssocOption);
+    const QCommandLineOption unregisterAssocOption(
+        QStringLiteral("unregister-associations"),
+        QStringLiteral("Remove archive file associations for the current "
+                       "user and exit."));
+    parser.addOption(unregisterAssocOption);
+
     parser.addPositionalArgument(
         QStringLiteral("archive"),
         QStringLiteral("Archive to open (or to extract with --oneclick), or "
@@ -93,6 +106,8 @@ Options parse(QCoreApplication &app)
         options.compressOutput = parser.value(outputOption);
     }
     options.compressDialog = parser.isSet(compressDialogOption);
+    options.registerAssociations = parser.isSet(registerAssocOption);
+    options.unregisterAssociations = parser.isSet(unregisterAssocOption);
     return options;
 }
 
