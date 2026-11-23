@@ -21,6 +21,7 @@
 #include "ui/models/FilterProxyModel.h"
 #include "ui/models/FileListViewDelegate.h"
 #include "ui/services/PreviewManager.h"
+#include "ui/services/ThumbnailManager.h"
 #include "ui/services/PreviewUtils.h"
 #include "ui/services/DragOutManager.h"
 #include "ui/widgets/ArchiveTreeView.h"
@@ -113,6 +114,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     setupActions();
     m_modernUi = AppSettings::instance().uiLayoutMode() == QStringLiteral("modern");
+    m_sortColumn = AppSettings::instance().sortColumn();
+    m_sortOrder = AppSettings::instance().sortOrder();
     buildUi();
 
     // The background image is a presentation option, independent of the
@@ -138,6 +141,14 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onErrorOccurred);
     connect(&manager, &ArchiveManager::operationFinished,
             this, &MainWindow::onOperationFinished);
+
+    connect(&ThumbnailManager::instance(),
+            &ThumbnailManager::thumbnailReady, this,
+            [this](const QString &archivePath, const QString &entryPath) {
+        if (archivePath == ArchiveManager::instance().currentPath()) {
+            m_model->refreshThumbnail(entryPath);
+        }
+    });
 
     manager.setSymlinkDecisionCallback(
         [this](const QString &path, const QString &target) {
@@ -220,11 +231,9 @@ void MainWindow::buildUi()
         }
         updateStatusSummary();
     } else {
-        if (m_modernUi) {
-            showWelcomePage();
-        } else {
-            showPlaceholder(tr("No archive open.\nUse the Open button or drag a file here."));
-        }
+        // No archive open: browse the local file system (both layouts).
+        // 未打开压缩包：浏览本地文件系统（两种布局均是）。
+        loadLocalDirectory(AppSettings::instance().localBrowsePath(), false);
     }
 
     updateNavLocation();
@@ -347,6 +356,28 @@ void MainWindow::showWelcomePage()
     updateNavigationState();
 }
 
+void MainWindow::showStartPage()
+{
+    if (m_localBrowse) {
+        m_localBrowse = false;
+        m_localBrowseDir.clear();
+        m_navHistory.clear();
+        m_navIndex = -1;
+    }
+    if (m_modernUi) {
+        showWelcomePage();
+    } else {
+        showPlaceholder(
+            tr("No archive open.\nUse the Open button or drag a file here."));
+    }
+    if (m_folderPane) {
+        m_folderPane->setVisible(false);
+    }
+    setWindowTitle(tr("QArchiver"));
+    updateStatusSummary();
+    updateActionsState();
+}
+
 void MainWindow::showArchivePage()
 {
     if (m_centralStack) {
@@ -403,6 +434,11 @@ void MainWindow::onArchiveOpened(const QString &filePath)
 {
     m_currentPassword = m_sessionPassword;
     m_listReady = false;
+    m_localBrowse = false;
+    m_localBrowseDir.clear();
+    ThumbnailManager::instance().clearFailures();
+    m_model->setArchiveContext(
+        filePath, ArchiveManager::instance().currentFormat(), m_currentPassword);
 
     // A new archive means new content: drop staging prepared for the previous
     // one.  (The staging directories themselves are removed on exit.)
@@ -410,6 +446,10 @@ void MainWindow::onArchiveOpened(const QString &filePath)
     m_model->setEntries({});
     setSearchText(QString());
     setWindowTitle(tr("QArchiver - %1").arg(QFileInfo(filePath).fileName()));
+    if (m_folderPane) {
+        m_folderPane->setVisible(true);
+    }
+    applyContentViewMode();
     showArchivePage();
     resetNavigationHistory();
     if (m_folderPane) {
@@ -434,6 +474,9 @@ void MainWindow::onFileListReady(const QList<ArchiveEntry> &entries)
         m_currentOp = UiOp::None;
     }
     m_listReady = true;
+    m_model->setArchiveContext(
+        ArchiveManager::instance().currentPath(),
+        ArchiveManager::instance().currentFormat(), m_currentPassword);
     m_model->setEntries(entries);
     if (!m_model->isFlatMode()) {
         m_treeView->expandToDepth(0);
@@ -489,6 +532,10 @@ void MainWindow::onPasswordRequested()
     if (dlg.rememberPassword()) {
         m_sessionPassword = m_currentPassword;
     }
+    ThumbnailManager::instance().clearFailures();
+    m_model->setArchiveContext(
+        ArchiveManager::instance().currentPath(),
+        ArchiveManager::instance().currentFormat(), m_currentPassword);
     setBusyIndicatorVisible(true, tr("Processing..."));
     ArchiveManager::instance().retryWithPassword(m_currentPassword);
 }
@@ -503,6 +550,8 @@ void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
     m_oneClickExtractActive = false;
     m_oneClickCloseAfter = false;
     m_oneClickPending = false;
+    m_compressCloseAfter = false;
+    m_lastCompressTarget.clear();
     if (!ArchiveManager::instance().backend()) {
         m_listReady = false;
     }
@@ -560,7 +609,13 @@ void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
     QMessageBox::critical(this, title, msg);
 
     if (!ArchiveManager::instance().backend()) {
-        showPlaceholder(tr("Unable to open archive.\n%1").arg(msg));
+        if (m_localBrowse) {
+            // A failed open keeps the local listing usable.
+            // 打开失败时保留本地列表。
+            loadLocalDirectory(m_localBrowseDir, false);
+        } else {
+            showPlaceholder(tr("Unable to open archive.\n%1").arg(msg));
+        }
     } else {
         // A failed attempt to open/reopen another archive leaves the previous
         // archive usable; its list is still valid.
@@ -587,6 +642,7 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
     if (!success) {
         m_oneClickExtractActive = false;
         m_oneClickCloseAfter = false;
+        m_compressCloseAfter = false;
         statusBar()->showMessage(msg.isEmpty() ? tr("Operation failed") : msg, 5000);
         updateNavLocation();
         updateNavigationState();
@@ -595,6 +651,26 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
     }
 
     statusBar()->showMessage(msg, 5000);
+
+    if (finishedOp == UiOp::Compress) {
+        // The local listing may now contain the new archive.
+        // 本地列表可能新增了刚创建的压缩包。
+        if (m_localBrowse) {
+            refreshLocalDirectory();
+        }
+        if (!m_lastCompressTarget.isEmpty()) {
+            statusBar()->showMessage(
+                tr("Created %1").arg(QDir::toNativeSeparators(m_lastCompressTarget)),
+                8000);
+        }
+        if (m_compressCloseAfter) {
+            m_compressCloseAfter = false;
+            // Explorer menu / command-line compression is a one-shot task.
+            // 资源管理器菜单/命令行压缩是一次性任务。
+            QTimer::singleShot(500, this, [this]() { close(); });
+        }
+        m_lastCompressTarget.clear();
+    }
 
     if (finishedOp == UiOp::Extract && m_oneClickExtractActive) {
         const bool closeAfter = m_oneClickCloseAfter;
@@ -708,12 +784,7 @@ void MainWindow::dropEvent(QDropEvent *event)
     if (ArchiveManager::instance().backend()) {
         addFilesToCurrentArchive(localFiles);
     } else {
-        CompressDialog dlg(localFiles, this);
-        if (dlg.exec() == QDialog::Accepted) {
-            m_currentOp = UiOp::Compress;
-            showProgressDialog(tr("Creating Archive..."));
-            ArchiveManager::instance().compress(dlg.options(), dlg.selectedFormat());
-        }
+        compressPathsWithDialog(localFiles);
     }
     event->acceptProposedAction();
 }

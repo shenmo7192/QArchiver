@@ -55,12 +55,27 @@ int main(int argc, char *argv[])
     MainWindow window;
     window.show();
 
-    // Open a file passed by the desktop environment, a file manager or a
-    // Windows shell integration.  --oneclick runs the configured one-click
-    // extraction (and optionally closes the window afterwards).
-    // 打开桌面环境、文件管理器或 Windows 外壳集成传入的文件。
-    // --oneclick 会执行配置好的一键解压（并按设置决定是否关闭窗口）。
-    if (!options.archives.isEmpty()) {
+    // Compress from the Explorer context menu / a script: no dialog, the
+    // archive is created next to the sources and the window closes afterwards.
+    // 来自资源管理器右键菜单/脚本的压缩：不弹出对话框，在源文件旁创建压缩包，
+    // 完成后自动关闭窗口。
+    if (!options.compressFormat.isEmpty()) {
+        QTimer::singleShot(0, &window,
+                           [&window, sources = options.archives,
+                            format = options.compressFormat,
+                            output = options.compressOutput]() {
+            window.compressFromCommandLine(sources, format, output);
+        });
+    } else if (options.compressDialog) {
+        QTimer::singleShot(0, &window, [&window, sources = options.archives]() {
+            window.compressPathsWithDialog(sources);
+        });
+    } else if (!options.archives.isEmpty()) {
+        // Open a file passed by the desktop environment, a file manager or a
+        // Windows shell integration.  --oneclick runs the configured one-click
+        // extraction (and optionally closes the window afterwards).
+        // 打开桌面环境、文件管理器或 Windows 外壳集成传入的文件。
+        // --oneclick 会执行配置好的一键解压（并按设置决定是否关闭窗口）。
         const QString archivePath =
             QFileInfo(options.archives.first()).absoluteFilePath();
         if (options.oneClick) {

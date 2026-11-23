@@ -35,6 +35,7 @@ struct SevenZipToolInfo;
 class QAction;
 class QLabel;
 class QLineEdit;
+class QMenu;
 class QProgressBar;
 class QAbstractItemView;
 
@@ -64,6 +65,28 @@ public:
     // 打开偏好设置或性能测试对话框（命令行便利入口）。
     void openPreferences();
     void openBenchmark();
+
+    // Browse a local directory while no archive is open.  The same view,
+    // search and navigation machinery is reused for local folders.
+    // 未打开压缩包时浏览本地目录。复用同一套视图、搜索与导航机制。
+    void browseLocalDirectory(const QString &path);
+    bool isBrowsingLocalDirectory() const { return m_localBrowse; }
+
+    // Compress paths without opening the compress dialog (Explorer context
+    // menu and command line).  An empty target path derives
+    // "<name>.<ext>" next to the sources.
+    // 不打开压缩对话框直接压缩（资源管理器右键菜单与命令行）。
+    // 目标路径为空时在源文件旁生成“<名称>.<扩展名>”。
+    void compressPaths(const QStringList &sources, ArchiveFormat format,
+                       const QString &targetPath, bool closeAfterFinish = false);
+    // Compress paths using the normal compress dialog.
+    // 使用常规压缩对话框压缩指定路径。
+    void compressPathsWithDialog(const QStringList &sources);
+    // Entry point for "--compress <format>"; parses the format token.
+    // “--compress <格式>”的入口；负责解析格式名。
+    void compressFromCommandLine(const QStringList &sources,
+                                 const QString &formatName,
+                                 const QString &targetPath);
 
 protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
@@ -142,12 +165,19 @@ private:
     void showPlaceholder(const QString &message);
     void showWelcomePage();
     void showArchivePage();
+    void showStartPage();
     void setSearchText(const QString &text);
     void navigateToDirectory(const QString &path, bool addHistory);
     void navigateHistory(int delta);
     void resetNavigationHistory(const QString &directory = QString());
     QAbstractItemView *currentContentView() const;
     QString contentViewMode() const;
+
+    // Sorting (shared by the tree header, the sort button and context menus).
+    // 排序（树表头、排序按钮与右键菜单共用）。
+    void applySort(int column, Qt::SortOrder order);
+    QMenu *createSortMenu(QWidget *parent);
+    void updateSortUi();
 
     // Operations / 操作
     void showProgressDialog(const QString &title);
@@ -164,6 +194,21 @@ private:
     bool askOneClickClosePreference();
     QString oneClickDestinationRoot() const;
     static QString oneClickArchiveBaseName(const QString &archivePath);
+
+    // Local directory browsing / 本地目录浏览
+    void loadLocalDirectory(const QString &path, bool addHistory);
+    void refreshLocalDirectory();
+    QStringList selectedLocalPaths() const;
+    QString localPathForEntry(const ArchiveEntry &entry) const;
+    void openLocalEntry(const QString &name);
+    void updateLocalModeUi();
+    QMenu *createCompressToMenu(const QStringList &sources, QWidget *parent);
+    QString suggestedArchivePath(const QStringList &sources,
+                                 ArchiveFormat format) const;
+
+    // Compression without a dialog / 无对话框压缩
+    void startImmediateCompress(const QStringList &sources, ArchiveFormat format,
+                                const QString &targetPath, bool closeAfterFinish);
 
     // Models / 模型
     FileListModel *m_model = nullptr;
@@ -223,6 +268,8 @@ private:
     bool m_modernUi = true;
     bool m_listReady = false;
     QString m_searchText;
+    int m_sortColumn = 0;
+    Qt::SortOrder m_sortOrder = Qt::AscendingOrder;
 
     // Navigation history for the modern layout / 现代布局导航历史
     QStringList m_navHistory;
@@ -233,6 +280,15 @@ private:
     bool m_oneClickPending = false;
     bool m_oneClickExtractActive = false;
     bool m_oneClickCloseAfter = false;
+
+    // Local directory browsing state / 本地目录浏览状态
+    bool m_localBrowse = false;
+    QString m_localBrowseDir;
+
+    // Immediate compression state (context menu / command line)
+    // 立即压缩状态（右键菜单/命令行）
+    bool m_compressCloseAfter = false;
+    QString m_lastCompressTarget;
 
     enum class UiOp { None, Open, List, Extract, Compress, Add, Delete, Test };
     UiOp m_currentOp = UiOp::None;

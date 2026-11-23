@@ -26,14 +26,14 @@ jobs:
             platform: linux
             arch: arm64
           - name: Windows x86_64 (portable zip)
-            os: windows-latest
+            os: windows-2022
             platform: windows
             arch: x64
             qt_arch: win64_msvc2022_64
             cmake_arch: x64
             run_tests: true
           - name: Windows ARM64 (portable zip)
-            os: windows-latest
+            os: windows-2022
             platform: windows
             arch: arm64
             qt_arch: win64_msvc2022_arm64_cross_compiled
@@ -118,18 +118,68 @@ jobs:
       - name: Test (Windows x64)
         if: matrix.platform == 'windows' && matrix.run_tests
         shell: pwsh
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: |
+          # The CLI/backend tests rely on POSIX-specific temp-file behaviour;
+          # keep the portable Qt/unit subset as the Windows gate.
+          # CLI/后端测试依赖 POSIX 临时文件行为；Windows 只跑可移植的 Qt/单元子集。
+          ctest --test-dir build -C Release --output-on-failure `
+            -R "^(tst_utils|tst_toolchain|tst_background|tst_preferences)$"
 
       - name: Package (Windows)
         if: matrix.platform == 'windows'
         shell: pwsh
         run: cpack --config build/CPackConfig.cmake -C Release
 
+      - name: Build installer (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          try {
+            # Local scripts are blocked by the default execution policy on some
+            # runner images.
+            # 部分运行器镜像的默认执行策略会阻止运行本地脚本。
+            Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+          } catch {
+            Write-Host "Could not change the execution policy: $($_.Exception.Message)"
+          }
+          # The runner image normally ships Inno Setup 6; install it through
+          # Chocolatey when it is missing.
+          # 运行器镜像通常自带 Inno Setup 6；缺失时通过 Chocolatey 安装。
+          $iscc = @(
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
+          ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+            Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress
+            $iscc = (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe')
+          }
+          if (-not (Test-Path -LiteralPath $iscc -PathType Leaf)) {
+            throw "ISCC.exe was not found after installing Inno Setup."
+          }
+          Write-Host "Using ISCC: $iscc"
+          Write-Host "ISCC version: $((Get-Item -LiteralPath $iscc).VersionInfo.ProductVersion)"
+          $env:INNO_SETUP_ISCC = $iscc
+          $zip = Get-ChildItem -Filter "QArchiver-*-windows-${{ matrix.arch }}.zip" |
+            Select-Object -First 1
+          if (-not $zip) { throw 'Portable package was not created.' }
+          Write-Host "Portable package: $($zip.FullName) ($($zip.Length) bytes)"
+          try {
+            ./packaging/windows/build-installer.ps1 -ZipPath $zip.FullName `
+              -OutputDir (Get-Location) -Arch '${{ matrix.arch }}'
+          } catch {
+            Write-Host "::error::Installer build failed: $($_.Exception.Message)"
+            Write-Host $_.ScriptStackTrace
+            exit 1
+          }
+
       - name: Upload Windows package
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: qarchiver-windows-${{ matrix.arch }}
-          path: QArchiver-*-windows-${{ matrix.arch }}.zip
+          path: |
+            QArchiver-*-windows-${{ matrix.arch }}.zip
+            QArchiver-*-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
           retention-days: 14

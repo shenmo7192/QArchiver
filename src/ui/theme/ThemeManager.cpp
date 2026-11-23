@@ -590,9 +590,14 @@ void applyBaseStyle(QApplication &app)
 void applyFont(QApplication &app)
 {
     static const QStringList preferredFamilies = {
-        QStringLiteral("Segoe UI"),
+        // Prefer a CJK-capable UI family: Segoe UI has no Chinese glyphs, so
+        // Qt falls back to SimSun (宋体) for Chinese text, which looks dated.
+        // 优先使用支持中文的界面字体：Segoe UI 没有中文字形，Qt 会回退到
+        // 宋体，界面显得很旧。
         QStringLiteral("Microsoft YaHei UI"),
         QStringLiteral("Microsoft YaHei"),
+        QStringLiteral("微软雅黑"),
+        QStringLiteral("Segoe UI"),
         QStringLiteral("Noto Sans CJK SC"),
         QStringLiteral("Noto Sans"),
         QStringLiteral("DejaVu Sans")

@@ -20,24 +20,30 @@
 | --- | --- |
 | Linux x86_64 | `qarchiver_<version>_amd64.deb` |
 | Linux ARM64 | `qarchiver_<version>_arm64.deb` |
-| Windows x86_64 | `QArchiver-<version>-windows-x64.zip` |
-| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip` |
+| Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe`（安装器） |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe`（安装器） |
+| Windows 便携版 | `QArchiver-<version>-windows-*.zip` |
 
-Windows 包为便携目录，解压后运行 `QArchiver.exe`；右键菜单脚本也在同一目录。发布页同时提供 `SHA256SUMS`。
+Windows 安装器会安装开始菜单/桌面快捷方式与卸载入口，并注册资源管理器右键菜单；
+便携 ZIP 解压后运行 `QArchiver.exe` 即可，右键菜单脚本在同一目录。发布页同时提供 `SHA256SUMS`。
 
 发布新版本：
 
 ```bash
-git tag v0.1.2
-git push origin v0.1.2
+git tag v2.2.0
+git push origin v2.2.0
 ```
 
 ## 功能
 
 - 现代好压风格界面：扁平渐变头部、大号彩色工具栏、文件夹与详细信息面板、
   路径导航、包内搜索、归档状态摘要
+- 未打开压缩包时直接浏览本地目录（Windows/Linux）：目录导航、搜索、
+  网格/列表/树形视图、双击进入目录或打开文件、右键压缩
 - 起始页：拖放区、最近打开列表、打开/一键解压入口
 - 导航栏在压缩包列表上方提供网格/列表/树形切换，主页与归档页均可使用
+- 排序菜单：右键空白处或视图旁的排序按钮，可按名称/大小/类型/修改时间
+  升序或降序排列，并记住上次选择（网格视图同样生效）
 - 一键解压：自动解压到以压缩包命名的独立文件夹；目录冲突时自动使用
   `名称 (1)` 等唯一名称；支持首次提示与“解压完成后关闭程序”
 - 7-Zip 性能测试（`7z b`）：实时输出、线程数选择、停止与复制结果
@@ -54,6 +60,7 @@ git push origin v0.1.2
   该阈值只决定是否提示，不限制批量解压总量
 - 常见文件类型图标：图片、音视频、PDF、Office、代码、字体、磁盘映像、电子书、数据库、种子、设计稿、字幕、3D/CAD、安装包等
 - 文件选择使用系统原生对话框；压缩源选择先选择“文件”或“文件夹”，再调用系统对话框
+- 归档图片在网格/列表中显示实际缩略图（后台解压并持久缓存），双击可用系统查看器连续看图
 - 拖出：把选中条目直接拖到文件管理器/桌面即完成解压并保留目录结构
   （后台解压到 staging 目录，`Esc` 可取消；同一选中项第二次拖动零延迟）
 
@@ -277,10 +284,12 @@ Windows 构建、ZIP 打包、资源管理器右键菜单与交叉编译说明�
 - 通过 Win32 API 转换 GBK/Big5/Shift-JIS 文件名，不依赖 iconv；
 - 启动 7z/rar 时隐藏控制台窗口；
 - `cmake --install` 使用 `windeployqt` 部署 Qt 运行库，`cpack` 生成便携 ZIP；
-- `packaging/windows/install-shell-menu.ps1` 为当前用户注册
-  “用 小Q解压 打开”和“一键解压”右键菜单；
+  `packaging/windows/QArchiver.iss` 在便携包基础上生成安装器；
+- 安装器与 `packaging/windows/install-shell-menu.ps1` 注册资源管理器菜单：
+  “用 小Q解压 打开”“一键解压”“添加到同名 ZIP 压缩包”以及
+  “压缩到...”二级菜单（7z/ZIP/tar.gz/tar.xz/tar.bz2/tar）；
 - Debian/Ubuntu 上可用 `tools/build-windows-cross.sh` 交叉编译并整理便携目录；
-- GitHub Actions 在 `windows-latest` 上构建 x64，并用
+- GitHub Actions 在 `windows-2022` 上构建 x64，并用
   `win64_msvc2022_arm64_cross_compiled` 交叉构建 ARM64。
 
 ## 命令行
@@ -288,6 +297,11 @@ Windows 构建、ZIP 打包、资源管理器右键菜单与交叉编译说明�
 ```bash
 QArchiver [archive]                 # 打开压缩包
 QArchiver --oneclick <archive>      # 一键解压
+QArchiver --compress zip <files>    # 直接创建同名 ZIP（右键菜单使用）
+QArchiver --compress 7z <files>     # 直接创建 7z
+QArchiver --compress tar.gz <dir>   # 直接创建 tar.gz
+QArchiver --output <path>           # 配合 --compress 指定目标
+QArchiver --compress-dialog <files> # 打开压缩对话框
 QArchiver --preferences             # 打开设置
 QArchiver --benchmark               # 打开 7-Zip 性能测试
 QArchiver --lang en                 # 指定界面语言

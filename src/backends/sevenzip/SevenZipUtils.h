@@ -9,10 +9,31 @@
 #include <QString>
 #include <QStringList>
 
-class QTemporaryFile;
-
 // Helpers shared by the 7-Zip based backends (7z/zip, tar, rar).
 namespace SevenZipUtils {
+
+// A plain, uniquely named listfile that removes itself on destruction.
+// A QTemporaryFile cannot be used here: on Windows 7-Zip fails to open a
+// listfile created by QTemporaryFile even after it was closed, reporting
+// "the file is being used by another process".  Plain QFile files work.
+// 自行管理的唯一命名列表文件，析构时删除。
+// 不能使用 QTemporaryFile：Windows 上即使已关闭，7-Zip 打开它时仍会报
+// “另一个程序正在使用此文件”；普通 QFile 创建的文件正常。
+class ListFile {
+public:
+    explicit ListFile(const QString &tag = QStringLiteral("list"));
+    ~ListFile();
+    ListFile(const ListFile &) = delete;
+    ListFile &operator=(const ListFile &) = delete;
+
+    // Write the payload, close the file and wait until it is readable.
+    // 写入内容、关闭文件，并等待其可读。
+    bool write(const QByteArray &payload);
+    QString path() const { return m_path; }
+
+private:
+    QString m_path;
+};
 
 // Resolve the validated 7-Zip executable: QARCHIVER_7Z_PATH override,
 // program-relative helper, then a system PATH fallback.
@@ -26,7 +47,7 @@ QString resolveSevenZip();
 // 将 @p entries 写入 UTF-8 或旧代码页列表文件，并向 @p args 追加
 // 对应的 -scs/-i@ 开关。使用临时文件可避免通配符、前导短横线
 // 和 @ 列表文件被命令行误解析。
-bool appendListFileArgs(QTemporaryFile &file, const QStringList &entries,
+bool appendListFileArgs(ListFile &file, const QStringList &entries,
                         const QString &encoding, QStringList &args);
 
 // 7-Zip on Linux writes legacy-codepage member names as raw bytes, so the

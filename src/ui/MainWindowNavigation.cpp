@@ -145,6 +145,12 @@ void MainWindow::updateSelectionDetails()
     if (!m_modernUi) {
         return;
     }
+    if (m_localBrowse) {
+        // The folder/details pane is hidden for local listings; there is no
+        // archive-internal directory to track.
+        // 本地列表不显示文件夹/详细信息面板，也没有压缩包内部目录需要跟踪。
+        return;
+    }
 
     const QList<ArchiveEntry> entries = selectedEntries();
     if (m_folderPane) {
@@ -179,6 +185,29 @@ void MainWindow::updateSelectionDetails()
 void MainWindow::updateStatusSummary()
 {
     if (!m_statusSummaryLeft || !m_statusSummaryRight) {
+        return;
+    }
+
+    if (m_localBrowse) {
+        const QList<ArchiveEntry> entries = m_model->sourceEntries();
+        qint64 totalBytes = 0;
+        int files = 0;
+        int folders = 0;
+        for (const ArchiveEntry &entry : entries) {
+            if (entry.isDir) {
+                ++folders;
+                continue;
+            }
+            ++files;
+            totalBytes += entry.size;
+        }
+        m_statusSummaryLeft->setText(
+            tr("Local folder · %1").arg(QDir::toNativeSeparators(m_localBrowseDir)));
+        m_statusSummaryRight->setText(
+            tr("%1 files, %2 folders (%3)")
+                .arg(files)
+                .arg(folders)
+                .arg(MainWindowHelpers::formatFileSize(totalBytes)));
         return;
     }
 
@@ -241,6 +270,11 @@ void MainWindow::updateNavLocation()
     if (!m_modernNavBar) {
         return;
     }
+    if (m_localBrowse) {
+        m_modernNavBar->setLocation(
+            QDir::toNativeSeparators(m_localBrowseDir), QString());
+        return;
+    }
     const QString archivePath = ArchiveManager::instance().currentPath();
     if (archivePath.isEmpty()) {
         m_modernNavBar->setLocation(tr("No archive open"), QString());
@@ -253,6 +287,15 @@ void MainWindow::updateNavLocation()
 void MainWindow::updateNavigationState()
 {
     if (!m_modernNavBar) {
+        return;
+    }
+    if (m_localBrowse) {
+        QDir dir(m_localBrowseDir);
+        const bool canUp = !dir.isRoot() && dir.cdUp();
+        m_modernNavBar->setNavigationState(
+            m_navIndex > 0,
+            m_navIndex >= 0 && m_navIndex + 1 < m_navHistory.size(),
+            canUp);
         return;
     }
     const bool hasArchive = ArchiveManager::instance().backend() != nullptr;
@@ -287,6 +330,14 @@ void MainWindow::navigateHistory(int delta)
         return;
     }
     const QString directory = m_navHistory.at(target);
+    if (m_localBrowse) {
+        loadLocalDirectory(directory, false);
+        if (QDir::cleanPath(m_localBrowseDir) == QDir::cleanPath(directory)) {
+            m_navIndex = target;
+            updateNavigationState();
+        }
+        return;
+    }
     navigateToDirectory(directory, false);
     if (m_navCurrentDir == directory) {
         m_navIndex = target;
@@ -297,6 +348,14 @@ void MainWindow::navigateHistory(int delta)
 void MainWindow::navigateToDirectory(const QString &path, bool addHistory)
 {
     if (!m_model || !m_treeView) {
+        return;
+    }
+    if (m_localBrowse) {
+        QString target = path;
+        if (QFileInfo(target).isRelative()) {
+            target = QDir(m_localBrowseDir).filePath(target);
+        }
+        loadLocalDirectory(target, addHistory);
         return;
     }
 
@@ -399,6 +458,10 @@ void MainWindow::updateFolderPaneState()
 
 void MainWindow::onEntryDoubleClicked(const QString &path)
 {
+    if (m_localBrowse) {
+        openLocalEntry(path);
+        return;
+    }
     if (m_model->isFlatMode()) {
         if (path == QStringLiteral("..")) {
             const QString current = m_model->currentDirectory();
@@ -445,6 +508,14 @@ void MainWindow::onNavUp()
     if (!m_model) {
         return;
     }
+    if (m_localBrowse) {
+        QDir dir(m_localBrowseDir);
+        if (dir.isRoot() || !dir.cdUp()) {
+            return;
+        }
+        loadLocalDirectory(dir.absolutePath(), true);
+        return;
+    }
     if (m_model->isFlatMode()) {
         const QString current = m_model->currentDirectory();
         if (current.isEmpty()) {
@@ -482,6 +553,68 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
         view->selectionModel()->select(
             index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
         view->setCurrentIndex(index);
+    } else if (view->selectionModel()) {
+        // Right-click on empty space: keep only the sort/navigation commands.
+        // 在空白处右击：只显示排序与导航命令。
+        view->selectionModel()->clearSelection();
+    }
+
+    if (m_localBrowse) {
+        const QStringList localPaths = selectedLocalPaths();
+        QMenu menu(this);
+        QAction *openAction = menu.addAction(
+            Icons::modern(QStringLiteral("open.png")), tr("Open"));
+        openAction->setEnabled(localPaths.size() == 1);
+        connect(openAction, &QAction::triggered, this, [this, localPaths]() {
+            if (!localPaths.isEmpty()) {
+                openLocalEntry(QFileInfo(localPaths.first()).fileName());
+            }
+        });
+
+        menu.addSeparator();
+
+        QAction *addToZip = menu.addAction(
+            Icons::modern(QStringLiteral("compress.png")),
+            localPaths.isEmpty()
+                ? tr("Add to ZIP archive")
+                : tr("Add to \"%1\"")
+                      .arg(QFileInfo(suggestedArchivePath(localPaths,
+                                                          ArchiveFormat::Zip))
+                               .fileName()));
+        addToZip->setEnabled(!localPaths.isEmpty());
+        connect(addToZip, &QAction::triggered, this, [this, localPaths]() {
+            compressPaths(localPaths, ArchiveFormat::Zip, QString(), false);
+        });
+
+        QMenu *compressTo = createCompressToMenu(localPaths, &menu);
+        compressTo->setEnabled(!localPaths.isEmpty());
+        menu.addMenu(compressTo);
+
+        menu.addSeparator();
+        menu.addMenu(createSortMenu(&menu));
+        menu.addSeparator();
+
+        QAction *openFolder = menu.addAction(
+            Icons::modern(QStringLiteral("folder.png")),
+            tr("Open Containing Folder"));
+        connect(openFolder, &QAction::triggered, this, [this, localPaths]() {
+            const QString directory = localPaths.size() == 1
+                ? QFileInfo(localPaths.first()).absolutePath()
+                : m_localBrowseDir;
+            if (!QDesktopServices::openUrl(
+                    QUrl::fromLocalFile(directory))) {
+                MessageBoxUtils::showOpenFailure(this, directory);
+            }
+        });
+
+        QAction *refresh = menu.addAction(
+            Icons::modern(QStringLiteral("refresh.png")), tr("Refresh"));
+        connect(refresh, &QAction::triggered,
+                this, &MainWindow::refreshLocalDirectory);
+
+        menu.exec(view->viewport()->mapToGlobal(pos));
+        updateActionsState();
+        return;
     }
 
     ArchiveBackend *backend = ArchiveManager::instance().backend();
@@ -520,6 +653,9 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
         Icons::modern(QStringLiteral("test.png")), tr("Test Archive"));
     testArchive->setEnabled(backend && !busy);
     connect(testArchive, &QAction::triggered, this, &MainWindow::onTestArchive);
+
+    menu.addSeparator();
+    menu.addMenu(createSortMenu(&menu));
 
     menu.exec(view->viewport()->mapToGlobal(pos));
     updateActionsState();

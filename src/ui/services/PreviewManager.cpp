@@ -84,8 +84,16 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
         return;
     }
 
+    // Include size and modification time in the cache identity: an archive
+    // that was rewritten must not reuse files extracted from the old content.
+    // 缓存标识包含大小与修改时间：被重写的压缩包不会复用旧内容解压出的文件。
+    const QFileInfo archiveInfo(archivePath);
+    const QString archiveIdentity =
+        archivePath + QLatin1Char('|') + QString::number(archiveInfo.size())
+        + QLatin1Char('|')
+        + QString::number(archiveInfo.lastModified().toMSecsSinceEpoch());
     const QString archiveHash = QCryptographicHash::hash(
-        archivePath.toUtf8(), QCryptographicHash::Md5).toHex();
+        archiveIdentity.toUtf8(), QCryptographicHash::Md5).toHex();
     const QString previewDir = QDir(ownPreviewDir()).filePath(archiveHash);
     const QString normalized = FileUtils::normalizeEntryPath(entryPath);
 
@@ -129,17 +137,19 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
         return;
     }
 
-    // Reuse the cache when every requested image is already present.
-    // 所有请求的图片都已在缓存中时直接打开。
-    bool allCached = true;
+    // Reuse the cache per file.  Overwriting cached images is not an option on
+    // Windows: the system image viewer keeps the file open, so re-extracting
+    // the whole folder fails with a sharing violation ("the file is in use").
+    // 逐文件复用缓存。Windows 上不能覆盖缓存图片：系统图片查看器会一直占用
+    // 已打开的文件，重新解压整个目录会因共享冲突（“文件被占用”）而失败。
+    QStringList missingPaths;
     for (const QString &path : selectedPaths) {
         const QString normalizedPath = FileUtils::normalizeEntryPath(path);
         if (!QFileInfo::exists(QDir(previewDir).filePath(normalizedPath))) {
-            allCached = false;
-            break;
+            missingPaths << path;
         }
     }
-    if (allCached) {
+    if (missingPaths.isEmpty()) {
         if (!QDesktopServices::openUrl(QUrl::fromLocalFile(destPath))) {
             MessageBoxUtils::showOpenFailure(nullptr, destPath);
         }
@@ -165,7 +175,7 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
     const int threshold =
         AppSettings::instance().continuousImageDialogThreshold();
     const bool needsDialog = PreviewUtils::shouldShowPreparationDialog(
-        selectedPaths.size(), threshold, false);
+        missingPaths.size(), threshold, false);
     if (needsDialog) {
         auto *dialog = new ProgressDialog(nullptr);
         dialog->setOperation(tr("Preparing Continuous Preview..."));
@@ -192,14 +202,15 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
         });
     }
 
-    LOG_DEBUG("PreviewManager", "Preparing %lld preview image(s) in %s",
+    LOG_DEBUG("PreviewManager", "Preparing %lld of %lld preview file(s) in %s",
+              static_cast<long long>(missingPaths.size()),
               static_cast<long long>(selectedPaths.size()),
               previewDir.toUtf8().constData());
 
     // Do not call the main backend from the GUI thread.  A private backend is
     // created, used and destroyed entirely inside the worker thread.
-    // 不要在 GUI 线程调用主后端。私有后端完全在工作线程内创建、使用和销毁。
-    (void)QtConcurrent::run([archivePath, format, selectedPaths, previewDir,
+    // 不要在 GUI 线程调用主 backend。私有 backend 完全在工作线程内创建、使用和销毁。
+    (void)QtConcurrent::run([archivePath, format, missingPaths, previewDir,
                               destPath, password, job]() {
         auto cancel = job->cancel;
         std::unique_ptr<ArchiveBackend> backend(
@@ -254,7 +265,7 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
 
             ExtractOptions options;
             options.destDir = previewDir;
-            options.selectedFiles = selectedPaths;
+            options.selectedFiles = missingPaths;
             options.overwrite = OverwritePolicy::Always;
             options.preservePaths = true;
             options.password = password;
@@ -403,8 +414,15 @@ void PreviewManager::cleanupOwn()
     m_jobs.clear();
     m_pendingTargets.clear();
 
+#ifndef Q_OS_WIN
+    // On Windows the system image viewer keeps the preview file open, so
+    // deleting the cache on exit fails (and can break continuous viewing).
+    // cleanupStale() removes the directory on the next start instead.
+    // Windows 上系统图片查看器会占用预览文件，退出时删除缓存会失败
+    //（并影响连续看图）。改由下次启动时的 cleanupStale() 清理。
     QDir dir(ownPreviewDir());
     if (dir.exists()) {
         dir.removeRecursively();
     }
+#endif
 }

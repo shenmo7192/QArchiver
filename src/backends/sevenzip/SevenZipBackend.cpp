@@ -7,7 +7,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QTemporaryFile>
 
 #include <algorithm>
 
@@ -280,8 +279,7 @@ void SevenZipBackend::extract(const ExtractOptions &options)
     // switch and leading '@' as a nested listfile.
     // 通过列表文件而不是命令行传递选定成员：7-Zip 会把位置参数当作通配符，
     // 把前导 '-' 当作开关，把前导 '@' 当作嵌套列表文件。
-    QTemporaryFile membersFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-7z-members-XXXXXX.txt"));
+    SevenZipUtils::ListFile membersFile(QStringLiteral("7z-members"));
     const QStringList selectedPaths =
         buildExtractionSelection(m_entries, options);
     if (!selectedPaths.isEmpty()) {
@@ -450,8 +448,7 @@ void SevenZipBackend::compress(const CompressOptions &options)
         }
     }
 
-    QTemporaryFile sourceListFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-7z-sources-XXXXXX.txt"));
+    SevenZipUtils::ListFile sourceListFile(QStringLiteral("7z-sources"));
     if (!SevenZipUtils::appendListFileArgs(sourceListFile, options.sourceFiles,
                             QStringLiteral("UTF-8"), args)) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
@@ -558,8 +555,7 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
         args << QStringLiteral("-spf");
     }
 
-    QTemporaryFile sourceListFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-7z-sources-XXXXXX.txt"));
+    SevenZipUtils::ListFile sourceListFile(QStringLiteral("7z-sources"));
     if (!SevenZipUtils::appendListFileArgs(sourceListFile, options.sourceFiles,
                             QStringLiteral("UTF-8"), args)) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
@@ -639,8 +635,7 @@ void SevenZipBackend::deleteFiles(const DeleteFilesOptions &options)
         targetEntries << entry;
     }
 
-    QTemporaryFile membersFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-7z-members-XXXXXX.txt"));
+    SevenZipUtils::ListFile membersFile(QStringLiteral("7z-members"));
     if (targetEntries.isEmpty()
         || !SevenZipUtils::appendListFileArgs(membersFile, targetEntries,
                                m_nameEncoding, args)) {

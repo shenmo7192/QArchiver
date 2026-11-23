@@ -31,6 +31,15 @@ function(qarchiver_add_windows_resources target)
     )
     target_sources(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/QArchiver.rc")
 
+    # The .rc file embeds the DPI/long-path manifest as resource 1/24.
+    # MSVC's linker otherwise generates and embeds another manifest, which CVTRES
+    # rejects as a duplicate resource.  Keep the one from the .rc file.
+    # .rc 已把 DPI/长路径清单嵌入为资源 1/24；MSVC 链接器默认还会再生成一份
+    # manifest，CVTRES 会报重复资源。这里禁用链接器自动生成。
+    if(MSVC)
+        target_link_options(${target} PRIVATE "/MANIFEST:NO")
+    endif()
+
     # A GUI executable: no console window is attached on Windows.
     # GUI 可执行文件：Windows 上不附带控制台窗口。
     set_target_properties(${target} PROPERTIES WIN32_EXECUTABLE TRUE)

@@ -6,7 +6,10 @@ QArchiver 的 Windows 版本使用与 Linux 相同的 Qt 6 界面，并额外提
 - 支持 Windows x64 与 ARM64，并分别内置原生架构的 7-Zip；
 - 启动 7z/rar 时不弹出控制台窗口；
 - Windows 文件名代码页（GBK/Big5/Shift-JIS）转换，不依赖 iconv；
-- 可选的资源管理器右键菜单：“用 小Q解压 打开”和“一键解压”。
+- 安装器（开始菜单、可选桌面快捷方式、卸载入口）与便携 ZIP 两种分发形式；
+- 资源管理器右键菜单：“用 小Q解压 打开”“一键解压”，文件和文件夹的
+  “添加到同名 ZIP 压缩包”与“压缩到...”二级菜单（7z/ZIP/tar.gz/tar.xz/
+  tar.bz2/tar，另含“自定义压缩选项”）。
 
 ## 从源码构建
 
@@ -21,8 +24,18 @@ ctest --test-dir build -C Release --output-on-failure
 cpack --config build/CPackConfig.cmake -C Release
 ```
 
-生成 `QArchiver-0.1.2-windows-x64.zip`，根目录包含 `QArchiver.exe`、
+生成 `QArchiver-2.2.0-windows-x64.zip`，根目录包含 `QArchiver.exe`、
 `7zip\7z.exe`、`7zip\7z.dll` 以及 `windeployqt` 部署的 Qt 运行库。
+
+在便携 ZIP 基础上生成安装器（需要 Inno Setup 6 的 `ISCC.exe`）：
+
+```powershell
+.\build-installer.ps1 -ZipPath .\QArchiver-2.2.0-windows-x64.zip -Arch x64
+```
+
+生成 `QArchiver-2.2.0-windows-x64-setup.exe`。安装器默认安装到
+`Program Files\QArchiver`，创建开始菜单项（桌面快捷方式为可选项）、卸载入口，
+并可勾选安装所有用户的资源管理器右键菜单。
 
 ARM64 在 x64 主机上交叉构建（Qt 包使用
 `win64_msvc2022_arm64_cross_compiled`）：
@@ -35,9 +48,15 @@ cmake --build build-arm64 --config Release
 cpack --config build-arm64/CPackConfig.cmake -C Release
 ```
 
-生成 `QArchiver-0.1.2-windows-arm64.zip`，内置原生 ARM64 的
+生成 `QArchiver-2.2.0-windows-arm64.zip`，内置原生 ARM64 的
 `7zip\7z.exe` / `7z.dll`。ARM64 可执行文件无法在 x64 主机上运行测试，
 因此不执行 `ctest`。
+
+生成 ARM64 安装器：
+
+```powershell
+.\build-installer.ps1 -ZipPath .\QArchiver-2.2.0-windows-arm64.zip -Arch arm64
+```
 
 MinGW 构建时请使用与 Qt 包匹配的编译器，并把 `libstdc++-6.dll`、
 `libgcc_s_seh-1.dll`、`libwinpthread-1.dll` 放到 exe 旁；CMake 的安装规则
@@ -45,10 +64,16 @@ MinGW 构建时请使用与 Qt 包匹配的编译器，并把 `libstdc++-6.dll`�
 
 ## 右键菜单
 
-解压 ZIP 后，在 PowerShell 中运行（当前用户，无需管理员）：
+解压便携 ZIP 后，在 PowerShell 中运行（当前用户，无需管理员）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install-shell-menu.ps1
+```
+
+安装所有用户（需要管理员）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install-shell-menu.ps1 -Scope Machine
 ```
 
 卸载：
@@ -57,10 +82,23 @@ powershell -ExecutionPolicy Bypass -File .\install-shell-menu.ps1
 powershell -ExecutionPolicy Bypass -File .\uninstall-shell-menu.ps1
 ```
 
-右键菜单的“一键解压”等价于：
+右键菜单内容：
+
+- 压缩包：“用 小Q解压 打开”“一键解压”；
+- 文件与文件夹：“添加到同名 ZIP 压缩包”“压缩到...”二级菜单
+  （7z/ZIP/tar.gz/tar.xz/tar.bz2/tar）和“自定义压缩选项”；
+- 文件夹空白处：压缩当前文件夹。
+
+“一键解压”等价于：
 
 ```powershell
 .\QArchiver.exe --oneclick "D:\path\archive.zip"
+```
+
+“添加到同名 ZIP”等价于（在源文件旁生成 `名称.zip`）：
+
+```powershell
+.\QArchiver.exe --compress zip "D:\path\name.txt"
 ```
 
 它使用“偏好设置 → 一键解压”中的目标位置和“解压完成后关闭”设置。
@@ -70,6 +108,10 @@ powershell -ExecutionPolicy Bypass -File .\uninstall-shell-menu.ps1
 ```powershell
 .\QArchiver.exe "D:\path\archive.zip"       # 打开
 .\QArchiver.exe --oneclick ".\archive.7z"   # 一键解压
+.\QArchiver.exe --compress zip ".\file"     # 直接创建 file.zip
+.\QArchiver.exe --compress 7z ".\folder"    # 直接创建 folder.7z
+.\QArchiver.exe --compress tar.gz ".\dir" --output .\dir.tar.gz
+.\QArchiver.exe --compress-dialog ".\file"  # 打开压缩对话框
 .\QArchiver.exe --preferences               # 直接打开设置
 .\QArchiver.exe --benchmark                 # 直接打开 7-Zip 性能测试
 .\QArchiver.exe --lang en                   # 指定界面语言
@@ -77,11 +119,11 @@ powershell -ExecutionPolicy Bypass -File .\uninstall-shell-menu.ps1
 
 ## GitHub Actions
 
-- `.github/workflows/build.yml` 构建 Linux amd64/arm64 deb、Windows x64 zip
-  与 Windows ARM64 zip；
+- `.github/workflows/build.yml` 构建 Linux amd64/arm64 deb、Windows x64/ARM64
+  便携 ZIP 与对应安装器；
 - `.github/workflows/ci.yml` 在 push / PR 上运行；
 - `.github/workflows/release.yml` 在推送 `v*` 标签时创建 Release 并上传
-  四个产物与 `SHA256SUMS`。
+  全部产物与 `SHA256SUMS`。
 
 ## 卸载构建依赖（Debian 交叉编译环境）
 

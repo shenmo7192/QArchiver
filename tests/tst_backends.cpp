@@ -961,13 +961,17 @@ void TestBackends::sevenZipSpecialNames()
     const QString sourceDir = temp.filePath(QStringLiteral("special"));
     QVERIFY(QDir().mkpath(sourceDir));
 
-    const QList<QPair<QString, QByteArray>> files = {
+    QList<QPair<QString, QByteArray>> files = {
         {QStringLiteral("-dash.txt"), QByteArrayLiteral("dash")},
-        {QStringLiteral("star*name.txt"), QByteArrayLiteral("star")},
-        {QStringLiteral("quest?name.txt"), QByteArrayLiteral("quest")},
         {QStringLiteral("at@name.txt"), QByteArrayLiteral("at")},
         {QStringLiteral("中文 空格.txt"), QByteArrayLiteral("chinese")},
     };
+#ifndef Q_OS_WIN
+    // '*' and '?' cannot be part of a Windows file name.
+    // Windows 文件名中不能包含 '*' 与 '?'。
+    files.append({QStringLiteral("star*name.txt"), QByteArrayLiteral("star")});
+    files.append({QStringLiteral("quest?name.txt"), QByteArrayLiteral("quest")});
+#endif
     for (const auto &file : files) {
         QVERIFY2(writeFile(QDir(sourceDir).filePath(file.first), file.second),
                  qPrintable(file.first));
@@ -1004,17 +1008,21 @@ void TestBackends::sevenZipSpecialNames()
     ExtractOptions extractOptions;
     extractOptions.destDir = dest;
     extractOptions.selectedFiles = {
-        QStringLiteral("star*name.txt"),
         QStringLiteral("-dash.txt"),
         QStringLiteral("at@name.txt"),
         QStringLiteral("中文 空格.txt"),
     };
+#ifndef Q_OS_WIN
+    extractOptions.selectedFiles << QStringLiteral("star*name.txt");
+#endif
     extractOptions.overwrite = OverwritePolicy::Always;
     const auto extracted = extract(reader, extractOptions);
     QVERIFY2(extracted.finished && extracted.success,
              qPrintable(extracted.message));
+#ifndef Q_OS_WIN
     QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("star*name.txt"))),
              QStringLiteral("star"));
+#endif
     QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("-dash.txt"))),
              QStringLiteral("dash"));
     QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("at@name.txt"))),
@@ -1023,7 +1031,12 @@ void TestBackends::sevenZipSpecialNames()
              QStringLiteral("chinese"));
 
     // Exercise the add-files path with a literal '*' in the source name.
+    // Windows 文件名不允许 '*'，改用普通名称。
+#ifdef Q_OS_WIN
+    const QString extra = QDir(sourceDir).filePath(QStringLiteral("added-star.txt"));
+#else
     const QString extra = QDir(sourceDir).filePath(QStringLiteral("added*star.txt"));
+#endif
     QVERIFY(writeFile(extra, QByteArrayLiteral("added")));
     SevenZipBackend adder;
     adder.openArchive(archive);
@@ -1037,8 +1050,10 @@ void TestBackends::sevenZipSpecialNames()
     deleteOptions.archivePath = archive;
     deleteOptions.targetEntries = {
         QStringLiteral("-dash.txt"),
-        QStringLiteral("star*name.txt"),
     };
+#ifndef Q_OS_WIN
+    deleteOptions.targetEntries << QStringLiteral("star*name.txt");
+#endif
     const auto removed = removeEntries(reader, deleteOptions);
     QVERIFY2(removed.finished && removed.success,
              qPrintable(removed.message));
@@ -1048,13 +1063,14 @@ void TestBackends::sevenZipSpecialNames()
     bool listedAfterDelete = false;
     const auto remaining = list(afterDelete, &listedAfterDelete);
     QVERIFY2(listedAfterDelete, "special-name 7z list after delete failed");
-    QCOMPARE(remaining.size(), files.size() - 1);
+    QCOMPARE(remaining.size(),
+             files.size() + 1 - deleteOptions.targetEntries.size());
     bool foundAdded = false;
     for (const ArchiveEntry &entry : remaining) {
         QVERIFY2(entry.path != QStringLiteral("-dash.txt")
                      && entry.path != QStringLiteral("star*name.txt"),
                  qPrintable(QStringLiteral("entry was not deleted: %1").arg(entry.path)));
-        foundAdded = foundAdded || entry.path == QStringLiteral("added*star.txt");
+        foundAdded = foundAdded || entry.path == QFileInfo(extra).fileName();
     }
     QVERIFY(foundAdded);
 }

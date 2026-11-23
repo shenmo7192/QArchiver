@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QStorageInfo>
+#include <QThread>
 #include <QUuid>
 
 #include <limits>
@@ -83,6 +84,54 @@ bool copyMetadata(const QString &src, const QString &dest)
     destFile.close();
 
     return QFile::setPermissions(dest, info.permissions());
+}
+
+// Windows can keep a just-written file locked for a moment (antivirus scanner,
+// search indexer or an image viewer that already has the cache file open).
+// Retry briefly instead of failing the whole extraction with a sharing
+// violation.  On POSIX the first failure is returned immediately.
+// Windows 可能在刚写完文件后短暂占用它（杀毒扫描、索引服务，或已经打开缓存
+// 图片的查看器）。这里短暂重试，避免整个解压因共享冲突失败。
+// POSIX 上首次失败即返回。
+bool removeFileWithRetry(const QString &path)
+{
+    const auto missing = [&path]() {
+        const QFileInfo info(path);
+        return !info.exists() && !info.isSymLink();
+    };
+    if (missing()) {
+        return true;
+    }
+    for (int attempt = 0; attempt < 8; ++attempt) {
+        if (QFile::remove(path) || missing()) {
+            return true;
+        }
+#ifdef Q_OS_WIN
+        QThread::msleep(80);
+#else
+        break;
+#endif
+    }
+    return false;
+}
+
+bool renameFileWithRetry(const QString &src, const QString &dest)
+{
+    QFile srcFile(src);
+    for (int attempt = 0; attempt < 8; ++attempt) {
+        if (srcFile.rename(dest)) {
+            return true;
+        }
+        if (!QFileInfo::exists(src)) {
+            return false;
+        }
+#ifdef Q_OS_WIN
+        QThread::msleep(80);
+#else
+        break;
+#endif
+    }
+    return false;
 }
 
 } // namespace
@@ -198,18 +247,16 @@ bool FileUtils::removeDirectoryRecursively(const QString &path)
 
 bool FileUtils::moveFileAtomically(const QString &src, const QString &dest)
 {
-    QFile srcFile(src);
-
     // Same-filesystem rename preserves permissions, timestamps and symlinks.
     // 同一文件系统内重命名可保留权限、时间戳和符号链接。
-    if (srcFile.rename(dest)) {
+    if (renameFileWithRetry(src, dest)) {
         return true;
     }
 
     const QFileInfo srcInfo(src);
     if (srcInfo.isSymLink()) {
         const QString target = srcInfo.symLinkTarget();
-        QFile::remove(dest);
+        removeFileWithRetry(dest);
         if (QFile::link(target, dest)) {
             return QFile::remove(src);
         }
@@ -217,6 +264,7 @@ bool FileUtils::moveFileAtomically(const QString &src, const QString &dest)
     }
 
     // Cross-filesystem fallback: copy then delete. / 跨文件系统回退：复制后删除。
+    removeFileWithRetry(dest);
     if (QFile::copy(src, dest)) {
         copyMetadata(src, dest);
         return QFile::remove(src);
@@ -290,7 +338,7 @@ int FileUtils::moveExtractedContents(const QString &srcDir, const QString &destD
                 if (destInfo.isDir() && !destInfo.isSymLink()) {
                     removeDirectoryRecursively(destPath);
                 } else {
-                    QFile::remove(destPath);
+                    removeFileWithRetry(destPath);
                 }
                 break;
             }

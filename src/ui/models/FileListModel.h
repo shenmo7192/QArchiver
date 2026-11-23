@@ -10,6 +10,7 @@
 #include <QList>
 #include <QSet>
 
+#include "common/ArchiveConstants.h"
 #include "common/ArchiveEntry.h"
 
 // Hierarchical model for archive entries (design doc 6).
@@ -51,6 +52,9 @@ public:
     Qt::ItemFlags flags(const QModelIndex &index) const override;
 
     void setEntries(const QList<ArchiveEntry> &entries);
+    void setArchiveContext(const QString &archivePath, ArchiveFormat format,
+                           const QString &password);
+    void refreshThumbnail(const QString &entryPath);
     bool isFlatMode() const { return m_flatMode; }
     void setFlatMode(bool flat);
 
@@ -86,6 +90,9 @@ private:
     Node *m_root = nullptr;
     QHash<QString, Node *> m_nodes;
     QList<ArchiveEntry> m_sourceEntries;
+    QString m_archivePath;
+    ArchiveFormat m_archiveFormat = ArchiveFormat::Unknown;
+    QString m_archivePassword;
     // List-mode directory index: normalized directory -> direct children.
     // 列表模式目录索引：规范化目录 -> 直接子项。
     QHash<QString, QList<ArchiveEntry>> m_childrenByDir;

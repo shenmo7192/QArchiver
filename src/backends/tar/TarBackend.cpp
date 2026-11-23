@@ -8,7 +8,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
-#include <QTemporaryFile>
 
 #include <memory>
 
@@ -400,8 +399,7 @@ void TarBackend::extract(const ExtractOptions &options)
          << QStringLiteral("-spd")
          << QStringLiteral("-sccUTF-8");
 
-    QTemporaryFile membersFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-tar-members-XXXXXX.txt"));
+    SevenZipUtils::ListFile membersFile(QStringLiteral("tar-members"));
     const QStringList selectedPaths =
         buildExtractionSelection(m_entries, options);
     if (!selectedPaths.isEmpty()) {
@@ -557,8 +555,7 @@ void TarBackend::compress(const CompressOptions &options)
         args << QStringLiteral("-spd");
     }
 
-    QTemporaryFile sourceListFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-tar-sources-XXXXXX.txt"));
+    SevenZipUtils::ListFile sourceListFile(QStringLiteral("tar-sources"));
     if (!SevenZipUtils::appendListFileArgs(
             sourceListFile, entries, QStringLiteral("UTF-8"), args)) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
@@ -746,8 +743,7 @@ void TarBackend::addFiles(const AddFilesOptions &options)
         args << QStringLiteral("-spf");
     }
 
-    QTemporaryFile sourceListFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-tar-add-XXXXXX.txt"));
+    SevenZipUtils::ListFile sourceListFile(QStringLiteral("tar-add"));
     if (!SevenZipUtils::appendListFileArgs(
             sourceListFile, sourceFiles, QStringLiteral("UTF-8"), args)) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
@@ -816,8 +812,7 @@ void TarBackend::deleteFiles(const DeleteFilesOptions &options)
          << QStringLiteral("-spd")
          << QStringLiteral("-sccUTF-8");
 
-    QTemporaryFile membersFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-tar-members-XXXXXX.txt"));
+    SevenZipUtils::ListFile membersFile(QStringLiteral("tar-members"));
     if (!SevenZipUtils::appendListFileArgs(
             membersFile, targetEntries, m_nameEncoding, args)) {
         emit errorOccurred(ArchiveErrorCode::Unknown,

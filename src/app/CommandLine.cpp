@@ -44,9 +44,37 @@ Options parse(QCoreApplication &app)
         QStringLiteral("Open the 7-Zip benchmark dialog on startup."));
     parser.addOption(benchmarkOption);
 
+    // --compress <format>: create an archive from the positional paths, using
+    // "<name>.<ext>" next to the sources unless --output is given.  Used by the
+    // Windows Explorer context menu ("Add to <name>.zip" / "Compress to").
+    // --compress <格式>：用位置参数创建压缩包；默认在源文件旁生成
+    // “<名称>.<扩展名>”，也可用 --output 指定目标。Windows 资源管理器右键菜单
+    //（“添加到 <名称>.zip”/“压缩到…”）使用该选项。
+    const QCommandLineOption compressOption(
+        QStringLiteral("compress"),
+        QStringLiteral("Create an archive from the given files using <format> "
+                       "(zip, 7z, tar, tar.gz, tar.xz, tar.bz2)."),
+        QStringLiteral("format"));
+    parser.addOption(compressOption);
+
+    const QCommandLineOption outputOption(
+        QStringLiteral("output"),
+        QStringLiteral("Archive path to create with --compress."),
+        QStringLiteral("path"));
+    parser.addOption(outputOption);
+
+    // --compress-dialog: open the normal compress dialog for the positional
+    // paths (Explorer "Compress with options...").
+    // --compress-dialog：为位置参数打开常规压缩对话框（资源管理器“自定义压缩”）。
+    const QCommandLineOption compressDialogOption(
+        QStringLiteral("compress-dialog"),
+        QStringLiteral("Open the compress dialog for the given files."));
+    parser.addOption(compressDialogOption);
+
     parser.addPositionalArgument(
         QStringLiteral("archive"),
-        QStringLiteral("Archive to open (or to extract with --oneclick)."));
+        QStringLiteral("Archive to open (or to extract with --oneclick), or "
+                       "files to compress with --compress."));
 
     parser.process(app);
 
@@ -58,6 +86,13 @@ Options parse(QCoreApplication &app)
     options.oneClick = parser.isSet(oneClickOption);
     options.preferences = parser.isSet(preferencesOption);
     options.benchmark = parser.isSet(benchmarkOption);
+    if (parser.isSet(compressOption)) {
+        options.compressFormat = parser.value(compressOption);
+    }
+    if (parser.isSet(outputOption)) {
+        options.compressOutput = parser.value(outputOption);
+    }
+    options.compressDialog = parser.isSet(compressDialogOption);
     return options;
 }
 

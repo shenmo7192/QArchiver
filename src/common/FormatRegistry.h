@@ -32,6 +32,14 @@ QString kindSuffix(const QString &filePath);
 // 仅按后缀判定格式（不做魔数检查）。
 ArchiveFormat formatFromSuffix(const QString &filePath);
 
+// Parse a format name used by the command line and the Explorer context menu
+// ("zip", "7z", "tar", "tar.gz", "tgz", ...).  A leading dot and the
+// case are ignored; unknown names return ArchiveFormat::Unknown.
+// 解析命令行与资源管理器右键菜单使用的格式名（"zip"、"7z"、"tar"、
+// "tar.gz"、"tgz" 等）。忽略前导点与大小写；未知名称返回
+// ArchiveFormat::Unknown。
+ArchiveFormat formatFromName(const QString &name);
+
 // Whether the path uses a split-volume naming scheme (.7z.001, .part1.rar, .r00).
 // 路径是否使用分卷命名方案。
 bool isSplitVolume(const QString &filePath);

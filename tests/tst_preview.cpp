@@ -89,17 +89,20 @@ QList<ArchiveEntry> TestPreview::listFixture()
 void TestPreview::supportedExtensions()
 {
     for (const QString &suffix : {QStringLiteral(".jpg"),
+                                  QStringLiteral(".jpeg"),
                                   QStringLiteral(".png"),
                                   QStringLiteral(".svg"),
                                   QStringLiteral(".webp"),
                                   QStringLiteral(".gif"),
-                                  QStringLiteral(".bmp")}) {
+                                  QStringLiteral(".bmp"),
+                                  QStringLiteral(".tiff"),
+                                  QStringLiteral(".heic"),
+                                  QStringLiteral(".avif")}) {
         QVERIFY(PreviewUtils::isSupportedImagePath(QStringLiteral("image") + suffix));
         QVERIFY(PreviewUtils::isSupportedImagePath(
             QStringLiteral("IMAGE") + suffix.toUpper()));
     }
 
-    QVERIFY(!PreviewUtils::isSupportedImagePath(QStringLiteral("image.jpeg")));
     QVERIFY(!PreviewUtils::isSupportedImagePath(QStringLiteral("image.txt")));
     QVERIFY(!PreviewUtils::isSupportedImagePath(QStringLiteral("imagepng")));
 }
@@ -140,7 +143,7 @@ void TestPreview::skipsSymlinksAndSubdirectories()
         makeEntry(QStringLiteral("dir/d.GIF")),
         makeEntry(QStringLiteral("dir/e.BMP")),
         makeEntry(QStringLiteral("dir/f.SVG")),
-        makeEntry(QStringLiteral("dir/not-image.jpeg")),
+        makeEntry(QStringLiteral("dir/not-image.txt")),
         makeEntry(QStringLiteral("dir/sub/inside.png")),
         makeEntry(QStringLiteral("dir/link.png"), false, true),
         makeEntry(QStringLiteral("dir/folder.png"), true, false),

@@ -307,6 +307,25 @@ void MainWindow::setupMenuBar()
     fileMenu->addAction(m_openAct);
     fileMenu->addAction(m_newAct);
     fileMenu->addSeparator();
+
+    auto *startPageAction = fileMenu->addAction(tr("Start Page"));
+    connect(startPageAction, &QAction::triggered,
+            this, &MainWindow::showStartPage);
+
+    auto *browseLocalAction = fileMenu->addAction(tr("Browse Local Files..."));
+    connect(browseLocalAction, &QAction::triggered, this, [this]() {
+        const QString startDir = m_localBrowse
+            ? m_localBrowseDir
+            : AppSettings::instance().localBrowsePath();
+        const QString dir = QFileDialog::getExistingDirectory(
+            this, tr("Browse Local Files"), startDir,
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (!dir.isEmpty()) {
+            loadLocalDirectory(dir, false);
+        }
+    });
+
+    fileMenu->addSeparator();
     fileMenu->addAction(m_closeAct);
     fileMenu->addSeparator();
     fileMenu->addAction(m_quitAct);
@@ -362,6 +381,7 @@ void MainWindow::updateActionsState()
     ArchiveBackend *backend = ArchiveManager::instance().backend();
     const bool busy = ArchiveManager::instance().isBusy();
     const bool hasArchive = (backend != nullptr);
+    const bool localBrowse = m_localBrowse && !hasArchive;
     const bool canModify = hasArchive
         && ArchiveManager::instance().canModifyCurrentArchive();
     const bool hasSelection = !selectedEntryPaths().isEmpty();
@@ -378,6 +398,17 @@ void MainWindow::updateActionsState()
     m_aboutAct->setEnabled(true);
     m_quitAct->setEnabled(true);
 
+    // The classic toolbar shows the same actions; only the compress tooltip
+    // changes between "create archive" and "compress the current selection".
+    // 经典工具栏共用这些动作；只有压缩按钮的提示在“新建压缩包”与
+    // “压缩当前选择”之间切换。
+    if (m_newAct) {
+        m_newAct->setToolTip(
+            localBrowse && hasSelection
+                ? tr("Compress the selected items (Ctrl+N)")
+                : tr("Create a new archive (Ctrl+N)"));
+    }
+
     updateNavigationState();
 }
 
@@ -392,17 +423,7 @@ void MainWindow::onOpen()
 
 void MainWindow::onNewArchive()
 {
-    const QStringList items = chooseSourceItems(tr("Select Files to Compress"));
-    if (items.isEmpty()) {
-        return;
-    }
-
-    CompressDialog dlg(items, this);
-    if (dlg.exec() == QDialog::Accepted) {
-        m_currentOp = UiOp::Compress;
-        showProgressDialog(tr("Creating Archive..."));
-        ArchiveManager::instance().compress(dlg.options(), dlg.selectedFormat());
-    }
+    compressPathsWithDialog({});
 }
 
 void MainWindow::onTestArchive()
@@ -513,10 +534,16 @@ void MainWindow::onBenchmark()
 
 void MainWindow::onCloseArchive()
 {
+    if (ArchiveManager::instance().isBusy()) {
+        return;
+    }
+    const QString archivePath = ArchiveManager::instance().currentPath();
+
     ArchiveManager::instance().closeArchive();
     // Staged drag data belongs to the archive that is being closed.
     DragOutManager::instance().clearCache();
     m_model->setEntries({});
+    m_model->setArchiveContext(QString(), ArchiveFormat::Unknown, QString());
     m_listReady = false;
     m_oneClickPending = false;
     m_oneClickExtractActive = false;
@@ -529,12 +556,17 @@ void MainWindow::onCloseArchive()
     }
 
     setBusyIndicatorVisible(false);
-    setWindowTitle(tr("QArchiver"));
-    resetNavigationHistory();
-    if (m_folderPane) {
-        m_folderPane->clear();
+    // Closing an archive returns to the folder it came from; with no archive
+    // the window browses local directories instead of showing a blank page.
+    // 关闭压缩包后回到它所在的文件夹；没有压缩包时窗口浏览本地目录，
+    // 而不是显示空白页。
+    QString directory = archivePath.isEmpty()
+        ? AppSettings::instance().localBrowsePath()
+        : QFileInfo(archivePath).absolutePath();
+    if (!QFileInfo(directory).isDir()) {
+        directory = AppSettings::instance().localBrowsePath();
     }
-    showPlaceholder(tr("No archive open.\nUse the Open button or drag a file here."));
+    loadLocalDirectory(directory, false);
     statusBar()->showMessage(tr("Archive closed"), 3000);
     updateStatusSummary();
     updateActionsState();

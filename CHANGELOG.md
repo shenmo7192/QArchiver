@@ -3,6 +3,51 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [2.2.0] - 2026-11-23
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Added / 新增
+
+- Windows 安装器（Inno Setup），除便携 ZIP 外提供开始菜单、桌面快捷方式、
+  卸载入口以及可选的资源管理器集成；安装器与便携脚本使用同一套右键菜单。
+- 资源管理器右键菜单：文件和文件夹增加“添加到同名 ZIP 压缩包”，以及
+  “压缩到...”二级菜单（7z、ZIP、tar.gz、tar.xz、tar.bz2、tar）和
+  “自定义压缩选项”；文件夹空白处可压缩当前文件夹。
+- 未打开压缩包时浏览本地目录（Windows 与 Linux）：支持目录导航、前进/后退、
+  搜索、网格/列表/树形视图、双击打开文件或进入目录、右键压缩与排序。
+- 排序菜单：右键空白处或点击视图旁的小按钮，可按键名/大小/类型/修改时间
+  升序或降序排列，并记住上次选择（网格视图也可排序）。
+- 命令行新增 `--compress <格式>`、`--output <路径>`、`--compress-dialog`，
+  供右键菜单与脚本直接创建压缩包。
+
+### Fixed / 修复
+
+- Windows 下连续看图/图片预览提示“另一个程序正在使用此文件”：预览缓存
+  改为按单个文件复用，不再覆盖系统图片查看器已占用的图片；缓存标识加入
+  压缩包大小与修改时间；补充 `.jpeg` 等图片后缀；解压移动文件时对 Windows
+  临时占用进行短暂重试；退出时不再删除仍被查看器打开的预览缓存。
+- Windows 默认字体回退到宋体的问题：优先使用微软雅黑 UI / 微软雅黑，
+  中文界面不再以宋体渲染。
+
+## [2.1.1] - 2026-11-23
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Added / 新增
+
+- 现代网格/列表视图中的归档图片显示实际缩略图：后台按需解压到缩略图缓存，
+  不阻塞界面；加载完成后自动刷新对应图标。
+- 缩略图写入持久缓存（`QStandardPaths::CacheLocation/thumbnails`），再次打开
+  同一压缩包时直接复用；加密图片在获得密码后自动重试。
+- 双击图片仍可打开系统图片查看器进行连续看图。
+- 合并上游项目结构整理：资源、主题、图标、模型、服务与主窗口实现按职责拆分，
+  由分层静态库组织；本版本保持 2.1.1 版本号。
+
+### Fixed / 修复
+
+- 缩略图线程使用独立读取后端，不干扰主窗口的列表/解压操作。
+
 ## [0.1.2] - 2026-11-23
 
 作者：shenmo <shenmo@spark-app.store>
@@ -106,3 +151,5 @@ All notable changes to QArchiver (小Q解压) are documented here.
 - 清理 mk-build-deps 遗留文件与 Qt 5 时代文档描述。
 
 [0.1.2]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.2
+[2.1.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.1.1
+[2.2.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.2.0

@@ -73,6 +73,15 @@ public:
     QString backgroundImageAlignment() const;  // topLeft/.../bottomRight
     QSize backgroundImageSize() const;         // 0 x 0 = natural size
     qreal backgroundImageOpacity() const;      // 0.0 .. 1.0
+    // Last directory shown by the local file browser (start page fallback when
+    // no archive is open).  Empty means "use the home directory".
+    // 本地文件浏览器上次显示的目录（未打开压缩包时的起始位置）。
+    // 为空表示使用用户主目录。
+    QString localBrowsePath() const;
+    // Sort state of the archive/local file list: column index and order.
+    // 压缩包/本地文件列表的排序状态：列索引与顺序。
+    int sortColumn() const;
+    Qt::SortOrder sortOrder() const;
     // Read archives with the libarchive backend instead of the command line.
     // Cached in an atomic so worker threads (PreviewManager) can read it too.
     // 使用 libarchive 后端而不是命令行读取压缩包；缓存在原子变量中，
@@ -105,6 +114,8 @@ public:
     void setBackgroundImageAlignment(const QString &alignment);
     void setBackgroundImageSize(const QSize &size);
     void setBackgroundImageOpacity(qreal opacity);
+    void setLocalBrowsePath(const QString &path);
+    void setSort(int column, Qt::SortOrder order);
     // Persist all background image options with one sync and one change signal.
     // 一次性持久化全部背景图片选项，只 sync 并发出一次变更信号。
     void setBackgroundImageOptions(const QString &path, const QString &alignment,

@@ -1,3 +1,33 @@
+qarchiver (2.2.0) unstable; urgency=medium
+
+  * Browse the local file system when no archive is open (Windows and Linux):
+    directory navigation, search, grid/list/tree views and context menus.
+  * Windows installer (Inno Setup) in addition to the portable ZIP; the
+    installer and portable setup script register richer Explorer menus:
+    open, one-click extract, "add to <name>.zip" for files/folders, and a
+    "Compress to..." submenu (7z, ZIP, tar.gz, tar.xz, tar.bz2, tar).
+  * New command line options --compress <format>, --output and
+    --compress-dialog used by the Explorer integration.
+  * Sort menu (name, size, type, modified; ascending/descending) in the
+    context menu and next to the view switcher, with the choice persisted.
+  * Windows preview: reuse cached images per file so the system image viewer
+    no longer triggers "file in use" sharing violations; include archive
+    size/mtime in the preview cache key; accept .jpeg and other image types;
+    retry transient Windows file locks during extraction.
+  * Prefer Microsoft YaHei UI / Microsoft YaHei on Windows so Chinese text is
+    no longer rendered with SimSun (宋体).
+
+ -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 21:00:00 +0800
+
+qarchiver (2.1.1) unstable; urgency=medium
+
+  * Add lazy image thumbnails for archive entries in the modern grid/list
+    views, with a persistent thumbnail cache and password retry.
+  * Merge the upstream project-structure cleanup (layered libraries and
+    separated resources/services).
+
+ -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 18:40:00 +0800
+
 qarchiver (0.1.2) unstable; urgency=medium
 
   * New 0.1.2 release: modern HaoZip-style interface with a switchable classic
