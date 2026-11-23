@@ -1,7 +1,7 @@
-# Release workflow: push a version tag (e.g. v2.3.0) to build all artifacts and
+# Release workflow: push a version tag (e.g. v2.3.1) to build all artifacts and
 # publish one GitHub Release containing both the installers and the portable
 # Windows ZIP.
-# 发布工作流：推送版本标签（如 v2.3.0）后构建全部产物，并在同一个 Release 中
+# 发布工作流：推送版本标签（如 v2.3.1）后构建全部产物，并在同一个 Release 中
 # 同时发布安装版与 Windows 便携版。
 
 name: Release

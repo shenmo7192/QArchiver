@@ -351,8 +351,8 @@ void MainWindow::compressPaths(const QStringList &sources, ArchiveFormat format,
             || QFileInfo(absoluteSources.first()).isDir())) {
         QMessageBox::warning(
             this, tr("Create Archive"),
-            tr("A .gz / .bz2 / .xz stream can contain exactly one regular "
-               "file."));
+            tr("A single-file compression stream can contain exactly one "
+               "regular file."));
         return;
     }
 

@@ -35,6 +35,8 @@ QString StreamBackend::inferInternalName() const
         baseName.chop(4);
     } else if (baseName.endsWith(QStringLiteral(".xz"), Qt::CaseInsensitive)) {
         baseName.chop(3);
+    } else if (baseName.endsWith(QStringLiteral(".zst"), Qt::CaseInsensitive)) {
+        baseName.chop(4);
     }
     if (baseName.isEmpty()) {
         baseName = QStringLiteral("output");
@@ -245,7 +247,7 @@ void StreamBackend::compress(const CompressOptions &options)
     if (!sourceInfo.exists() || sourceInfo.isDir()) {
         emit errorOccurred(
             ArchiveErrorCode::OperationNotSupported,
-            tr("Select exactly one regular file for .gz / .bz2 / .xz streams."));
+            tr("Select exactly one regular file for a single-file compression stream."));
         return;
     }
     if (options.archivePath.trimmed().isEmpty()) {

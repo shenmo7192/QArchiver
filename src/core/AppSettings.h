@@ -82,7 +82,7 @@ public:
     // 压缩包/本地文件列表的排序状态：列索引与顺序。
     int sortColumn() const;
     Qt::SortOrder sortOrder() const;
-    // Icon size of the modern list/grid views (48..128, default 100).
+    // Icon size of the modern list/grid views (48..128, default 96).
     // 现代列表/网格视图的图标大小（48..128，默认 96）。
     int itemSize() const;
     // Read archives with the libarchive backend instead of the command line.

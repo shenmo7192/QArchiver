@@ -7,13 +7,16 @@
 
 #include "backends/ArchiveBackend.h"
 
-// Backend for .tar, .tar.gz/.tgz, .tar.xz/.txz, .tar.bz2/.tbz2 (design doc 4.2/5.1/5.2).
-// All tar operations are delegated to the bundled 7-Zip helper.  Compressed
-// tar files are single-stream formats, so creation/extraction/listing happens
-// in two stages through a temporary uncompressed .tar.
-// .tar、.tar.gz/.tgz、.tar.xz/.txz、.tar.bz2/.tbz2 后端（设计文档 4.2/5.1/5.2）。
-// 所有 tar 操作都委托给内置 7-Zip 辅助程序。压缩 tar 是单流格式，
-// 因此创建/解压/列表都通过临时未压缩 .tar 分两阶段完成。
+// Backend for .tar, .tar.gz/.tgz, .tar.xz/.txz, .tar.bz2/.tbz2 and
+// read-only .tar.zst/.tzst (design doc 4.2/5.1/5.2).  All tar operations are
+// delegated to the bundled 7-Zip helper.  Compressed tar files are single-
+// stream formats, so extraction/listing happens in two stages through a
+// temporary uncompressed .tar.  The bundled 7-Zip can read zstd but cannot
+// create it, so tar.zst creation is rejected explicitly.
+// .tar、.tar.gz/.tgz、.tar.xz/.txz、.tar.bz2/.tbz2 以及只读的 .tar.zst/.tzst
+// 后端（设计文档 4.2/5.1/5.2）。所有 tar 操作都委托给内置 7-Zip 辅助程序。
+// 压缩 tar 是单流格式，因此解压/列表通过临时未压缩 .tar 分两阶段完成。
+// 内置 7-Zip 能读取 zstd 但不能创建 zstd，因此显式拒绝创建 tar.zst。
 class TarBackend : public ArchiveBackend {
     Q_OBJECT
 public:
@@ -29,7 +32,12 @@ public:
     void closeArchive() override;
 
     ArchiveFormat format() const override { return m_format; }
-    bool isReadOnly() const override { return false; }
+    bool isReadOnly() const override
+    {
+        // 7-Zip can read zstd but not create it; keep tar.zst read-only.
+        // 7-Zip 能读取 zstd 但不能创建，因此 tar.zst 保持只读。
+        return m_format == ArchiveFormat::TarZst;
+    }
     bool supportsEncryption() const override { return false; }
     bool supportsVolume() const override { return false; }
     bool supportsAppend() const override;

@@ -6,7 +6,7 @@ English | [中文](./README.md)
 [![Release](https://github.com/shenmo7192/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/releases)
 
 A Qt 6–based graphical archive manager: browse, extract, create, append, delete, and test
-7z / zip / tar / gz / bz2 / xz / rar archives. The default interface follows the modern
+7z / zip / tar / gz / bz2 / xz / zst / rar archives. The default interface follows the modern
 HaoZip style and can be switched instantly back to the classic layout in
 "Preferences → Interface"; Linux x86_64/ARM64 and Windows x86_64/ARM64 are supported.
 
@@ -69,6 +69,7 @@ git push origin v2.3.1
   grid icons are centred and long filenames wrap across multiple lines
 - Extraction: all or selected entries, overwrite strategies (ask/overwrite/skip/rename), password, encoding hints
 - Compression: 7z / zip / tar / tar.gz / tar.bz2 / tar.xz / gz / bz2 / xz; if `rar` is installed on the system, RAR and RAR volumes can also be created
+- Read `.tar.zst` / `.tzst` / `.zst` (read-only, using the bundled 7-Zip)
 - Append and delete entries (7z / zip / tar families)
 - Integrity testing, with optional automatic test before extraction
 - In-archive single-file preview (text/images); images are pre-extracted together with other images in the same directory, supporting continuous viewing in the system viewer.

@@ -36,6 +36,7 @@ constexpr std::array<std::uint8_t, 4> kSigZipSpan = {0x50, 0x4b, 0x07, 0x08}; //
 constexpr std::array<std::uint8_t, 2> kSigGzip    = {0x1f, 0x8b};
 constexpr std::array<std::uint8_t, 3> kSigBzip2   = {0x42, 0x5a, 0x68};
 constexpr std::array<std::uint8_t, 6> kSigXz      = {0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00};
+constexpr std::array<std::uint8_t, 4> kSigZstd    = {0x28, 0xb5, 0x2f, 0xfd};
 constexpr std::array<std::uint8_t, 5> kSigTar     = {0x75, 0x73, 0x74, 0x61, 0x72}; // "ustar" at 257
 
 // List files in @p dir whose name matches @p regex, preserving the on-disk
@@ -127,7 +128,8 @@ ArchiveFormat resolveStreamFormat(const QString &filePath,
     const bool isTarSuffix = bySuffix == ArchiveFormat::Tar
         || bySuffix == ArchiveFormat::TarGz
         || bySuffix == ArchiveFormat::TarXz
-        || bySuffix == ArchiveFormat::TarBz2;
+        || bySuffix == ArchiveFormat::TarBz2
+        || bySuffix == ArchiveFormat::TarZst;
     if (isTarSuffix) {
         return tarFormat;
     }
@@ -283,6 +285,9 @@ ArchiveFormat MimeTypeHelper::detect(const QString &filePath)
     }
     if (matchMagic(head, kSigXz, 0)) {
         return resolveStreamFormat(filePath, ArchiveFormat::TarXz, ArchiveFormat::Xz);
+    }
+    if (matchMagic(head, kSigZstd, 0)) {
+        return resolveStreamFormat(filePath, ArchiveFormat::TarZst, ArchiveFormat::Zstd);
     }
     if (matchMagic(head, kSigTar, 257)) {
         return ArchiveFormat::Tar;

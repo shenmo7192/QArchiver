@@ -43,15 +43,21 @@ void openExtractedPath(const QString &path, bool openWith)
 {
 #ifdef Q_OS_WIN
     if (openWith) {
-        QProcess::startDetached(
-            QStringLiteral("rundll32.exe"),
-            {QStringLiteral("shell32.dll,OpenAs_RunDLL"),
-             QDir::toNativeSeparators(path)});
+        if (!QProcess::startDetached(
+                QStringLiteral("rundll32.exe"),
+                {QStringLiteral("shell32.dll,OpenAs_RunDLL"),
+                 QDir::toNativeSeparators(path)})) {
+            MessageBoxUtils::showOpenFailure(nullptr, path);
+        }
         return;
     }
 #else
     Q_UNUSED(openWith);
 #endif
+    // On non-Windows there is no portable "Open with" picker; callers hide
+    // the action and this fallback opens the system default program.
+    // 非 Windows 没有可移植的“打开方式”选择器；调用方会隐藏该动作，
+    // 这里仅作为默认程序打开的兜底。
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
         MessageBoxUtils::showOpenFailure(nullptr, path);
     }
@@ -183,8 +189,14 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
     if (m_jobs.contains(previewDir)) {
         // A batch for this folder is already running.  Open the most recent
         // target after it finishes instead of extracting everything twice.
+        // Remember its open-mode too: the worker was started with the first
+        // request's mode and must not override this newer click.
         // 该目录的批量解压正在进行；等它结束后打开最新点击的目标，
-        // 避免重复解压整个目录。
+        // 避免重复解压整个目录。同时记录最新的打开模式，不能让先启动的
+        // worker 覆盖后一次“Open With”请求。
+        if (PreviewJob *pendingJob = m_jobs.value(previewDir, nullptr)) {
+            pendingJob->openWith = openWith;
+        }
         m_pendingTargets.insert(previewDir, destPath);
         return;
     }
@@ -236,7 +248,7 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
     // created, used and destroyed entirely inside the worker thread.
     // 不要在 GUI 线程调用主 backend。私有 backend 完全在工作线程内创建、使用和销毁。
     (void)QtConcurrent::run([archivePath, format, missingPaths, previewDir,
-                              destPath, password, openWith, job]() {
+                              destPath, password, job]() {
         auto cancel = job->cancel;
         std::unique_ptr<ArchiveBackend> backend(
             ArchiveBackendFactory::createForRead(format, archivePath));
@@ -305,10 +317,9 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
         cancelled = cancelled || cancel->load(std::memory_order_relaxed);
         QMetaObject::invokeMethod(
             &PreviewManager::instance(),
-            [previewDir, destPath, success, cancelled, errorMessage, openWith]() {
+            [previewDir, destPath, success, cancelled, errorMessage]() {
                 PreviewManager::instance().finishPreview(
-                    previewDir, destPath, success, cancelled, errorMessage,
-                    openWith);
+                    previewDir, destPath, success, cancelled, errorMessage);
             },
             Qt::QueuedConnection);
     });
@@ -348,7 +359,7 @@ void PreviewManager::cancelPreview(const QString &previewDir)
 void PreviewManager::finishPreview(const QString &previewDir,
                                    const QString &destPath, bool success,
                                    bool cancelled,
-                                   const QString &errorMessage, bool openWith)
+                                   const QString &errorMessage)
 {
     PreviewJob *job = m_jobs.take(previewDir);
     if (!job) {
@@ -356,6 +367,7 @@ void PreviewManager::finishPreview(const QString &previewDir,
     }
     job->finished = true;
     job->cancelled = job->cancelled || cancelled;
+    const bool openWith = job->openWith;
 
     QString targetPath = destPath;
     const QString pending = m_pendingTargets.take(previewDir);

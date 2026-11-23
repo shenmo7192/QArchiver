@@ -1,13 +1,26 @@
-# QArchiver Windows 问题发现记录
+# QArchiver Windows 当前问题清单
 
-> 状态：**仅记录，未修改代码**。  
-> 适用范围：Windows 资源管理器右键菜单、文件关联、安装器与便携包脚本。  
-> 审查方式：源码静态审查（Linux 环境），**尚未在 Windows 实机逐项复现**。  
-> 记录时间：2026-11-23（审查时项目版本 0.1.3）。
+> 项目版本：2.3.1
+> 记录时间：2026-11-24
+> 适用范围：Windows 资源管理器右键菜单、文件关联、安装器与便携包脚本。
+> 审查方式：Linux 环境下的源码静态审查；**以下问题尚未在 Windows 实机逐项复现**。
+>
+> 本文只列出当前仍存在、需要处理的问题，不包含已解决问题或历史版本记录。
 
-本文只记录 Windows 相关问题；跨平台问题（如 `FormatRegistry` 后缀误判、现代布局图标缺失、Linux `mimeapps.list` 写入等）不在本文范围内。
+## 状态总览
 
----
+| 编号 | 当前状态 |
+|---|---|
+| P1-1 多选目标过滤 | 未解决 |
+| P1-2 PowerShell `-Scope` 与 DLL 注册根 | 未解决 |
+| P2-1 Approved 列表固定 HKLM | 未解决 |
+| P2-2 卸载路径失败不反馈 | 未解决 |
+| P2-3 安装器关联与卸载账户不一致 | 未解决 |
+| P2-4 Windows 后缀列表仍未统一 | 未解决 |
+| P2-5 压缩进程启动失败无反馈 | 未解决 |
+| P3-1 菜单文案硬编码中文 | 未解决 |
+| P3-2 脚本/安装器注释与结构不一致 | 未解决 |
+| P3-3 Windows 注销关联失败无错误信息 | 未解决 |
 
 ## 严重程度说明
 
@@ -19,15 +32,15 @@
 
 ---
 
-## P1-1 多选时只检查第一个文件，菜单显示与压缩行为不一致
+## P1-1 多选时只检查第一个目标，菜单显示与压缩行为不一致
 
 **位置**
 
-- `src/windows/QArchiverShell.cpp:250-263`
-- `src/windows/QArchiverShell.cpp:133-153`
-- `packaging/windows/README.md:87-91`
+- `src/windows/QArchiverShell.cpp:233-277`（`QueryContextMenu`）
+- `src/windows/QArchiverShell.cpp:133-153`（`runCompression`）
+- `src/windows/QArchiverShell.cpp:284-306`（`InvokeCommand`）
 
-**现象**
+**当前问题**
 
 `QueryContextMenu()` 只用 `targets.front()` 判断是否为目录/压缩包，并只用第一个文件名生成菜单文案：
 
@@ -41,7 +54,7 @@ const std::wstring zipName =
     baseName(targets.front(), isDirectory) + L".zip";
 ```
 
-但 `runCompression()` 在多选且非“自定义压缩选项”时，会为 **每个 target 各启动一个进程**：
+但 `runCompression()` 在多选且非“自定义压缩选项”时，会为每个 target 各启动一个进程：
 
 ```cpp
 for (const std::wstring &path : paths) {
@@ -56,16 +69,14 @@ for (const std::wstring &path : paths) {
 3. 多选时菜单文案只显示第一个文件的 `名称.zip`，与实际“每项各生成一个压缩包”的行为不符；
 4. 第一个是目录时，`isDirectory` 只代表第一个目标，后续文件的目录属性未参与判断。
 
-`packaging/windows/README.md` 写的是“已经是压缩包的文件不显示这些压缩命令”，与多选行为不一致。
-
 **建议**
 
 - 在 `QueryContextMenu()` 中先过滤 `targets`：
   - 去掉已经是压缩包的文件；
   - 或至少在所有目标都是压缩包时隐藏菜单。
 - 用过滤后的列表判断是否为空、生成文案，并把过滤后的列表传给 `runCompression()`。
-- 文案可按数量生成，例如“添加到 3 个压缩包…”，或使用第一个非压缩包文件名。
-- `InvokeCommand()` 也应使用同一套过滤逻辑，避免菜单显示与实际执行目标不一致。
+- 多选文案按数量生成，例如“添加到 3 个压缩包…”，或使用第一个非压缩包文件名。
+- `InvokeCommand()` 复用同一套过滤逻辑，避免菜单显示与实际执行目标不一致。
 
 ---
 
@@ -78,7 +89,7 @@ for (const std::wstring &path : paths) {
 - `src/windows/QArchiverShell.cpp:383-386`
 - `src/windows/QArchiverShell.cpp:453-481`
 
-**现象**
+**当前问题**
 
 安装脚本按显式 `-Scope` 选择注册表根：
 
@@ -108,8 +119,8 @@ HKEY classesRoot()
 
 **建议**
 
-- 给 DLL 增加显式的注册作用域参数（例如自定义导出 `DllRegisterServerUser` / 环境变量 / 命令行参数），由脚本传入；
-- 或让脚本根据实际 `$Scope` 固定调用对应的注册逻辑，不再依赖 `IsUserAnAdmin()`；
+- 给 DLL 增加显式注册作用域参数，由脚本传入；
+- 或让脚本根据实际 `$Scope` 固定调用对应注册逻辑，不再依赖 `IsUserAnAdmin()`；
 - 卸载时同时检查并清理 HKCU 与 HKLM 两处，或至少检测另一处残留并提示。
 
 ---
@@ -119,9 +130,9 @@ HKEY classesRoot()
 **位置**
 
 - `src/windows/QArchiverShell.cpp:472-478`
-- `src/windows/QArchiverShell.cpp:492-495`
+- `src/windows/QArchiverShell.cpp:483-495`
 
-**现象**
+**当前问题**
 
 无论实际注册根是 HKCU 还是 HKLM，DLL 都固定写：
 
@@ -144,14 +155,15 @@ setString(HKEY_LOCAL_MACHINE,
 
 ---
 
-## P2-2 卸载脚本不检查 `regsvr32` 退出码，且 DLL 路径来源与安装脚本不同
+## P2-2 卸载路径失败不反馈，DLL 路径来源与安装脚本不一致
 
 **位置**
 
 - `packaging/windows/uninstall-shell-menu.ps1:58-68`
 - `packaging/windows/install-shell-menu.ps1:92-119`
+- `src/windows/QArchiverShell.cpp:483-500`（`DllUnregisterServer`）
 
-**现象**
+**当前问题**
 
 安装脚本会检查 `regsvr32` 的退出码：
 
@@ -171,14 +183,16 @@ Start-Process -FilePath $regsvr `
 
 最后仍然输出“已移除 QArchiver 右键菜单”。如果 DLL 被占用、权限不足或路径错误，用户会看到成功提示，但残留仍然存在。
 
-另外：
+此外：
 
+- `DllUnregisterServer()` 对注册表删除失败基本仍返回 `S_OK`，调用方无法判断是否真的清理干净；
 - 安装脚本支持 `-ExePath`，并按 `QArchiver.exe` 所在目录找 `QArchiverShell.dll`；
 - 卸载脚本没有 `-ExePath` 参数，固定使用 `$PSScriptRoot`，无法处理“脚本与安装目录分离”的场景。
 
 **建议**
 
 - 卸载脚本检查 `ExitCode`，非 0 时抛出错误或至少输出警告；
+- `DllUnregisterServer()` 删除失败时返回失败，或至少记录日志；
 - 增加 `-ExePath`（或 `-DllPath`）参数，与安装脚本保持一致；
 - 清理静态动词和 DLL 注册分别报告结果。
 
@@ -191,7 +205,7 @@ Start-Process -FilePath $regsvr `
 - `packaging/windows/QArchiver.iss:88-95`
 - `src/utils/FileAssociations.cpp:99-201`
 
-**现象**
+**当前问题**
 
 安装器注册文件关联时使用 `runasoriginaluser`：
 
@@ -219,38 +233,40 @@ Filename: "{app}\{#AppExeName}"; Parameters: "--unregister-associations";
 
 ---
 
-## P2-4 Windows 各处的压缩包后缀列表不一致
+## P2-4 Windows 后缀列表仍未统一
 
 **位置**
 
 - `src/windows/QArchiverShell.cpp:58-75`（`hasArchiveSuffix`）
-- `packaging/windows/install-shell-menu.ps1:47-48`、`31-32`（卸载）
-- `packaging/windows/QArchiver.iss:98-114`
-- `src/utils/FileAssociations.cpp:26-38`
+- `packaging/windows/install-shell-menu.ps1:47-48`
+- `packaging/windows/uninstall-shell-menu.ps1:31-32`
+- `packaging/windows/QArchiver.iss:102-127`（`ArchiveExtensions`）
+- `src/utils/FileAssociations.cpp:26-38`（`formatExtensions`）
 - `src/common/FormatRegistry.cpp:230-260`（跨平台后缀真值表）
 
-**现象**
+**当前问题**
 
-当前至少存在四份 Windows 相关后缀列表，内容不一致：
+Windows 相关后缀列表没有统一，现状如下：
 
-| 列表 | 包含 | 缺失/差异 |
+| 列表 | 当前包含 | 缺口 |
 |---|---|---|
-| `QArchiverShell::hasArchiveSuffix` | `.zip/.7z/.rar/.tar/.gz/.bz2/.xz/.tgz/.txz/.tbz2/.tar.*/.zst/.cab/.iso` | 不含 `.7z.001`、`.zip.001`、`.partN.rar`、`.r00` |
-| `install-shell-menu.ps1` / `uninstall-shell-menu.ps1` | 13 种常见后缀 | 不含 `.tar.zst`、`.zst` |
-| `QArchiver.iss` (`ArchiveExtensions`) | 13 种常见后缀 | 不含 `.tar.zst`、`.zst` |
-| `FileAssociations::formatExtensions` | 13 种常见后缀 | 不含 `.tar.zst`、`.zst` |
+| `QArchiverShell::hasArchiveSuffix` | `.zip/.7z/.rar/.tar/.gz/.bz2/.xz/.tgz/.txz/.tbz2/.tar.*/.zst/.cab/.iso` | 不含 `.tzst`；不识别 `.7z.001`、`.zip.001`、`.r00` 等分卷命名 |
+| `install-shell-menu.ps1` / `uninstall-shell-menu.ps1` | 13 种常见后缀 | 不含 `.tar.zst`、`.tzst`、`.zst`，也不含分卷 |
+| `QArchiver.iss`（`ArchiveExtensions`） | 13 种常见后缀 | 不含 `.tar.zst`、`.tzst`、`.zst`，也不含分卷 |
+| `FileAssociations::formatExtensions` | 13 种常见后缀 | 不含 `.tar.zst`、`.tzst`、`.zst`，也不含分卷 |
 
-可能结果：
+当前影响：
 
-- 右键选中 `data.7z.001`、`data.part1.rar`、`data.r00` 时，`hasArchiveSuffix` 认为不是压缩包，仍显示“添加到…/压缩到…”，用户可能对分卷再次压缩；
-- `.tar.zst` / `.zst` 在 QArchiver 内可打开，但 Windows 安装器/便携脚本不注册“打开 / 一键解压”动词，也不注册文件关联；
+- 右键选中 `data.7z.001`、`data.zip.001`、`data.r00` 时，`hasArchiveSuffix` 认为不是压缩包，仍显示“添加到…/压缩到…”，用户可能对分卷再次压缩；
+- `.partN.rar` 因为以 `.rar` 结尾通常能进入该判断，但并未真正按分卷规则识别；
+- QArchiver 本体已支持读取 `.tar.zst` / `.tzst` / `.zst`，但 Windows 安装器/便携脚本仍未注册对应的“打开 / 一键解压”动词和文件关联；
 - `.cab` / `.iso` 只出现在 shell 的“排除压缩”列表中，不出现在安装器的打开/解压动词中，行为含义不统一。
 
 **建议**
 
 - 以 `FormatRegistry` 为唯一事实来源，生成或集中维护 Windows 集成列表；
 - 至少让 `QArchiverShell` 复用 `isArchivePath()` / `isSplitVolume()` 的规则；
-- 明确 `.tar.zst` / `.zst` / `.cab` / `.iso` 是否属于 Windows 关联范围，并同步四处列表和文档。
+- 明确 `.tar.zst` / `.tzst` / `.zst`、分卷、`.cab` / `.iso` 是否属于 Windows 关联范围，并同步四处列表和文档。
 
 ---
 
@@ -260,7 +276,7 @@ Filename: "{app}\{#AppExeName}"; Parameters: "--unregister-associations";
 
 - `src/windows/QArchiverShell.cpp:110-153`
 
-**现象**
+**当前问题**
 
 `launch()` 返回 `bool`，但 `runCompression()` 完全忽略：
 
@@ -286,11 +302,11 @@ for (const std::wstring &path : paths) {
 
 **位置**
 
-- `src/windows/QArchiverShell.cpp:263, 268-277`
+- `src/windows/QArchiverShell.cpp:263、268-277`
 - `packaging/windows/install-shell-menu.ps1:78-81`
-- `packaging/windows/QArchiver.iss:70-71, 137-140`
+- `packaging/windows/QArchiver.iss:70-71、137-140`
 
-**现象**
+**当前问题**
 
 资源管理器菜单、静态动词和任务描述使用硬编码中文；安装器同时提供 `english` 与 `chinesesimplified` 两种语言。选择英文安装界面的用户仍会看到中文右键菜单和中文任务说明。
 
@@ -307,10 +323,10 @@ for (const std::wstring &path : paths) {
 **位置**
 
 - `packaging/windows/install-shell-menu.ps1:15-18`
-- `packaging/windows/QArchiver.iss:14-17, 143-147, 176-205`
+- `packaging/windows/QArchiver.iss:14-17、176-205`
 - `packaging/windows/uninstall-shell-menu.ps1:47-54`
 
-**现象**
+**当前问题**
 
 - `install-shell-menu.ps1` 仍写着“与 QArchiver.iss 的 `[Registry]` 段一致”，但 `QArchiver.iss` 已经没有 `[Registry]` 段，静态动词现在写在 `[Code]` 中；
 - `QArchiver.iss` 头部仍说“此处写入的资源管理器菜单与 install-shell-menu.ps1 一致”，但压缩菜单实际由 `QArchiverShell.dll` 动态提供；
@@ -320,30 +336,28 @@ for (const std::wstring &path : paths) {
 
 - 更新注释，明确“静态解压动词在 `[Code]` / 脚本中，压缩动词由 shell DLL 提供”；
 - 把旧版静态动词的清理列表提取为常量或统一函数；
-- 在 README 中画一张“安装器 / 便携脚本 / DLL 各自负责什么”的小表。
+- 在 README 中补充“安装器 / 便携脚本 / DLL 各自负责什么”的说明。
 
 ---
 
-## P3-3 Windows 注册失败时没有错误信息
+## P3-3 Windows 注销关联失败时没有错误信息
 
 **位置**
 
-- `src/utils/FileAssociations.cpp:335-376`
+- `src/utils/FileAssociations.cpp:400-405`（`unregisterFormats`）
 
-**现象**
+**当前问题**
 
-Windows 分支使用 `Q_UNUSED(error)`；任一 `RegCreateKeyExW` / `RegSetValueExW` 失败时直接返回 `false`，但没有设置 `*error`。设置对话框或其他调用方可能只能显示空错误/通用错误。
+`unregisterFormats()` 使用 `Q_UNUSED(error)`，写注册表失败时仍始终返回 `true`。注销关联失败时，调用方不会得到具体扩展名或失败原因。
 
 **建议**
 
-- 与 Linux 分支保持一致，失败时设置具体扩展名和原因；
+- 为注销路径同样设置具体扩展名和失败原因；
 - 至少记录 `GetLastError()`。
 
 ---
 
-## 建议的实机验证清单
-
-后续处理时建议至少覆盖：
+## 建议的 Windows 实机验证清单
 
 1. 标准用户 + 管理员账户分别安装/卸载，检查 HKCU/HKLM 残留；
 2. 提权 PowerShell 执行 `install-shell-menu.ps1 -Scope User`，再普通权限卸载，检查 HKLM 残留；
@@ -351,4 +365,4 @@ Windows 分支使用 `Q_UNUSED(error)`；任一 `RegCreateKeyExW` / `RegSetValue
 4. 选中 `data.7z.001`、`data.zip.001`、`data.part1.rar`、`data.r00`，确认是否出现压缩菜单；
 5. 安装后移动 `QArchiver.exe` 或删除 DLL，点击右键菜单，确认是否有错误提示；
 6. 英文安装器安装后检查右键菜单和任务说明语言；
-7. 选中 `.tar.zst` / `.zst`，确认是否注册“打开 / 一键解压”和文件关联。
+7. 选中 `.tar.zst` / `.tzst` / `.zst`，确认是否注册“打开 / 一键解压”和文件关联；QArchiver 本体应能打开并列出/解压这些文件。

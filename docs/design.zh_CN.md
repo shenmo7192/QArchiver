@@ -4,7 +4,7 @@
 > 文档位置：`docs/design.zh_CN.md`（根目录 `项目设计文档.md` 为指向本文件的索引）
 > 技术栈：C++20 + Qt 6.4+ Widgets
 > 平台：Linux / Windows
-> 外部工具：内置 7-Zip（Linux `7zzs` / Windows x64/ARM64 `7z.exe + 7z.dll`，负责全部格式读写/解压；RAR 读取）；系统 `rar` 可选，用于创建 RAR/RAR 分卷
+> 外部工具：内置 7-Zip（Linux `7zzs` / Windows x64/ARM64 `7z.exe + 7z.dll`，负责 7z/zip/tar 等读写、纯流解压、RAR/zstd 读取；zstd 仅只读）；系统 `rar` 可选，用于创建 RAR/RAR 分卷
 
 ## 1. 项目概述
 
@@ -35,6 +35,7 @@ QArchiver 是一个基于 Qt 6 的压缩/解压工具，核心思路是：
 - 解压全部或选中条目。
 - 创建 zip、7z、tar、tar.gz、tar.xz、tar.bz2 以及单文件 gz/bz2/xz 压缩流；
   系统安装 `rar` 时可创建 RAR 及 RAR 分卷。
+- 读取 tar.zst / tzst / 单文件 zst（内置 7-Zip 只读支持；创建 zstd 暂不支持）。
 - 向 zip/7z 或未压缩 tar 追加文件。
 - 从 zip/7z 或未压缩 tar 删除条目。
 - 完整性测试。
@@ -321,7 +322,8 @@ MainWindow*        ArchiveManager   ArchiveBackend   ProcessRunner   FormatRegis
 
 ```text
 Unknown, Tar, TarGz, TarXz, TarBz2,
-Zip, SevenZip, Rar4, Rar5, Gzip, Bzip2, Xz
+Zip, SevenZip, Rar4, Rar5, Gzip, Bzip2, Xz,
+TarZst, Zstd  // 新增只读格式追加在末尾，保持持久化整数值稳定
 ```
 
 `ArchiveEntry`：
@@ -456,6 +458,7 @@ operationFinished(success, msg)
 | 格式 | 后端 |
 |---|---|
 | Tar / TarGz / TarXz / TarBz2 | `LibArchiveBackend` → 回退 `TarBackend` |
+| TarZst / Zstd | 直接用 `TarBackend` / `StreamBackend`（内置 7-Zip，只读） |
 | Zip | `LibArchiveBackend` → 回退 `SevenZipBackend`（zip 为它的薄子类） |
 | 7z | `LibArchiveBackend`（仅未加密）→ 回退 `SevenZipBackend` |
 | Rar4 / Rar5 | `RarBackend`（读取用内置 7-Zip；系统有 `rar` 时可创建） |
@@ -476,11 +479,12 @@ operationFinished(success, msg)
    - gzip：`1F 8B`
    - bzip2：`42 5A 68`
    - xz：`FD 37 7A 58 5A 00`
+   - zstd：`28 B5 2F FD`
    - tar：偏移 257 处的 `ustar`
 
 2. **流格式进一步探测**
-   - gzip/bzip2/xz 可能是 tar 压缩流，也可能是纯压缩流。
-   - 后缀明确为 `.tar.gz` 等时直接判定 tar 系列。
+   - gzip/bzip2/xz/zstd 可能是 tar 压缩流，也可能是纯压缩流。
+   - 后缀明确为 `.tar.gz` / `.tar.zst` 等时直接判定 tar 系列。
    - 否则用内置 7-Zip `x -so` 解出前 512 字节，检查 tar 头（`ustar` 或校验和）；
      成功则为 tar 系列，否则为纯流。只读取首块，不完整解压大文件。
 
@@ -498,16 +502,17 @@ operationFinished(success, msg)
 
 ### 7.1 Tar 系列
 
-工具：内置 7-Zip（`-ttar` / `-tgzip` / `-tbzip2` / `-txz`）。
+工具：内置 7-Zip（`-ttar` / `-tgzip` / `-tbzip2` / `-txz`；zstd 只读解压）。
 
-未压缩 `.tar` 直接操作；`.tar.gz/.xz/.bz2` 是单流格式，创建/列表/解压/测试
-分两段：先处理外层压缩流，再对临时 `.tar` 执行 7z 操作。
+未压缩 `.tar` 直接操作；`.tar.gz/.xz/.bz2/.zst` 是单流格式，列表/解压/测试
+分两段：先处理外层压缩流，再对临时 `.tar` 执行 7z 操作。zstd 只读取，
+7-Zip 不能创建 zstd，因此 `.tar.zst` 不提供创建/追加/删除。
 
 | 操作 | 命令要点 |
 |---|---|
 | 列表 | 压缩流先 `7z x -o<temp> ... -- archive` 取出 inner.tar，再 `7z l -slt -sccUTF-8 -- inner.tar` |
 | 解压 | 同上取出 inner.tar，再 `7z x -o<temp> -y -spd -sccUTF-8 [-scs... -i@members] -- inner.tar` |
-| 压缩 | 先 `7z a -ttar ... -- <temp>/inner.tar`，再 `7z a -tgzip|-txz|-tbzip2 [-mx=...] -- target inner.tar` |
+| 压缩 | 先 `7z a -ttar ... -- <temp>/inner.tar`，再 `7z a -tgzip|-txz|-tbzip2 [-mx=...] -- target inner.tar`（`.tar.zst` 不支持创建） |
 | 追加 | `7z a -ttar -spd [-spf] [-snl] -scsUTF-8 -i@sources -- archive`（仅未压缩 `.tar`） |
 | 删除 | `7z d -ttar -spd -scsUTF-8 -i@members -- archive`（仅未压缩 `.tar`） |
 | 测试 | 压缩流先取出 inner.tar，再 `7z t -sccUTF-8 -- inner.tar` |
@@ -602,9 +607,9 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 
 ### 7.4 纯压缩流
 
-工具：`7z`；读取与单文件创建均支持。
+工具：`7z`；读取支持 `.gz/.bz2/.xz/.zst`，单文件创建支持 `.gz/.bz2/.xz`。
 
-适用：`.gz`、`.bz2`、`.xz`。
+适用：`.gz`、`.bz2`、`.xz`、`.zst`。其中 `.zst` 当前只支持读取。
 
 | 操作 | 命令要点 |
 |---|---|
@@ -613,7 +618,7 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 | 测试 | `7z t -sccUTF-8 -- archive` |
 | 压缩 | `7z a -tgzip|-tbzip2|-txz -mx=N -y -sccUTF-8 -- archive file`（仅一个普通文件） |
 
-条目名由压缩包文件名去掉 `.gz/.bz2/.xz` 后缀得到。解压后把临时目录中的单个文件移动到目标目录，并应用覆盖策略。
+条目名由压缩包文件名去掉 `.gz/.bz2/.xz/.zst` 后缀得到。解压后把临时目录中的单个文件移动到目标目录，并应用覆盖策略。zstd 纯流使用内置 7-Zip 读取，暂不支持创建。
 
 ### 7.5 libarchive 读后端与命令行回退
 
@@ -626,6 +631,7 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 | zip（明文 / ZipCrypto / AES-128 / AES-256） | ✓ | 密码走 `archive_read_add_passphrase` |
 | 7z（未加密，含 PPMd） | ✓ | 加密 7z 不支持，必须回退命令行 |
 | tar / tar.gz / tar.bz2 / tar.xz | ✓ | 替代 `TarBackend`（7-Zip 子进程） |
+| tar.zst / zst | — | 固定走内置 7-Zip（`TarBackend` / `StreamBackend`，只读） |
 | gz / bz2 / xz 纯流 | ✓ | 用 raw 格式读，条目名由文件名推断 |
 | zip 分卷 / 7z 分卷 | ✗ | 直接由 `FormatRegistry::isSplitVolume()` 分流到命令行 |
 | rar | — | 回退命令行（`RarBackend`，读取用内置 7-Zip；创建用系统 `rar`） |
@@ -654,10 +660,12 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 |---|---|---|---|---|---|
 | tar | ✓ | ✓ | 仅未压缩 tar | ✗ | ✗ |
 | tar.gz / tar.xz / tar.bz2 | ✓ | ✓ | ✗ | ✗ | ✗ |
+| tar.zst / tzst | ✓ | ✗ | ✗ | ✗ | ✗ |
 | zip | ✓ | ✓ | ✓（非分卷） | ✓ | ✓ |
 | 7z | ✓ | ✓ | ✓（非分卷） | ✓ | ✓ |
 | rar | ✓ | ✓（系统有 `rar` 时） | ✗ | ✓ | ✓ |
 | gz / bz2 / xz | ✓ | ✗ | ✗ | ✗ | ✗ |
+| zst | ✓ | ✗ | ✗ | ✗ | ✗ |
 
 ## 8. 关键流程
 
@@ -972,8 +980,8 @@ Name, Size, Packed, Modified, Encrypted
 - 固实压缩：7z 或系统已安装 `rar` 时的 RAR 可用。
 - 压缩级别：普通 `.tar` 禁用；tar.gz/tar.bz2/gz/bz2/xz 范围 1–9。
 - 纯压缩流（`.gz/.bz2/.xz`）只允许一个普通文件，`StreamBackend::compress()`
-  调用 `7z a -tgzip|-tbzip2|-txz` 创建；创建对话框负责校验并禁用加密/分卷/
-  排除等不适用选项。
+  调用 `7z a -tgzip|-tbzip2|-txz` 创建；`.zst` 只读，不显示创建入口。
+  创建对话框负责校验并禁用加密/分卷/排除等不适用选项。
 - 其余格式按能力禁用不适用选项。
 
 ### 10.4 图标、工具栏与主题
@@ -1213,7 +1221,7 @@ resources/
 | `tst_utils` | 路径规范化、Zip Slip 判断、7-Zip `-slt` 流式解析、成员名空格、大小溢出检查、符号链接目标与解压树复查 |
 | `tst_toolchain` | 7-Zip `--help` 校验、系统 PATH 回退、RAR Codecs 解析、`QARCHIVER_7Z_PATH` 覆盖 |
 | `tst_background` | 背景图片九种对齐的字符串往返、尺寸缩放规则、目标矩形、透明度绘制、路径+mtime+大小缓存（offscreen 平台运行） |
-| `tst_backends` | tar/tar.gz/tar.xz/tar.bz2/zip/7z/gzip 往返、纯 gz/bz2/xz 创建往返、tar 追加删除、纯 `.gz` 的 tar 探测、`.` 前缀与非 ASCII 文件名、RAR 读取/分卷/创建能力、危险符号链接失败后的临时目录清理 |
+| `tst_backends` | tar/tar.gz/tar.xz/tar.bz2/tar.zst/zip/7z/gzip 往返、纯 gz/bz2/xz 创建往返、tar.zst/zst 读取、tar 追加删除、纯 `.gz` 的 tar 探测、`.` 前缀与非 ASCII 文件名、RAR 读取/分卷/创建能力、危险符号链接失败后的临时目录清理 |
 | `tst_preview` | 连续看图的后缀筛选、同目录选取、大小写不敏感、跳过符号链接/子目录、准备对话框阈值、批量解压样例 |
 | `tst_manager` | 打开/列表/解压流程、打开失败保留当前包、危险符号链接跳过/中止、覆盖已有目标压缩、RAR 分卷替换、加密 7z 回退命令行、图片同目录连续预览、后端选择开关、只读 libarchive 后端的添加/删除写回退 |
 | `tst_libarchive` | zip / tar.gz / tar.xz / gz 往返、AES-256 zip 密码、加密 7z 报不支持、损坏包检测、选择性解压、目录选中、硬链接重建 |

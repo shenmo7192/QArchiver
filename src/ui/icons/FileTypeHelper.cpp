@@ -331,6 +331,7 @@ QString FileTypeHelper::formatLabel(ArchiveFormat format)
     case ArchiveFormat::TarGz:    return QStringLiteral("TAR.GZ");
     case ArchiveFormat::TarXz:    return QStringLiteral("TAR.XZ");
     case ArchiveFormat::TarBz2:   return QStringLiteral("TAR.BZ2");
+    case ArchiveFormat::TarZst:   return QStringLiteral("TAR.ZST");
     case ArchiveFormat::Zip:      return QStringLiteral("ZIP");
     case ArchiveFormat::SevenZip: return QStringLiteral("7Z");
     case ArchiveFormat::Rar4:
@@ -338,6 +339,7 @@ QString FileTypeHelper::formatLabel(ArchiveFormat format)
     case ArchiveFormat::Gzip:     return QStringLiteral("GZ");
     case ArchiveFormat::Bzip2:    return QStringLiteral("BZ2");
     case ArchiveFormat::Xz:       return QStringLiteral("XZ");
+    case ArchiveFormat::Zstd:     return QStringLiteral("ZST");
     case ArchiveFormat::Unknown:  break;
     }
     return tr("Unknown");

@@ -3,12 +3,20 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
-## [2.3.1] - 2026-11-23
+## [2.3.1] - 2026-11-24
 
 作者：shenmo <shenmo@spark-app.store>
 
+### Added / 新增
+
+- 支持读取 `.tar.zst` / `.tzst` / `.zst` 归档（内置 7-Zip，只读）。
+
 ### Fixed / 修复
 
+- 修复条目大小设置的延迟持久化：拖动滑块/Ctrl+滚轮停止 400ms 后再写入设置，关闭窗口时强制落盘。
+- 修复连续预览解压进行中再次点击“Open With...”时，打开模式被先启动的请求覆盖的问题。
+- “Open With...”仅在 Windows 显示；Windows 下打开方式启动失败会提示，Linux 不再显示行为不符的菜单项。
+- 恢复 `ui/itemSize` 默认值为 96，与现有文档和经典布局紧凑尺寸保持一致。
 - 排序按钮改为标准双向排序图标（不再显示单个向上箭头），图标正确居中。
 - 条目大小滑块移动到窗口右下角状态栏；Ctrl + 滚轮缩放保留。
 - 文件夹图标改为更大、近方形的 256px PNG，并提供 SVG 源文件；图片缩略图
@@ -17,6 +25,7 @@ All notable changes to QArchiver (小Q解压) are documented here.
   文字占单元格约 80%；左侧栏改为更深的灰蓝色，与工具栏/内容区区分。
 - Windows 安装器语言检测使用系统区域设置，中文系统默认选中简体中文。
 - 安装版与便携版继续放在同一个 Release 中（不再拆分发布）。
+- 更新 `WINDOWS_ISSUES.md` 的当前状态：Windows 注册表、安装器与便携脚本问题仍未修复，待 Windows 实机验证。
 
 ## [2.3.0] - 2026-11-23
 

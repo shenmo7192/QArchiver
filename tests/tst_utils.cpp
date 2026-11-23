@@ -244,6 +244,15 @@ void TestUtils::formatRegistrySuffixes()
              ArchiveFormat::Zip);
     QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.7z.001")),
              ArchiveFormat::SevenZip);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.tar.zst")),
+             ArchiveFormat::TarZst);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.tzst")),
+             ArchiveFormat::TarZst);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.zst")),
+             ArchiveFormat::Zstd);
+
+    QVERIFY(FormatRegistry::isArchivePath(QStringLiteral("data.tar.zst")));
+    QVERIFY(FormatRegistry::isArchivePath(QStringLiteral("data.zst")));
 
     QVERIFY(FormatRegistry::isSplitVolume(QStringLiteral("data.r00")));
     QVERIFY(FormatRegistry::isSplitVolume(QStringLiteral("data.part1.rar")));

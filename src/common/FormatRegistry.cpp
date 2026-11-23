@@ -18,9 +18,11 @@ const QStringList &compoundSuffixes()
         QStringLiteral(".tar.gz"),
         QStringLiteral(".tar.xz"),
         QStringLiteral(".tar.bz2"),
+        QStringLiteral(".tar.zst"),
         QStringLiteral(".tgz"),
         QStringLiteral(".txz"),
         QStringLiteral(".tbz2"),
+        QStringLiteral(".tzst"),
         QStringLiteral(".7z.001"),
         QStringLiteral(".zip.001")
     };
@@ -39,6 +41,7 @@ const QStringList &openableSuffixes()
         QStringLiteral(".tgz"),
         QStringLiteral(".txz"),
         QStringLiteral(".tbz2"),
+        QStringLiteral(".tzst"),
         QStringLiteral(".tar"),
         QStringLiteral(".zip"),
         QStringLiteral(".7z"),
@@ -46,6 +49,7 @@ const QStringList &openableSuffixes()
         QStringLiteral(".gz"),
         QStringLiteral(".bz2"),
         QStringLiteral(".xz"),
+        QStringLiteral(".zst"),
         QStringLiteral(".001"),
         QStringLiteral(".part1")
     };
@@ -112,6 +116,9 @@ ArchiveFormat formatFromSuffix(const QString &filePath)
     if (ext == QLatin1String(".tar.bz2") || ext == QLatin1String(".tbz2")) {
         return ArchiveFormat::TarBz2;
     }
+    if (ext == QLatin1String(".tar.zst") || ext == QLatin1String(".tzst")) {
+        return ArchiveFormat::TarZst;
+    }
     if (ext == QLatin1String(".zip") || ext == QLatin1String(".zip.001")) {
         return ArchiveFormat::Zip;
     }
@@ -139,6 +146,9 @@ ArchiveFormat formatFromSuffix(const QString &filePath)
     if (ext == QLatin1String(".xz")) {
         return ArchiveFormat::Xz;
     }
+    if (ext == QLatin1String(".zst")) {
+        return ArchiveFormat::Zstd;
+    }
     return ArchiveFormat::Unknown;
 }
 
@@ -164,6 +174,9 @@ ArchiveFormat formatFromName(const QString &name)
         || token == QLatin1String("tbz")) {
         return ArchiveFormat::TarBz2;
     }
+    if (token == QLatin1String("tar.zst") || token == QLatin1String("tzst")) {
+        return ArchiveFormat::TarZst;
+    }
     if (token == QLatin1String("tar")) {
         return ArchiveFormat::Tar;
     }
@@ -184,6 +197,9 @@ ArchiveFormat formatFromName(const QString &name)
     }
     if (token == QLatin1String("xz")) {
         return ArchiveFormat::Xz;
+    }
+    if (token == QLatin1String("zst") || token == QLatin1String("zstd")) {
+        return ArchiveFormat::Zstd;
     }
     return ArchiveFormat::Unknown;
 }
@@ -262,7 +278,8 @@ const QStringList &archiveLikeSuffixes()
         QStringLiteral("zip"), QStringLiteral("7z"), QStringLiteral("rar"),
         QStringLiteral("tar"), QStringLiteral("gz"), QStringLiteral("tgz"),
         QStringLiteral("xz"), QStringLiteral("txz"), QStringLiteral("bz2"),
-        QStringLiteral("tbz2"), QStringLiteral("zst"), QStringLiteral("001"),
+        QStringLiteral("tbz2"), QStringLiteral("zst"), QStringLiteral("tzst"),
+        QStringLiteral("001"),
         QStringLiteral("tar.gz"), QStringLiteral("tar.xz"),
         QStringLiteral("tar.bz2"), QStringLiteral("tar.zst"),
         QStringLiteral("7z.001"), QStringLiteral("zip.001"),

@@ -56,10 +56,12 @@ const char *moduleName(ArchiveFormat fmt)
     case ArchiveFormat::TarGz:
     case ArchiveFormat::TarXz:
     case ArchiveFormat::TarBz2:
+    case ArchiveFormat::TarZst:
         return "tar";
     case ArchiveFormat::Gzip:
     case ArchiveFormat::Bzip2:
     case ArchiveFormat::Xz:
+    case ArchiveFormat::Zstd:
     case ArchiveFormat::Rar4:
     case ArchiveFormat::Rar5:
     case ArchiveFormat::Unknown:

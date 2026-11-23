@@ -542,11 +542,17 @@ void MainWindow::openLocalWith(const QString &path)
         return;
     }
 #ifdef Q_OS_WIN
-    QProcess::startDetached(
-        QStringLiteral("rundll32.exe"),
-        {QStringLiteral("shell32.dll,OpenAs_RunDLL"),
-         QDir::toNativeSeparators(info.absoluteFilePath())});
+    if (!QProcess::startDetached(
+            QStringLiteral("rundll32.exe"),
+            {QStringLiteral("shell32.dll,OpenAs_RunDLL"),
+             QDir::toNativeSeparators(info.absoluteFilePath())})) {
+        MessageBoxUtils::showOpenFailure(this, info.absoluteFilePath());
+    }
 #else
+    // No portable "Open with" picker exists on this platform; the menu item
+    // is hidden below, so this is only a defensive fallback.
+    // 该平台没有可移植的“打开方式”选择器；下方会隐藏菜单项，
+    // 这里仅作防御性兜底。
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(info.absoluteFilePath()))) {
         MessageBoxUtils::showOpenFailure(this, info.absoluteFilePath());
     }
@@ -606,6 +612,7 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
             }
         });
 
+#ifdef Q_OS_WIN
         QAction *openWithAction = menu.addAction(
             Icons::modern(QStringLiteral("open.png")), tr("Open With..."));
         openWithAction->setEnabled(localPaths.size() == 1
@@ -615,6 +622,7 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
                 openLocalWith(localPaths.first());
             }
         });
+#endif
 
         menu.addSeparator();
 
@@ -666,10 +674,12 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
     const bool busy = ArchiveManager::instance().isBusy();
     const QStringList selected = selectedEntryPaths();
     const bool singleSelected = selected.size() == 1;
+#ifdef Q_OS_WIN
     const ArchiveEntry *selectedEntry = nullptr;
     if (singleSelected && m_model) {
         selectedEntry = m_model->entryAt(m_model->indexForPath(selected.first()));
     }
+#endif
 
     QMenu menu(this);
     QAction *openEntry = menu.addAction(
@@ -681,6 +691,7 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
         }
     });
 
+#ifdef Q_OS_WIN
     QAction *openWithEntryAction = menu.addAction(
         Icons::modern(QStringLiteral("open.png")), tr("Open With..."));
     openWithEntryAction->setEnabled(backend && singleSelected && selectedEntry
@@ -690,6 +701,7 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
             openEntryWith(selected.first());
         }
     });
+#endif
 
     menu.addSeparator();
 

@@ -21,7 +21,11 @@ enum class ArchiveFormat {
     Rar5,       // RAR5
     Gzip,       // Pure .gz stream
     Bzip2,      // Pure .bz2 stream
-    Xz          // Pure .xz stream
+    Xz,         // Pure .xz stream
+    // New read-only formats are appended to keep persisted integer values stable.
+    // 新增只读格式追加在末尾，保持已持久化的整数值不变。
+    TarZst,     // .tar.zst / .tzst (read-only via 7-Zip)
+    Zstd        // Pure .zst stream (read-only via 7-Zip)
 };
 
 Q_DECLARE_METATYPE(ArchiveFormat)
@@ -44,6 +48,7 @@ inline QString formatToString(ArchiveFormat fmt)
     case ArchiveFormat::TarGz:   return QStringLiteral("tar.gz");
     case ArchiveFormat::TarXz:   return QStringLiteral("tar.xz");
     case ArchiveFormat::TarBz2:  return QStringLiteral("tar.bz2");
+    case ArchiveFormat::TarZst:  return QStringLiteral("tar.zst");
     case ArchiveFormat::Zip:     return QStringLiteral("zip");
     case ArchiveFormat::SevenZip:return QStringLiteral("7z");
     case ArchiveFormat::Rar4:    return QStringLiteral("rar (v4)");
@@ -51,6 +56,7 @@ inline QString formatToString(ArchiveFormat fmt)
     case ArchiveFormat::Gzip:    return QStringLiteral("gzip");
     case ArchiveFormat::Bzip2:   return QStringLiteral("bzip2");
     case ArchiveFormat::Xz:      return QStringLiteral("xz");
+    case ArchiveFormat::Zstd:    return QStringLiteral("zstd");
     case ArchiveFormat::Unknown: return QStringLiteral("unknown");
     }
     return QStringLiteral("unknown");
@@ -62,7 +68,8 @@ inline bool isTarFamily(ArchiveFormat fmt)
     return fmt == ArchiveFormat::Tar
         || fmt == ArchiveFormat::TarGz
         || fmt == ArchiveFormat::TarXz
-        || fmt == ArchiveFormat::TarBz2;
+        || fmt == ArchiveFormat::TarBz2
+        || fmt == ArchiveFormat::TarZst;
 }
 
 // Check whether a format is a pure compression stream / 判断是否为纯压缩流
@@ -70,7 +77,8 @@ inline bool isStreamFamily(ArchiveFormat fmt)
 {
     return fmt == ArchiveFormat::Gzip
         || fmt == ArchiveFormat::Bzip2
-        || fmt == ArchiveFormat::Xz;
+        || fmt == ArchiveFormat::Xz
+        || fmt == ArchiveFormat::Zstd;
 }
 
 // Check whether a format is a RAR variant / 判断是否为 RAR 系列格式
@@ -87,6 +95,7 @@ inline QString defaultExtension(ArchiveFormat fmt)
     case ArchiveFormat::TarGz:    return QStringLiteral(".tar.gz");
     case ArchiveFormat::TarXz:    return QStringLiteral(".tar.xz");
     case ArchiveFormat::TarBz2:   return QStringLiteral(".tar.bz2");
+    case ArchiveFormat::TarZst:   return QStringLiteral(".tar.zst");
     case ArchiveFormat::Zip:      return QStringLiteral(".zip");
     case ArchiveFormat::SevenZip: return QStringLiteral(".7z");
     case ArchiveFormat::Rar4:
@@ -94,6 +103,7 @@ inline QString defaultExtension(ArchiveFormat fmt)
     case ArchiveFormat::Gzip:     return QStringLiteral(".gz");
     case ArchiveFormat::Bzip2:    return QStringLiteral(".bz2");
     case ArchiveFormat::Xz:       return QStringLiteral(".xz");
+    case ArchiveFormat::Zstd:     return QStringLiteral(".zst");
     case ArchiveFormat::Unknown:  return QString();
     }
     return QString();

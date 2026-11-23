@@ -6,7 +6,7 @@
 [![Release](https://github.com/shenmo7192/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/releases)
 
 基于 Qt 6 的图形化压缩包管理器：浏览、解压、创建、追加、删除、测试
-7z / zip / tar / gz / bz2 / xz / rar 归档。默认界面采用现代好压（HaoZip）
+7z / zip / tar / gz / bz2 / xz / zst / rar 归档。默认界面采用现代好压（HaoZip）
 风格，可在“偏好设置 → 界面”中即时切回经典布局；支持 Linux x86_64/ARM64
 与 Windows x86_64/ARM64。
 
@@ -66,6 +66,7 @@ git push origin v2.3.1
   网格图标居中，长文件名自动换行显示
 - 解压：全部或选中条目、覆盖策略（询问/覆盖/跳过/重命名）、密码、编码提示
 - 压缩：7z / zip / tar / tar.gz / tar.bz2 / tar.xz / gz / bz2 / xz；系统安装 `rar` 时还可创建 RAR 及 RAR 分卷
+- 读取 `.tar.zst` / `.tzst` / `.zst`（只读，使用内置 7-Zip）
 - 追加与删除条目（7z / zip / tar 系）
 - 完整性测试，解压前可选自动测试
 - 归档内单文件预览（文本/图片）；图片会连同同目录图片一起预解压，支持系统查看器连续看图。

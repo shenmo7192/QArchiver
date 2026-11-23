@@ -664,7 +664,17 @@ void MainWindow::applyItemSizeInternal(int size, bool persist)
 {
     size = qBound(48, size, 128);
     m_itemSize = size;
-    AppSettings::instance().setItemSize(size);
+    // Avoid writing QSettings on every slider tick / Ctrl+wheel event.  UI
+    // construction passes persist=false and must not touch the saved value.
+    // 避免每次拖动滑块/Ctrl+滚轮都同步写 QSettings；构建界面时
+    // persist=false，不应覆盖已保存的值。
+    if (persist) {
+        if (m_itemSizeSaveTimer) {
+            m_itemSizeSaveTimer->start();
+        } else {
+            AppSettings::instance().setItemSize(size);
+        }
+    }
     if (m_sizeSlider) {
         const QSignalBlocker blocker(m_sizeSlider);
         m_sizeSlider->setValue(size);
