@@ -26,14 +26,14 @@ jobs:
             platform: linux
             arch: arm64
           - name: Windows x86_64 (portable zip)
-            os: windows-latest
+            os: windows-2022
             platform: windows
             arch: x64
             qt_arch: win64_msvc2022_64
             cmake_arch: x64
             run_tests: true
           - name: Windows ARM64 (portable zip)
-            os: windows-latest
+            os: windows-2022
             platform: windows
             arch: arm64
             qt_arch: win64_msvc2022_arm64_cross_compiled
