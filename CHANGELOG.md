@@ -193,6 +193,7 @@ All notable changes to QArchiver (小Q解压) are documented here.
 - 修正后台取色/透明度测试在不同渲染后端上的舍入误差。
 - 清理 mk-build-deps 遗留文件与 Qt 5 时代文档描述。
 
+[0.1.3]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.3
 [0.1.2]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.2
 [2.1.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.1.1
 [2.2.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.2.0

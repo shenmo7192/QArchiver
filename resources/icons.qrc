@@ -13,10 +13,14 @@
     <file alias="Open.png">icons/classic/Open.png</file>
     <file alias="Preferences.png">icons/classic/Preferences.png</file>
     <file alias="Quit.png">icons/classic/Quit.png</file>
+    <file alias="add.png">icons/classic/add.png</file>
     <file alias="file.png">icons/classic/file.png</file>
     <file alias="folder.png">icons/classic/folder.png</file>
     <file alias="home.png">icons/classic/home.png</file>
+    <file alias="left.ico">icons/classic/left.ico</file>
     <file alias="no.ico">icons/classic/no.ico</file>
+    <file alias="right.ico">icons/classic/right.ico</file>
+    <file alias="test.png">icons/classic/test.png</file>
     <file alias="up.ico">icons/classic/up.ico</file>
     <file alias="warning.ico">icons/classic/warning.ico</file>
     <file alias="yes.ico">icons/classic/yes.ico</file>
@@ -27,6 +31,7 @@
     <file alias="app.png">icons/modern/app.png</file>
     <file alias="back-light.png">icons/modern/back-light.png</file>
     <file alias="back.png">icons/modern/back.png</file>
+    <file alias="close.png">icons/modern/close.png</file>
     <file alias="compress.png">icons/modern/compress.png</file>
     <file alias="delete.png">icons/modern/delete.png</file>
     <file alias="extract.png">icons/modern/extract.png</file>

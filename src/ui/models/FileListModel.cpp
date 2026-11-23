@@ -151,6 +151,8 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const
         return entry.isDir;
     case IsParentRole:
         return node->isParent;
+    case IsThumbnailRole:
+        return index.column() == NameColumn && shouldShowThumbnail(node);
     case Qt::ToolTipRole:
         return node->isParent ? tr("Parent directory") : entry.path;
     case Qt::TextAlignmentRole:
@@ -165,10 +167,7 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const
                 return modern ? Icons::modern(QStringLiteral("up.png"))
                               : Icons::aero(QStringLiteral("up.ico"));
             }
-            if (modern && !entry.isDir && !m_archivePath.isEmpty()
-                && FileTypeHelper::kindFor(displayName(node), false)
-                       == FileTypeHelper::Kind::Image
-                && (!entry.isEncrypted || !m_archivePassword.isEmpty())) {
+            if (shouldShowThumbnail(node)) {
                 return ThumbnailManager::instance().icon(
                     m_archivePath, m_archiveFormat, entry.path, entry.size,
                     m_archivePassword);
@@ -401,6 +400,60 @@ void FileListModel::setFlatMode(bool flat)
     endResetModel();
 }
 
+void FileListModel::setThumbnailsEnabled(bool enabled)
+{
+    if (m_thumbnailsEnabled == enabled) {
+        return;
+    }
+    m_thumbnailsEnabled = enabled;
+    notifyThumbnailChanged();
+}
+
+bool FileListModel::shouldShowThumbnail(const Node *node) const
+{
+    if (!m_thumbnailsEnabled || !node || node->isParent) {
+        return false;
+    }
+    const ArchiveEntry &entry = node->entry;
+    return !entry.isDir && !m_archivePath.isEmpty()
+        && FileTypeHelper::kindFor(displayName(node), false)
+               == FileTypeHelper::Kind::Image
+        && (!entry.isEncrypted || !m_archivePassword.isEmpty());
+}
+
+void FileListModel::notifyThumbnailChanged(const QModelIndex &parent)
+{
+    const int rows = rowCount(parent);
+    if (rows <= 0) {
+        return;
+    }
+    emit dataChanged(index(0, NameColumn, parent),
+                     index(rows - 1, NameColumn, parent),
+                     {Qt::DecorationRole, IsThumbnailRole});
+    for (int row = 0; row < rows; ++row) {
+        const QModelIndex child = index(row, NameColumn, parent);
+        if (rowCount(child) > 0) {
+            notifyThumbnailChanged(child);
+        }
+    }
+}
+
+void FileListModel::setShowParentEntry(bool show)
+{
+    if (m_showParentEntry == show) {
+        return;
+    }
+    m_showParentEntry = show;
+    // The flag only affects flat mode; tree mode is left untouched.
+    // 该开关只影响扁平模式，树模式无需重建。
+    if (!m_flatMode) {
+        return;
+    }
+    beginResetModel();
+    rebuild();
+    endResetModel();
+}
+
 bool FileListModel::directoryExists(const QString &dir) const
 {
     if (dir.isEmpty()) {
@@ -464,7 +517,7 @@ void FileListModel::rebuild()
     clear();
 
     if (m_flatMode) {
-        if (!m_currentDir.isEmpty()) {
+        if (m_showParentEntry && !m_currentDir.isEmpty()) {
             auto *up = new Node;
             up->parent = m_root;
             up->entry.path = QStringLiteral("..");

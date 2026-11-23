@@ -50,19 +50,22 @@ def load_aliases() -> dict[str, Path]:
     return aliases
 
 
-# String literals passed to the Icons:: helpers, e.g. Icons::aero("Open.png").
+# String literals passed to the Icons:: helpers or local aliases, e.g.
+# Icons::aero("Open.png") or modern("close.png") / classic("add.png").
 # 传给 Icons:: 辅助函数的字面量，例如 Icons::aero("Open.png")。
-ICON_CALL = re.compile(r'Icons::(aero|modern|fileType)\(QStringLiteral\("([^"]+)"\)\)')
+ICON_CALL = re.compile(
+    r'(?:Icons::)?(aero|modern|fileType|classic)\(QStringLiteral\("([^"]+)"\)\)')
 
 ICON_ROOTS = {
     "aero": "/icons/classic/",
+    "classic": "/icons/classic/",
     "modern": "/icons/modern/",
     "fileType": "/icons/file-types/",
 }
 
 
 def collect_icon_calls() -> list[tuple[str, str]]:
-    """Return [(helper, file name)] for every literal Icons:: call."""
+    """Return [(helper, file name)] for every literal icon call."""
     calls: list[tuple[str, str]] = []
     for path in (ROOT / "src").rglob("*"):
         if path.suffix not in {".cpp", ".h"}:
@@ -125,7 +128,7 @@ def main() -> int:
             continue
         problems.append(f"unknown resource path: {reference}")
 
-    # 4. Literal Icons:: calls must point at a real alias.
+    # 4. Literal icon calls (Icons:: and local aliases) must point at a real alias.
     for helper, file_name in sorted(collect_icon_calls()):
         resource = ICON_ROOTS[helper] + file_name
         if resource not in aliases:
@@ -152,7 +155,7 @@ def main() -> int:
 
     print(f"resource check ok: {len(aliases)} entries, "
           f"{len(collect_references())} referenced paths, "
-          f"{len(collect_icon_calls())} Icons:: calls")
+          f"{len(collect_icon_calls())} icon calls")
     return 0
 
 

@@ -29,7 +29,7 @@ CLASSIC = ROOT / "resources" / "icons" / "classic"
 GLYPH_SIZE = 48
 GLYPHS = {
     "About.png", "Close.png", "Extract.png", "New.png", "Open.png",
-    "Preferences.png", "Quit.png",
+    "Preferences.png", "Quit.png", "add.png", "test.png",
 }
 # Icons shown at list/grid size.
 LIST_SIZE = 64

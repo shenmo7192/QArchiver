@@ -3,11 +3,6 @@
 // search and the folder pane.
 // MainWindow 导航：目录历史、位置栏、选中详情、搜索与文件夹面板。
 
-// QArchiver / 小Q解压
-// MainWindow implementation: modern and classic layouts, actions, drag/drop,
-// previews, one-click extraction and dialogs.
-// MainWindow 实现：现代与经典布局、动作、拖放、预览、一键解压与对话框。
-
 #include "ui/MainWindow.h"
 
 #include "ui/MainWindowHelpers.h"
@@ -98,14 +93,11 @@
 
 QString MainWindow::contentViewMode() const
 {
-    // The classic layout has no view-mode switcher (no view buttons in the
-    // toolbar, no view menu), so it always uses the tree view. The stored
-    // grid/list choice still applies when the modern layout is active.
-    // 经典布局没有视图模式切换入口（工具栏无视图按钮、也没有视图菜单），
-    // 因此始终使用树视图；存储的网格/列表选择只在现代布局下生效。
-    if (!m_modernUi) {
-        return QStringLiteral("tree");
-    }
+    // The content-view preference applies to both layouts. Classic has no
+    // toolbar switcher, but the same grid/list/tree choice is available from
+    // Preferences and must take effect there as well.
+    // 内容视图设置对两种布局都生效。经典布局没有工具栏切换按钮，但偏好设置
+    // 中仍可选择网格/列表/树，并且必须实际生效。
     const QString mode = AppSettings::instance().contentViewMode();
     if (mode == QStringLiteral("list") || mode == QStringLiteral("tree")) {
         return mode;
@@ -143,9 +135,6 @@ QList<ArchiveEntry> MainWindow::selectedEntries() const
 
 void MainWindow::updateSelectionDetails()
 {
-    if (!m_modernUi) {
-        return;
-    }
     if (m_localBrowse) {
         // The folder/details pane is hidden for local listings; there is no
         // archive-internal directory to track.
@@ -287,31 +276,38 @@ void MainWindow::updateNavLocation()
 
 void MainWindow::updateNavigationState()
 {
-    if (!m_modernNavBar) {
-        return;
-    }
+    const bool canBack = m_navIndex > 0;
+    const bool canForward =
+        m_navIndex >= 0 && m_navIndex + 1 < m_navHistory.size();
+    bool canUp = false;
+
     if (m_localBrowse) {
         QDir dir(m_localBrowseDir);
-        const bool canUp = !dir.isRoot() && dir.cdUp();
-        m_modernNavBar->setNavigationState(
-            m_navIndex > 0,
-            m_navIndex >= 0 && m_navIndex + 1 < m_navHistory.size(),
-            canUp);
-        return;
-    }
-    const bool hasArchive = ArchiveManager::instance().backend() != nullptr;
-    bool canUp = false;
-    if (hasArchive) {
+        canUp = !dir.isRoot() && dir.cdUp();
+    } else if (ArchiveManager::instance().backend() != nullptr) {
         if (m_model && m_model->isFlatMode()) {
             canUp = !m_model->currentDirectory().isEmpty();
         } else {
             canUp = !m_navCurrentDir.isEmpty();
         }
     }
-    m_modernNavBar->setNavigationState(
-        m_navIndex > 0,
-        m_navIndex >= 0 && m_navIndex + 1 < m_navHistory.size(),
-        canUp);
+
+    // Both layouts share the same history and directory state; only the
+    // presentation differs (modern nav bar vs. classic filter-row buttons).
+    // 两种布局共用同一份历史记录与目录状态，只是呈现方式不同：
+    // 现代导航栏与经典筛选行按钮。
+    if (m_modernNavBar) {
+        m_modernNavBar->setNavigationState(canBack, canForward, canUp);
+    }
+    if (m_backAct) {
+        m_backAct->setEnabled(canBack);
+    }
+    if (m_forwardAct) {
+        m_forwardAct->setEnabled(canForward);
+    }
+    if (m_upAct) {
+        m_upAct->setEnabled(canUp);
+    }
 }
 
 void MainWindow::resetNavigationHistory(const QString &directory)
@@ -644,7 +640,7 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
         menu.addSeparator();
 
         QAction *openFolder = menu.addAction(
-            Icons::modern(QStringLiteral("folder.png")),
+            Icons::fileType(QStringLiteral("folder.png")),
             tr("Open Containing Folder"));
         connect(openFolder, &QAction::triggered, this, [this, localPaths]() {
             const QString directory = localPaths.size() == 1

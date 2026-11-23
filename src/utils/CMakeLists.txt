@@ -26,6 +26,8 @@ add_library(qarchiver_utils STATIC
     # 当前用户的压缩包格式关联（Windows 注册表 / Linux mimeapps）。
     FileAssociations.cpp
     FileAssociations.h
+    MimeAppsList.cpp
+    MimeAppsList.h
 
     # MIME/archive format detection.
     # MIME/压缩格式检测。

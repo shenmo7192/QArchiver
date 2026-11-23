@@ -6,12 +6,15 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 
 #include <limits>
 
 #include "backends/sevenzip/SevenZipListParser.h"
+#include "common/FormatRegistry.h"
 #include "utils/FileUtils.h"
+#include "utils/MimeAppsList.h"
 
 class TestUtils : public QObject {
     Q_OBJECT
@@ -26,6 +29,10 @@ private slots:
     void safeSymlinkTargets();
     void unsafeExtractedSymlinks();
     void parserPreservesSpacesAndLinks();
+    void formatRegistrySuffixes();
+    void archiveStripExtension();
+    void mimeAppsListPreservesStandardFormat();
+    void mimeAppsListCreatesMissingSections();
 };
 
 // Data rows for archive path normalization.
@@ -211,6 +218,159 @@ void TestUtils::parserPreservesSpacesAndLinks()
     QCOMPARE(entries.at(0).hardLinkTarget, QStringLiteral("target.txt"));
     QVERIFY(entries.at(1).isSymLink);
     QCOMPARE(entries.at(1).linkTarget, QStringLiteral("../target.txt"));
+}
+
+// Suffix detection must not confuse ordinary .r?? files with RAR volumes.
+// 后缀识别不能把普通 .r?? 文件误判为 RAR 分卷。
+void TestUtils::formatRegistrySuffixes()
+{
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("notes.rtf")),
+             ArchiveFormat::Unknown);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("package.rpm")),
+             ArchiveFormat::Unknown);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("readme.rst")),
+             ArchiveFormat::Unknown);
+    QVERIFY(!FormatRegistry::isArchivePath(QStringLiteral("notes.rtf")));
+
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.r00")),
+             ArchiveFormat::Rar4);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.r01")),
+             ArchiveFormat::Rar4);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.rar")),
+             ArchiveFormat::Rar5);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.part2.rar")),
+             ArchiveFormat::Rar5);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.zip.001")),
+             ArchiveFormat::Zip);
+    QCOMPARE(FormatRegistry::formatFromSuffix(QStringLiteral("data.7z.001")),
+             ArchiveFormat::SevenZip);
+
+    QVERIFY(FormatRegistry::isSplitVolume(QStringLiteral("data.r00")));
+    QVERIFY(FormatRegistry::isSplitVolume(QStringLiteral("data.part1.rar")));
+    QVERIFY(FormatRegistry::isSplitVolume(QStringLiteral("data.zip.001")));
+    QVERIFY(FormatRegistry::isArchivePath(QStringLiteral("data.r00")));
+    QVERIFY(FormatRegistry::isArchivePath(QStringLiteral("data.part1.rar")));
+}
+
+// One-click extraction uses the archive base name, not a volume suffix.
+// 一键解压使用压缩包基名，而不是分卷后缀。
+void TestUtils::archiveStripExtension()
+{
+    QCOMPARE(FormatRegistry::stripArchiveExtension(
+                 QStringLiteral("data.part1.rar")),
+             QStringLiteral("data"));
+    QCOMPARE(FormatRegistry::stripArchiveExtension(
+                 QStringLiteral("data.part12.rar")),
+             QStringLiteral("data"));
+    QCOMPARE(FormatRegistry::stripArchiveExtension(
+                 QStringLiteral("data.7z.001")),
+             QStringLiteral("data"));
+    QCOMPARE(FormatRegistry::stripArchiveExtension(
+                 QStringLiteral("data.r00")),
+             QStringLiteral("data"));
+    QCOMPARE(FormatRegistry::stripArchiveExtension(
+                 QStringLiteral("data.tar.gz")),
+             QStringLiteral("data"));
+    QCOMPARE(FormatRegistry::stripArchiveExtension(
+                 QStringLiteral("plain.txt")),
+             QStringLiteral("plain.txt"));
+}
+
+// Standard mimeapps.list syntax must survive a read/modify/write cycle.
+// 标准 mimeapps.list 语法在读写后必须保持不变。
+void TestUtils::mimeAppsListPreservesStandardFormat()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString path = QDir(temp.path()).filePath(QStringLiteral("mimeapps.list"));
+
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write(QByteArrayLiteral(
+        "# user overrides\n"
+        "[Default Applications]\n"
+        "application/zip=file-roller.desktop;\n"
+        "text/plain=org.gnome.TextEditor.desktop\n"
+        "\n"
+        "[Added Associations]\n"
+        "application/zip=file-roller.desktop;\n"
+        "\n"
+        "[Removed Associations]\n"
+        "image/png=example.desktop;\n"));
+    file.close();
+
+    QString error;
+    QVERIFY2(MimeAppsList::setAssociation(
+                 path, QStringLiteral("application/zip"),
+                 QStringLiteral("qarchiver.desktop"), true, &error),
+             qPrintable(error));
+
+    QCOMPARE(MimeAppsList::desktopIds(
+                 path, QStringLiteral("Default Applications"),
+                 QStringLiteral("application/zip")),
+             (QStringList{QStringLiteral("qarchiver.desktop"),
+                          QStringLiteral("file-roller.desktop")}));
+    QCOMPARE(MimeAppsList::desktopIds(
+                 path, QStringLiteral("Added Associations"),
+                 QStringLiteral("application/zip")),
+             (QStringList{QStringLiteral("qarchiver.desktop"),
+                          QStringLiteral("file-roller.desktop")}));
+    QVERIFY(MimeAppsList::hasDesktopId(
+        path, QStringLiteral("Default Applications"),
+        QStringLiteral("application/zip"), QStringLiteral("qarchiver.desktop")));
+
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QString content = QString::fromUtf8(file.readAll());
+    file.close();
+    QVERIFY(content.contains(QStringLiteral("[Default Applications]")));
+    QVERIFY(content.contains(QStringLiteral("[Added Associations]")));
+    QVERIFY(content.contains(QStringLiteral("[Removed Associations]")));
+    QVERIFY(content.contains(QStringLiteral("image/png=example.desktop;")));
+    QVERIFY(content.contains(QStringLiteral(
+        "application/zip=qarchiver.desktop;file-roller.desktop;")));
+    QVERIFY(!content.contains(QStringLiteral("%20")));
+    QVERIFY(!content.contains(QStringLiteral("application\\zip")));
+
+    QVERIFY2(MimeAppsList::setAssociation(
+                 path, QStringLiteral("application/zip"),
+                 QStringLiteral("qarchiver.desktop"), false, &error),
+             qPrintable(error));
+    QCOMPARE(MimeAppsList::desktopIds(
+                 path, QStringLiteral("Default Applications"),
+                 QStringLiteral("application/zip")),
+             QStringList{QStringLiteral("file-roller.desktop")});
+}
+
+// Missing groups are appended using the standard freedesktop headers.
+// 缺失的节必须使用标准 freedesktop 标题追加。
+void TestUtils::mimeAppsListCreatesMissingSections()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString path = QDir(temp.path()).filePath(QStringLiteral("mimeapps.list"));
+
+    QString error;
+    QVERIFY2(MimeAppsList::setAssociation(
+                 path, QStringLiteral("application/x-7z-compressed"),
+                 QStringLiteral("qarchiver.desktop"), true, &error),
+             qPrintable(error));
+
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QString content = QString::fromUtf8(file.readAll());
+    QVERIFY(content.contains(QStringLiteral("[Default Applications]")));
+    QVERIFY(content.contains(QStringLiteral("[Added Associations]")));
+    QVERIFY(content.contains(QStringLiteral(
+        "application/x-7z-compressed=qarchiver.desktop;")));
+
+    // Removing from a missing file must not create an empty mimeapps.list.
+    // 从不存在的文件移除关联时，不应创建空的 mimeapps.list。
+    const QString missing =
+        QDir(temp.path()).filePath(QStringLiteral("missing.list"));
+    QVERIFY(MimeAppsList::setAssociation(
+        missing, QStringLiteral("application/zip"),
+        QStringLiteral("qarchiver.desktop"), false, &error));
+    QVERIFY(!QFileInfo::exists(missing));
 }
 
 QTEST_GUILESS_MAIN(TestUtils)

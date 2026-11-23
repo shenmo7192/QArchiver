@@ -18,6 +18,15 @@ public:
                    const QModelIndex &index) const override;
     void paint(QPainter *painter, const QStyleOptionViewItem &option,
                const QModelIndex &index) const override;
+
+    // Fit a source image into a box while preserving its aspect ratio.
+    // 在保持宽高比的前提下，把源图片放入给定尺寸框内。
+    static QSize thumbnailDisplaySize(const QSize &source,
+                                      const QSize &limit);
+
+protected:
+    void initStyleOption(QStyleOptionViewItem *option,
+                         const QModelIndex &index) const override;
 };
 
 #endif // FILELISTVIEWDELEGATE_H

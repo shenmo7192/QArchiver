@@ -105,7 +105,8 @@ src/
 │   ├── ArchiveConstants.h  ArchiveEntry.h  ArchiveOptions.h
 │   ├── ArchiveError.{h,cpp}  FormatRegistry.{h,cpp}
 ├── utils/                      ProcessRunner、FileUtils、EncodingDetector、
-│                               SevenZipTool、MimeTypeHelper、Logger
+│                               SevenZipTool、MimeTypeHelper、Logger、
+│                               FileAssociations、MimeAppsList
 ├── backends/                   ArchiveBackend 及各格式实现
 │   ├── tar/  sevenzip/  rar/  stream/  libarchive/
 ├── core/                       ArchiveManager 与操作编排
@@ -892,8 +893,8 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - “最近文件”侧边栏默认隐藏，在偏好设置中勾选“显示最近文件侧边栏”后显示。
 - 本版本不提供压缩包属性对话框：该信息与文件管理器的“文件属性”弹窗重复，故工具栏“属性”按钮与右键菜单“属性”项均已移除。
 - 双击文件：预览。图片会静默预解压同目录图片，交给系统查看器连续浏览。
-- 现代网格的图片缩略图由 `ThumbnailManager` 按需提取：独立读取后端在小型线程池中解压单张图片，裁剪为 128px PNG 写入持久缓存；模型收到完成信号后只刷新对应图标。
-- 网格模式双击目录：进入目录；双击 `..`：返回上一级。网格使用
+- 图片缩略图由 `ThumbnailManager` 按需提取：独立读取后端在小型线程池中解压单张图片，缩放到 128px 内并写入持久缓存；模型收到完成信号后只刷新对应图标。现代布局各视图都启用缩略图，列表视图按行高（约 22px）等比例缩放、宽度上限 96px；经典布局只在网格视图启用，列表/树保持普通图片图标。
+- 网格模式双击目录：进入目录；不显示 `..`，通过“上一级”按钮返回。网格使用
   `ArchiveGridView`（`QListView::IconMode`）和自定义 delegate，支持多选、
   右键菜单、拖出与详细信息联动。delegate 的 `sizeHint()` 返回完整网格单元，
   图标在单元内居中；文件名用 `QTextLayout` 按任意字符换行并逐行居中，
@@ -902,6 +903,10 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - 列表模式双击目录：进入目录；双击 `..`：返回上一级。
 - 现代导航栏在内容列表上方提供网格/列表/树形切换，主页与归档页均可用；
   偏好设置中也可切换。设置持久化为 `ui/contentViewMode`，默认 `grid`。
+- 经典布局在筛选框左侧提供导航按钮，按“前进、后退、上一级”排列
+  （快捷键 `Alt+Right` / `Alt+Left` / `Alt+Up`），复用与现代导航栏相同的
+  历史和目录状态。经典列表/树使用 16px 图标与 24px 行高，避免图标重叠；
+  现代视图尺寸不受影响。
 - 右键菜单：解压选中、添加文件、删除选中、测试、排序方式（本地浏览时还提供
   打开、添加到同名 ZIP、压缩到 7z/ZIP/tar 等、打开所在文件夹与刷新）。
 - 拖入文件：打开压缩包，或向当前可写归档追加文件。
@@ -924,6 +929,7 @@ Name, Size, Packed, Modified, Encrypted
 | `PathRole` | 压缩包内部原始路径 |
 | `IsDirRole` | 是否目录 |
 | `IsParentRole` | 列表模式的合成 `..` 行 |
+| `IsThumbnailRole` | 当前图标是否为图片缩略图（现代布局或经典网格） |
 
 树状模式：
 
@@ -934,7 +940,8 @@ Name, Size, Packed, Modified, Encrypted
 列表模式：
 
 - 只显示当前目录的直接子项。
-- 非根目录时第 0 行为 `..`，不参与排序；根目录不显示 `..`。
+- 列表模式非根目录时第 0 行为 `..`，不参与排序；根目录不显示 `..`。
+- 网格模式不显示 `..`，通过“上一级”动作返回；树模式本身不使用该行。
 - 显示名称为 basename，完整路径放在 tooltip/角色中。
 - `enterDirectory()` / `goUp()` 维护当前目录。
 - 排序由 `FileListModel::sortFlat()` 完成，代理不参与 `..` 排序。
@@ -1074,16 +1081,15 @@ Name, Size, Packed, Modified, Encrypted
 | 设置 | 现代布局 | 经典布局 | 说明 |
 |---|---|---|---|
 | 界面布局 / 主题 | ✔ | ✔ | 两种布局都有效 |
-| 归档内容视图（网格/列表/树） | ✔ | ✘（隐藏） | 切换入口只在现代导航栏；经典布局固定树视图 |
+| 归档内容视图（网格/列表/树） | ✔ | ✔ | 两种布局都生效；经典布局通过偏好设置切换 |
 | 工具栏样式 | ✘（隐藏） | ✔ | 只作用于经典工具栏（`m_mainToolBar`） |
 | 显示最近文件侧边栏 | ✘（隐藏） | ✔ | 侧边栏只在经典布局中创建 |
 | 最近文件上限 | ✔ | ✔ | 现代欢迎页与经典侧边栏都受它限制 |
 | 背景图片 | ✔ | ✔ | 绘制在列表/树视图之后；网格视图不显示（界面页有说明） |
 
-经典布局没有视图模式切换入口（工具栏无视图按钮、也没有视图菜单），因此
-`MainWindow::contentViewMode()` 在经典布局下固定返回 `tree`，避免用户在现代布局
-选过网格后切到经典时被困在无法切换的视图里；`ui/contentViewMode` 的存储值不变，
-切回现代布局后继续生效。
+两种布局共用 `ui/contentViewMode`。经典布局没有工具栏/菜单切换入口，用户可在
+偏好设置的“界面”页选择网格、列表或树；`MainWindow::contentViewMode()` 不再因
+布局模式固定返回 `tree`，切换布局后仍使用同一个内容视图设置。
 
 | Key | 含义 |
 |---|---|
@@ -1105,7 +1111,8 @@ Name, Size, Packed, Modified, Encrypted
 | `extract/oneClickCloseAfter` | 一键解压成功后关闭程序 |
 | `extract/oneClickCloseAsked` | 是否已显示过首次提示 |
 | `ui/theme` | `system` / `light` / `dark` |
-| `ui/contentViewMode` | `tree` / `list` |
+| `ui/contentViewMode` | `grid`（默认）/ `tree` / `list` |
+| `ui/itemSize` | 图标大小，默认 96，范围 48–128；经典列表/树固定 16px，不受该值影响 |
 | `ui/toolButtonStyle` | 工具栏按钮样式 |
 | `ui/showRecentFiles` | 是否显示最近文件侧边栏（默认关闭） |
 | `ui/backgroundImage` | 背景图片路径；为空表示不显示 |
@@ -1210,7 +1217,7 @@ resources/
 | `tst_preview` | 连续看图的后缀筛选、同目录选取、大小写不敏感、跳过符号链接/子目录、准备对话框阈值、批量解压样例 |
 | `tst_manager` | 打开/列表/解压流程、打开失败保留当前包、危险符号链接跳过/中止、覆盖已有目标压缩、RAR 分卷替换、加密 7z 回退命令行、图片同目录连续预览、后端选择开关、只读 libarchive 后端的添加/删除写回退 |
 | `tst_libarchive` | zip / tar.gz / tar.xz / gz 往返、AES-256 zip 密码、加密 7z 报不支持、损坏包检测、选择性解压、目录选中、硬链接重建 |
-| `tst_preferences` | 偏好设置中 libarchive 开关与 `AppSettings` 的双向联动、连续看图阈值与最近文件上限裁剪、布局/一键解压设置往返、性能测试对话框构建、列表模式目录索引/重复项（offscreen 平台运行） |
+| `tst_preferences` | 偏好设置中 libarchive 开关与 `AppSettings` 的双向联动、连续看图阈值与最近文件上限裁剪、布局/一键解压设置往返、性能测试对话框构建、列表模式目录索引/重复项、网格模式隐藏 `..`、缩略图开关与等比缩放、分卷图标（offscreen 平台运行） |
 | `tst_dragout` | 拖出 staging：路径剪枝、体积统计（含负值/溢出拒绝）、staging 映射、单文件/目录/嵌套选择、恶意路径/危险符号链接拦截、纯 gz 流、加密 7z 回退命令行、`QARCHIVER_NO_LIBARCHIVE` 下同样通过、准备结果缓存复用与失效 |
 
 测试目标统一由 `tests/CMakeLists.txt` 的 `qarchiver_add_test(<name>
