@@ -134,6 +134,14 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
+          try {
+            # Local scripts are blocked by the default execution policy on some
+            # runner images.
+            # 部分运行器镜像的默认执行策略会阻止运行本地脚本。
+            Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+          } catch {
+            Write-Host "Could not change the execution policy: $($_.Exception.Message)"
+          }
           # The runner image normally ships Inno Setup 6; install it through
           # Chocolatey when it is missing.
           # 运行器镜像通常自带 Inno Setup 6；缺失时通过 Chocolatey 安装。
@@ -144,15 +152,26 @@ jobs:
             Select-Object -First 1
           if (-not $iscc) {
             choco install innosetup -y --no-progress
-            $env:INNO_SETUP_ISCC = (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe')
-          } else {
-            $env:INNO_SETUP_ISCC = $iscc
+            $iscc = (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe')
           }
+          if (-not (Test-Path -LiteralPath $iscc -PathType Leaf)) {
+            throw "ISCC.exe was not found after installing Inno Setup."
+          }
+          Write-Host "Using ISCC: $iscc"
+          Write-Host "ISCC version: $((Get-Item -LiteralPath $iscc).VersionInfo.ProductVersion)"
+          $env:INNO_SETUP_ISCC = $iscc
           $zip = Get-ChildItem -Filter "QArchiver-*-windows-${{ matrix.arch }}.zip" |
             Select-Object -First 1
           if (-not $zip) { throw 'Portable package was not created.' }
-          ./packaging/windows/build-installer.ps1 -ZipPath $zip.FullName `
-            -OutputDir (Get-Location) -Arch '${{ matrix.arch }}'
+          Write-Host "Portable package: $($zip.FullName) ($($zip.Length) bytes)"
+          try {
+            ./packaging/windows/build-installer.ps1 -ZipPath $zip.FullName `
+              -OutputDir (Get-Location) -Arch '${{ matrix.arch }}'
+          } catch {
+            Write-Host "::error::Installer build failed: $($_.Exception.Message)"
+            Write-Host $_.ScriptStackTrace
+            exit 1
+          }
 
       - name: Upload Windows package
         if: matrix.platform == 'windows'

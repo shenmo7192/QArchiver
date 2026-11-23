@@ -28,6 +28,9 @@
 #ifndef Arch
   #define Arch "x64"
 #endif
+#ifndef ArchAllowed
+  #define ArchAllowed "x64compatible"
+#endif
 
 #define AppExeName "QArchiver.exe"
 #define AppDisplayName "QArchiver (小Q解压)"
@@ -59,13 +62,8 @@ SolidCompression=yes
 WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
-#if Arch == "arm64"
-ArchitecturesAllowed=arm64
-ArchitecturesInstallIn64BitMode=arm64
-#else
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
-#endif
+ArchitecturesAllowed={#ArchAllowed}
+ArchitecturesInstallIn64BitMode={#ArchAllowed}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
