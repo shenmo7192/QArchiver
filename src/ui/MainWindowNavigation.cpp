@@ -56,6 +56,7 @@
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDesktopServices>
+#include <QProcess>
 #include <QDialog>
 #include <QDir>
 #include <QDockWidget>
@@ -538,6 +539,44 @@ void MainWindow::onFolderDirectoryActivated(const QString &path)
     navigateToDirectory(path, true);
 }
 
+void MainWindow::openLocalWith(const QString &path)
+{
+    const QFileInfo info(path);
+    if (!info.isFile()) {
+        return;
+    }
+#ifdef Q_OS_WIN
+    QProcess::startDetached(
+        QStringLiteral("rundll32.exe"),
+        {QStringLiteral("shell32.dll,OpenAs_RunDLL"),
+         QDir::toNativeSeparators(info.absoluteFilePath())});
+#else
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(info.absoluteFilePath()))) {
+        MessageBoxUtils::showOpenFailure(this, info.absoluteFilePath());
+    }
+#endif
+}
+
+void MainWindow::openEntryWith(const QString &path)
+{
+    if (m_localBrowse) {
+        openLocalWith(QDir(m_localBrowseDir).filePath(path));
+        return;
+    }
+    if (!m_model) {
+        return;
+    }
+    const QModelIndex index = m_model->indexForPath(path);
+    const ArchiveEntry *entry = m_model->entryAt(index);
+    if (!entry || entry->isDir) {
+        return;
+    }
+    PreviewManager::instance().preview(
+        ArchiveManager::instance().currentPath(),
+        ArchiveManager::instance().currentFormat(),
+        entry->path, entry->size, QStringList(), m_currentPassword, true);
+}
+
 void MainWindow::onTreeContextMenu(const QPoint &pos)
 {
     auto *view = qobject_cast<QAbstractItemView *>(sender());
@@ -568,6 +607,16 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
         connect(openAction, &QAction::triggered, this, [this, localPaths]() {
             if (!localPaths.isEmpty()) {
                 openLocalEntry(QFileInfo(localPaths.first()).fileName());
+            }
+        });
+
+        QAction *openWithAction = menu.addAction(
+            Icons::modern(QStringLiteral("open.png")), tr("Open With..."));
+        openWithAction->setEnabled(localPaths.size() == 1
+                                   && QFileInfo(localPaths.first()).isFile());
+        connect(openWithAction, &QAction::triggered, this, [this, localPaths]() {
+            if (localPaths.size() == 1) {
+                openLocalWith(localPaths.first());
             }
         });
 
@@ -620,8 +669,34 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
     ArchiveBackend *backend = ArchiveManager::instance().backend();
     const bool busy = ArchiveManager::instance().isBusy();
     const QStringList selected = selectedEntryPaths();
+    const bool singleSelected = selected.size() == 1;
+    const ArchiveEntry *selectedEntry = nullptr;
+    if (singleSelected && m_model) {
+        selectedEntry = m_model->entryAt(m_model->indexForPath(selected.first()));
+    }
 
     QMenu menu(this);
+    QAction *openEntry = menu.addAction(
+        Icons::modern(QStringLiteral("open.png")), tr("Open"));
+    openEntry->setEnabled(backend && singleSelected && !busy);
+    connect(openEntry, &QAction::triggered, this, [this, selected]() {
+        if (!selected.isEmpty()) {
+            onEntryDoubleClicked(selected.first());
+        }
+    });
+
+    QAction *openWithEntryAction = menu.addAction(
+        Icons::modern(QStringLiteral("open.png")), tr("Open With..."));
+    openWithEntryAction->setEnabled(backend && singleSelected && selectedEntry
+                                    && !selectedEntry->isDir && !busy);
+    connect(openWithEntryAction, &QAction::triggered, this, [this, selected]() {
+        if (!selected.isEmpty()) {
+            openEntryWith(selected.first());
+        }
+    });
+
+    menu.addSeparator();
+
     QAction *extractSelected = menu.addAction(
         Icons::modern(QStringLiteral("extract.png")), tr("Extract Selected..."));
     extractSelected->setEnabled(backend && !selected.isEmpty() && !busy);

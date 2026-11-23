@@ -33,7 +33,8 @@ public:
     // 便于支持目录浏览的系统图片查看器连续切换。
     void preview(const QString &archivePath, ArchiveFormat format,
                  const QString &entryPath, qint64 entrySize,
-                 const QStringList &imagePaths, const QString &password);
+                 const QStringList &imagePaths, const QString &password,
+                 bool openWith = false);
 
     // Cleanup stale preview directories (called at startup)
     // 清理陈旧预览目录（启动时调用）
@@ -50,7 +51,8 @@ private:
     QString previewRoot() const;
     QString ownPreviewDir() const;
     void finishPreview(const QString &previewDir, const QString &destPath,
-                       bool success, bool cancelled, const QString &errorMessage);
+                       bool success, bool cancelled, const QString &errorMessage,
+                       bool openWith);
     void cancelPreview(const QString &previewDir);
     void updatePreviewProgress(const QString &previewDir, int percent,
                                int total, int current, int etaSec);
