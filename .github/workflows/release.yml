@@ -33,7 +33,7 @@ jobs:
         run: |
           cd dist
           ls -l
-          sha256sum -- *.deb *.zip > SHA256SUMS
+          sha256sum -- *.deb *.zip *.exe > SHA256SUMS
           cat SHA256SUMS
 
       - name: Create release
@@ -49,15 +49,18 @@ jobs:
             | --- | --- |
             | Linux x86_64 | `qarchiver_*_amd64.deb` |
             | Linux ARM64 | `qarchiver_*_arm64.deb` |
-            | Windows x86_64 | `QArchiver-*-windows-x64.zip` |
-            | Windows ARM64 | `QArchiver-*-windows-arm64.zip` |
+            | Windows x86_64 | `QArchiver-*-windows-x64-setup.exe` (installer) |
+            | Windows ARM64 | `QArchiver-*-windows-arm64-setup.exe` (installer) |
+            | Windows portable | `QArchiver-*-windows-*.zip` |
 
-            Windows ZIP packages are portable: unzip, then run `QArchiver.exe`.
-            Optional Explorer integration scripts are in the same directory.
+            The Windows installer registers the Explorer context menus (open,
+            one-click extract, add to ZIP, compress to 7z/ZIP/tar...).
+            The ZIP packages are portable: unzip, then run `QArchiver.exe`.
 
             Debian/Ubuntu: `sudo apt install ./qarchiver_*_<arch>.deb`.
             The packages use the bundled 7-Zip helper (x64/ARM64 native).
           files: |
             dist/*.deb
             dist/*.zip
+            dist/*.exe
             dist/SHA256SUMS

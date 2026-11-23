@@ -24,11 +24,19 @@ bool isSupportedImagePath(const QString &path)
 {
     static const QStringList suffixes = {
         QStringLiteral(".jpg"),
+        QStringLiteral(".jpeg"),
+        QStringLiteral(".jfif"),
         QStringLiteral(".png"),
         QStringLiteral(".svg"),
         QStringLiteral(".webp"),
         QStringLiteral(".gif"),
-        QStringLiteral(".bmp")
+        QStringLiteral(".bmp"),
+        QStringLiteral(".ico"),
+        QStringLiteral(".tif"),
+        QStringLiteral(".tiff"),
+        QStringLiteral(".heic"),
+        QStringLiteral(".avif"),
+        QStringLiteral(".jxl")
     };
     for (const QString &suffix : suffixes) {
         if (path.endsWith(suffix, Qt::CaseInsensitive)) {

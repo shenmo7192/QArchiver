@@ -1690,6 +1690,156 @@ For a self-contained installation, download the official 7-Zip command-line tool
         <source>No 7-Zip Fallback</source>
         <translation>未找到 7-Zip 兜底工具</translation>
     </message>
+    <message>
+        <source>Start Page</source>
+        <translation>起始页</translation>
+    </message>
+    <message>
+        <source>Browse Local Files...</source>
+        <translation>浏览本地文件...</translation>
+    </message>
+    <message>
+        <source>Compress the selected items (Ctrl+N)</source>
+        <translation>压缩选中项 (Ctrl+N)</translation>
+    </message>
+    <message>
+        <source>Local folder · %1</source>
+        <translation>本地文件夹 · %1</translation>
+    </message>
+    <message>
+        <source>Add to "%1"</source>
+        <translation>添加到 "%1"</translation>
+    </message>
+    <message>
+        <source>Add to ZIP archive</source>
+        <translation>添加到 ZIP 压缩包</translation>
+    </message>
+    <message>
+        <source>Open Containing Folder</source>
+        <translation>打开所在文件夹</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <source>Compress to</source>
+        <translation>压缩到</translation>
+    </message>
+    <message>
+        <source>7z archive (.7z)</source>
+        <translation>7z 压缩包 (.7z)</translation>
+    </message>
+    <message>
+        <source>ZIP archive (.zip)</source>
+        <translation>ZIP 压缩包 (.zip)</translation>
+    </message>
+    <message>
+        <source>Gzip tar (.tar.gz)</source>
+        <translation>Gzip tar (.tar.gz)</translation>
+    </message>
+    <message>
+        <source>Xz tar (.tar.xz)</source>
+        <translation>Xz tar (.tar.xz)</translation>
+    </message>
+    <message>
+        <source>Bzip2 tar (.tar.bz2)</source>
+        <translation>Bzip2 tar (.tar.bz2)</translation>
+    </message>
+    <message>
+        <source>Tar (.tar)</source>
+        <translation>Tar (.tar)</translation>
+    </message>
+    <message>
+        <source>Custom options...</source>
+        <translation>自定义选项...</translation>
+    </message>
+    <message>
+        <source>The requested archive format is not supported.</source>
+        <translation>不支持所请求的压缩格式。</translation>
+    </message>
+    <message>
+        <source>None of the selected items exist.</source>
+        <translation>所选项均不存在。</translation>
+    </message>
+    <message>
+        <source>A .gz / .bz2 / .xz stream can contain exactly one regular file.</source>
+        <translation>.gz / .bz2 / .xz 压缩流只能包含一个普通文件。</translation>
+    </message>
+    <message>
+        <source>Overwrite Archive</source>
+        <translation>覆盖压缩包</translation>
+    </message>
+    <message>
+        <source>The archive already exists:
+%1
+
+Overwrite it?</source>
+        <translation>压缩包已存在：
+%1
+
+是否覆盖？</translation>
+    </message>
+    <message>
+        <source>The archive format "%1" is not supported.</source>
+        <translation>不支持压缩格式“%1”。</translation>
+    </message>
+    <message>
+        <source>No existing files or folders were passed to QArchiver.</source>
+        <translation>没有向 QArchiver 传入存在的文件或文件夹。</translation>
+    </message>
+    <message>
+        <source>Created %1</source>
+        <translation>已创建 %1</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名称</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Packed size</source>
+        <translation>压缩后大小</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>类型</translation>
+    </message>
+    <message>
+        <source>Modified</source>
+        <translation>修改时间</translation>
+    </message>
+    <message>
+        <source>Encrypted</source>
+        <translation>加密</translation>
+    </message>
+    <message>
+        <source>ascending</source>
+        <translation>升序</translation>
+    </message>
+    <message>
+        <source>descending</source>
+        <translation>降序</translation>
+    </message>
+    <message>
+        <source>Sort: %1 (%2)</source>
+        <translation>排序：%1（%2）</translation>
+    </message>
+    <message>
+        <source>Sort by</source>
+        <translation>排序方式</translation>
+    </message>
+    <message>
+        <source>Ascending</source>
+        <translation>升序</translation>
+    </message>
+    <message>
+        <source>Descending</source>
+        <translation>降序</translation>
+    </message>
 </context>
 <context>
     <name>ModernNavBar</name>
@@ -1737,6 +1887,10 @@ For a self-contained installation, download the official 7-Zip command-line tool
         <location line="+4"/>
         <source>Search</source>
         <translation>搜索</translation>
+    </message>
+    <message>
+        <source>Sort</source>
+        <translation>排序</translation>
     </message>
 </context>
 <context>

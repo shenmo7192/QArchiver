@@ -84,18 +84,24 @@ desktop 文件设置 `StartupWMClass=QArchiver`，并使用合法的
 ## Windows
 
 Windows 使用 `cmake --install` + `qt_generate_deploy_app_script()` 部署 Qt，
-`cpack` 生成 `QArchiver-<version>-windows-<arch>.zip`。资源管理器右键菜单由
-`packaging/windows/install-shell-menu.ps1` 注册（当前用户，无需管理员）。
-交叉编译与更多细节见 `packaging/windows/README.md`。
+`cpack` 生成 `QArchiver-<version>-windows-<arch>.zip`，再由
+`packaging/windows/build-installer.ps1` 调用 Inno Setup（`QArchiver.iss`）
+生成 `QArchiver-<version>-windows-<arch>-setup.exe` 安装器。安装器提供开始
+菜单、可选桌面快捷方式、卸载入口和可选的资源管理器右键菜单；便携包则通过
+`packaging/windows/install-shell-menu.ps1` 为当前用户注册同一套菜单：
+“用 小Q解压 打开”“一键解压”“添加到同名 ZIP 压缩包”和“压缩到...”二级菜单
+（7z/ZIP/tar.gz/tar.xz/tar.bz2/tar）。交叉编译与更多细节见
+`packaging/windows/README.md`。
 
 ## GitHub Actions
 
 `build.yml` 是供 CI/Release 复用的构建矩阵：
 
 - Linux amd64/arm64 在原生 runner 上生成 `.deb`；
-- Windows x64 在 `windows-latest` 上原生构建、测试并生成便携 ZIP；
+- Windows x64 在 `windows-2022` 上原生构建、测试并生成便携 ZIP 与安装器；
 - Windows ARM64 使用 Qt `win64_msvc2022_arm64_cross_compiled` 交叉构建，
-  内置原生 ARM64 7-Zip，生成 `QArchiver-<version>-windows-arm64.zip`。
+  内置原生 ARM64 7-Zip，生成 `QArchiver-<version>-windows-arm64.zip`
+  及其安装器。
 
 推送 `v*` 标签会触发 `release.yml`，自动创建 Release 并上传两个 deb、
-两个 Windows ZIP 以及 `SHA256SUMS`。
+两个 Windows ZIP、两个安装器以及 `SHA256SUMS`。

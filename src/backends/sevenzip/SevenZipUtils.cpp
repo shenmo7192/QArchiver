@@ -5,7 +5,9 @@
 #include "backends/sevenzip/SevenZipUtils.h"
 
 #include <QDir>
-#include <QTemporaryFile>
+#include <QFile>
+#include <QThread>
+#include <QUuid>
 
 #include "utils/EncodingDetector.h"
 #include "utils/Logger.h"
@@ -19,19 +21,63 @@
 
 namespace SevenZipUtils {
 
+ListFile::ListFile(const QString &tag)
+{
+    m_path = QDir(QDir::tempPath()).filePath(
+        QStringLiteral("qarchiver-%1-%2.txt")
+            .arg(tag,
+                 QUuid::createUuid().toString(QUuid::WithoutBraces)));
+}
+
+ListFile::~ListFile()
+{
+    if (!m_path.isEmpty()) {
+        QFile::remove(m_path);
+    }
+}
+
+bool ListFile::write(const QByteArray &payload)
+{
+    QFile file(m_path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return false;
+    }
+    const bool written = file.write(payload) == payload.size();
+    file.flush();
+    file.close();
+    if (!written) {
+        return false;
+    }
+
+#ifdef Q_OS_WIN
+    // Antivirus scanners and the search indexer can hold a newly created file
+    // for a moment.  7-Zip then fails with "the file is being used by another
+    // process" while opening the listfile.  Wait until the file can be opened
+    // for reading before starting 7-Zip.
+    // 杀毒软件或搜索索引可能短暂占用刚创建的列表文件，7-Zip 读取时会报
+    // “另一个程序正在使用此文件”。启动 7-Zip 前先确认文件可读。
+    for (int attempt = 0; attempt < 20; ++attempt) {
+        QFile probe(m_path);
+        if (probe.open(QIODevice::ReadOnly)) {
+            probe.close();
+            break;
+        }
+        QThread::msleep(25);
+    }
+#endif
+    return true;
+}
+
 QString resolveSevenZip()
 {
     return ProcessRunner::resolveToolPath(QStringLiteral("7z"));
 }
 
-bool appendListFileArgs(QTemporaryFile &file, const QStringList &entries,
+bool appendListFileArgs(ListFile &file, const QStringList &entries,
                         const QString &encoding, QStringList &args)
 {
     if (entries.isEmpty()) {
         return true;
-    }
-    if (!file.open()) {
-        return false;
     }
 
     QString charset = QStringLiteral("-scsUTF-8");
@@ -49,14 +95,11 @@ bool appendListFileArgs(QTemporaryFile &file, const QStringList &entries,
         }
     }
 
-    const bool written = file.write(payload) == payload.size();
-    file.flush();
-    file.close();
-    if (!written) {
+    if (!file.write(payload)) {
         return false;
     }
 
-    args << charset << QStringLiteral("-i@") + file.fileName();
+    args << charset << QStringLiteral("-i@") + file.path();
     return true;
 }
 

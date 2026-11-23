@@ -21,6 +21,14 @@ struct Options {
     QString language;
     // --oneclick: extract instead of opening. / --oneclick：直接解压而不打开。
     bool oneClick = false;
+    // --compress <format>: create an archive without the compress dialog.
+    // --compress <格式>：不打开压缩对话框直接创建压缩包。
+    QString compressFormat;
+    // --output <path>: target archive for --compress. / --output <路径>：压缩目标。
+    QString compressOutput;
+    // --compress-dialog: open the compress dialog for the given paths.
+    // --compress-dialog：为指定路径打开压缩对话框。
+    bool compressDialog = false;
     // --preferences: open the preferences dialog on startup. / --preferences：启动时打开偏好设置。
     bool preferences = false;
     // --benchmark: open the 7-Zip benchmark dialog on startup. / --benchmark：启动时打开 7-Zip 测试对话框。

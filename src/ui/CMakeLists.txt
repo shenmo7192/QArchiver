@@ -12,6 +12,7 @@ add_library(qarchiver_ui STATIC
     MainWindowNavigation.cpp
     MainWindowExtraction.cpp
     MainWindowDragOut.cpp
+    MainWindowLocalBrowser.cpp
 
     # Item models, proxy model and delegate.
     # 条目模型、代理模型与委托。

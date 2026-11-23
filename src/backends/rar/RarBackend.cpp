@@ -8,10 +8,10 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
-#include <QTemporaryFile>
 
 #include "utils/Logger.h"
 #include "utils/ProcessRunner.h"
+#include "backends/sevenzip/SevenZipUtils.h"
 
 namespace {
 
@@ -136,13 +136,7 @@ void RarBackend::compress(const CompressOptions &options)
     // wildcard and leading-dash surprises.
     // RAR 使用 -scfl 读取 UTF-8 列表文件；绝对路径使当前工作目录无关紧要。
     // 列表文件还能避免命令行通配符和前导短横线被误解析。
-    QTemporaryFile sourceListFile(
-        QDir::tempPath() + QStringLiteral("/qarchiver-rar-sources-XXXXXX.txt"));
-    if (!sourceListFile.open()) {
-        emit errorOccurred(ArchiveErrorCode::Unknown,
-                           tr("Could not prepare the source files for compression"));
-        return;
-    }
+    SevenZipUtils::ListFile sourceListFile(QStringLiteral("rar-sources"));
     QByteArray payload;
     for (const QString &source : options.sourceFiles) {
         if (!source.isEmpty()) {
@@ -150,18 +144,16 @@ void RarBackend::compress(const CompressOptions &options)
             payload += '\n';
         }
     }
-    if (payload.isEmpty() || sourceListFile.write(payload) != payload.size()) {
+    if (payload.isEmpty() || !sourceListFile.write(payload)) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
                            tr("Could not prepare the source files for compression"));
         return;
     }
-    sourceListFile.flush();
-    sourceListFile.close();
 
     args << QStringLiteral("-scfl")
          << QStringLiteral("--")
          << options.archivePath
-         << QStringLiteral("@") + sourceListFile.fileName();
+         << QStringLiteral("@") + sourceListFile.path();
 
     LOG_DEBUG("RarBackend", "Compress: %s",
               ProcessRunner::maskedCommand(rar, args).toUtf8().constData());

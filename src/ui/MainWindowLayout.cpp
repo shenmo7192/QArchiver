@@ -83,6 +83,7 @@
 #include <QMimeData>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
@@ -183,6 +184,12 @@ void MainWindow::setupModernUi()
             this, &MainWindow::onSearchChanged);
     connect(m_modernNavBar, &ModernNavBar::viewModeChanged,
             this, &MainWindow::onContentViewModeChanged);
+    connect(m_modernNavBar, &ModernNavBar::sortMenuRequested, this,
+            [this](const QPoint &globalPos) {
+        auto *menu = createSortMenu(this);
+        menu->setAttribute(Qt::WA_DeleteOnClose);
+        menu->popup(globalPos);
+    });
     connect(m_folderPane, &ArchiveFolderPane::directoryActivated,
             this, &MainWindow::onFolderDirectoryActivated);
     connect(m_welcomePage, &WelcomePage::openRequested,
@@ -341,6 +348,10 @@ ArchiveTreeView *MainWindow::createArchiveTree(QWidget *parent)
     header->setSectionsClickable(true);
     header->setSectionResizeMode(QHeaderView::Interactive);
     header->setMinimumSectionSize(60);
+    connect(header, &QHeaderView::sortIndicatorChanged, this,
+            [this](int section, Qt::SortOrder order) {
+        applySort(section, order);
+    });
     tree->setIconSize(QSize(20, 20));
     tree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(tree, &QTreeView::customContextMenuRequested,
@@ -434,7 +445,10 @@ void MainWindow::applyContentViewMode()
         return;
     }
     const QString mode = contentViewMode();
-    const bool flat = mode != QStringLiteral("tree");
+    // A local directory listing is always a single level: the view may look
+    // like a tree, but entries must never expand into paths on disk.
+    // 本地目录列表始终只有一层：即使外观为树形，也不能把磁盘路径展开成层级。
+    const bool flat = m_localBrowse || mode != QStringLiteral("tree");
     const bool modeChanged = m_model->isFlatMode() != flat;
     if (modeChanged) {
         m_model->setFlatMode(flat);
@@ -442,11 +456,10 @@ void MainWindow::applyContentViewMode()
     }
     applyHeaderColumns();
 
-    const int sortSection = m_treeView->header()->sortIndicatorSection();
-    const Qt::SortOrder sortOrder = m_treeView->header()->sortIndicatorOrder();
-    m_treeView->sortByColumn(
-        sortSection >= 0 ? sortSection : FileListModel::NameColumn,
-        sortSection >= 0 ? sortOrder : Qt::AscendingOrder);
+    // Sort through the shared sort state: the grid view has no header and the
+    // tree header only mirrors the state.
+    // 通过共享排序状态排序：网格视图没有表头，树表头只反映该状态。
+    applySort(m_sortColumn, m_sortOrder);
 
     if (m_viewStack && m_gridView) {
         QWidget *active = (mode == QStringLiteral("grid"))
@@ -455,7 +468,9 @@ void MainWindow::applyContentViewMode()
         m_viewStack->setCurrentWidget(active);
     }
 
-    if (mode == QStringLiteral("tree")) {
+    if (flat && mode == QStringLiteral("tree")) {
+        m_treeView->scrollToTop();
+    } else if (mode == QStringLiteral("tree")) {
         m_treeView->expandToDepth(0);
     } else if (mode == QStringLiteral("grid") && m_gridView) {
         m_gridView->scrollToTop();
@@ -464,11 +479,13 @@ void MainWindow::applyContentViewMode()
     }
 
     if (m_modernUi) {
-        if (modeChanged || m_navHistory.isEmpty()) {
-            resetNavigationHistory(m_model->currentDirectory());
-        }
-        if (m_folderPane) {
-            m_folderPane->setCurrentDirectory(m_navCurrentDir);
+        if (!m_localBrowse) {
+            if (modeChanged || m_navHistory.isEmpty()) {
+                resetNavigationHistory(m_model->currentDirectory());
+            }
+            if (m_folderPane) {
+                m_folderPane->setCurrentDirectory(m_navCurrentDir);
+            }
         }
         if (m_modernNavBar) {
             m_modernNavBar->setViewMode(mode);
@@ -532,4 +549,84 @@ void MainWindow::onContentViewModeChanged(const QString &mode)
         m_modernNavBar->setViewMode(normalized);
     }
     applyContentViewMode();
+}
+
+void MainWindow::applySort(int column, Qt::SortOrder order)
+{
+    if (!m_model || !m_proxyModel) {
+        return;
+    }
+    if (column < 0 || column >= FileListModel::ColumnCount) {
+        column = FileListModel::NameColumn;
+    }
+    m_sortColumn = column;
+    m_sortOrder = order;
+    AppSettings::instance().setSort(column, order);
+
+    m_proxyModel->sort(column, order);
+    if (m_treeView) {
+        QHeaderView *header = m_treeView->header();
+        const QSignalBlocker blocker(header);
+        header->setSortIndicator(column, order);
+    }
+    updateSortUi();
+}
+
+void MainWindow::updateSortUi()
+{
+    if (!m_modernNavBar) {
+        return;
+    }
+    QString label;
+    switch (m_sortColumn) {
+    case FileListModel::SizeColumn:      label = tr("Size"); break;
+    case FileListModel::PackedSizeColumn: label = tr("Packed size"); break;
+    case FileListModel::TypeColumn:      label = tr("Type"); break;
+    case FileListModel::ModifiedColumn:  label = tr("Modified"); break;
+    case FileListModel::EncryptedColumn: label = tr("Encrypted"); break;
+    case FileListModel::NameColumn:
+    default:                             label = tr("Name"); break;
+    }
+    m_modernNavBar->setSortState(
+        tr("Sort: %1 (%2)")
+            .arg(label,
+                 m_sortOrder == Qt::AscendingOrder ? tr("ascending")
+                                                   : tr("descending")),
+        m_sortOrder == Qt::DescendingOrder);
+}
+
+QMenu *MainWindow::createSortMenu(QWidget *parent)
+{
+    auto *menu = new QMenu(tr("Sort by"), parent);
+    const auto addColumn = [this, menu](int column, const QString &label) {
+        QAction *action = menu->addAction(label);
+        action->setCheckable(true);
+        action->setChecked(m_sortColumn == column);
+        connect(action, &QAction::triggered, this,
+                [this, column]() { applySort(column, m_sortOrder); });
+    };
+
+    addColumn(FileListModel::NameColumn, tr("Name"));
+    addColumn(FileListModel::SizeColumn, tr("Size"));
+    if (!m_localBrowse) {
+        addColumn(FileListModel::PackedSizeColumn, tr("Packed size"));
+    }
+    addColumn(FileListModel::TypeColumn, tr("Type"));
+    addColumn(FileListModel::ModifiedColumn, tr("Modified"));
+
+    menu->addSeparator();
+    QAction *ascending = menu->addAction(tr("Ascending"));
+    ascending->setCheckable(true);
+    ascending->setChecked(m_sortOrder == Qt::AscendingOrder);
+    connect(ascending, &QAction::triggered, this, [this]() {
+        applySort(m_sortColumn, Qt::AscendingOrder);
+    });
+
+    QAction *descending = menu->addAction(tr("Descending"));
+    descending->setCheckable(true);
+    descending->setChecked(m_sortOrder == Qt::DescendingOrder);
+    connect(descending, &QAction::triggered, this, [this]() {
+        applySort(m_sortColumn, Qt::DescendingOrder);
+    });
+    return menu;
 }

@@ -137,6 +137,52 @@ ArchiveFormat formatFromSuffix(const QString &filePath)
     return ArchiveFormat::Unknown;
 }
 
+ArchiveFormat formatFromName(const QString &name)
+{
+    QString token = name.trimmed().toLower();
+    if (token.startsWith(QLatin1Char('.'))) {
+        token.remove(0, 1);
+    }
+    if (token.isEmpty()) {
+        return ArchiveFormat::Unknown;
+    }
+
+    // Longest / most specific names first.
+    // 先匹配最长、最具体的名称。
+    if (token == QLatin1String("tar.gz") || token == QLatin1String("tgz")) {
+        return ArchiveFormat::TarGz;
+    }
+    if (token == QLatin1String("tar.xz") || token == QLatin1String("txz")) {
+        return ArchiveFormat::TarXz;
+    }
+    if (token == QLatin1String("tar.bz2") || token == QLatin1String("tbz2")
+        || token == QLatin1String("tbz")) {
+        return ArchiveFormat::TarBz2;
+    }
+    if (token == QLatin1String("tar")) {
+        return ArchiveFormat::Tar;
+    }
+    if (token == QLatin1String("zip")) {
+        return ArchiveFormat::Zip;
+    }
+    if (token == QLatin1String("7z") || token == QLatin1String("sevenzip")) {
+        return ArchiveFormat::SevenZip;
+    }
+    if (token == QLatin1String("rar") || token == QLatin1String("rar5")) {
+        return ArchiveFormat::Rar5;
+    }
+    if (token == QLatin1String("gz") || token == QLatin1String("gzip")) {
+        return ArchiveFormat::Gzip;
+    }
+    if (token == QLatin1String("bz2") || token == QLatin1String("bzip2")) {
+        return ArchiveFormat::Bzip2;
+    }
+    if (token == QLatin1String("xz")) {
+        return ArchiveFormat::Xz;
+    }
+    return ArchiveFormat::Unknown;
+}
+
 bool isSplitVolume(const QString &filePath)
 {
     static const QRegularExpression zipVol(

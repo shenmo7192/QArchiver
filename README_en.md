@@ -20,25 +20,32 @@ Pushing a `v*` tag makes the release workflow publish:
 | --- | --- |
 | Linux x86_64 | `qarchiver_<version>_amd64.deb` |
 | Linux ARM64 | `qarchiver_<version>_arm64.deb` |
-| Windows x86_64 | `QArchiver-<version>-windows-x64.zip` |
-| Windows ARM64 | `QArchiver-<version>-windows-arm64.zip` |
+| Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe` (installer) |
+| Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe` (installer) |
+| Windows portable | `QArchiver-<version>-windows-*.zip` |
 
-Windows packages are portable: unzip and run `QArchiver.exe`; the optional
-Explorer integration scripts are in the same directory. `SHA256SUMS` is attached as well.
+The Windows installer adds Start Menu/desktop shortcuts, an uninstall entry and
+the Explorer context menus. The portable ZIP needs no installation: unzip and run
+`QArchiver.exe`; the context-menu scripts are in the same directory.
+`SHA256SUMS` is attached as well.
 
 Publish a release:
 
 ```bash
-git tag v2.1.1
-git push origin v2.1.1
+git tag v2.2.0
+git push origin v2.2.0
 ```
 
 ## Features
 
 - Modern HaoZip-style interface: flat gradient header, large colorful toolbar, folder and details panes,
   path navigation, in-archive search, and an archive status summary
+- Browse local directories when no archive is open (Windows/Linux): navigation, search,
+  grid/list/tree views, double-click to enter a folder or open a file, and right-click compression
 - Welcome page: drop area, recent files list, and Open / One-click Extract entries
 - The navigation bar above the archive list provides grid/list/tree switching on both the welcome and archive pages
+- Sort menu in the context menu and next to the view switcher: name/size/type/modified,
+  ascending or descending, remembered across sessions (also applies to the grid view)
 - One-click extraction: automatically extracts into a separate folder named after the archive;
   on directory conflicts it automatically uses unique names such as `name (1)`; supports a first-use
   prompt and "close the program after extraction"
@@ -284,10 +291,11 @@ menu, and cross-compilation instructions. Key points:
 - The console window is hidden when launching 7z/rar;
 - Windows x64 and ARM64; the ARM64 package uses the native ARM64 7-Zip helper;
 - `cmake --install` uses `windeployqt` to deploy the Qt runtime libraries, and `cpack` generates a portable ZIP;
-- `packaging/windows/install-shell-menu.ps1` registers "Open with QArchiver" and "One-click extract" context menu
-  entries for the current user;
+  `packaging/windows/QArchiver.iss` builds an installer on top of that ZIP;
+- The installer and `packaging/windows/install-shell-menu.ps1` register "Open with QArchiver", "One-click extract",
+  "Add to <name>.zip" for files and folders, and a "Compress to..." submenu (7z/ZIP/tar.gz/tar.xz/tar.bz2/tar);
 - On Debian/Ubuntu, `tools/build-windows-cross.sh` can cross-compile and assemble a portable directory;
-- GitHub Actions builds x64 on `windows-latest` and ARM64 with
+- GitHub Actions builds x64 on `windows-2022` and ARM64 with
   `win64_msvc2022_arm64_cross_compiled`.
 
 ## Command Line
@@ -295,6 +303,11 @@ menu, and cross-compilation instructions. Key points:
 ```bash
 QArchiver [archive]                 # open an archive
 QArchiver --oneclick <archive>      # one-click extraction
+QArchiver --compress zip <files>    # create <name>.zip next to the sources
+QArchiver --compress 7z <files>     # create a 7z archive
+QArchiver --compress tar.gz <dir>   # create a tar.gz archive
+QArchiver --output <path>           # target path for --compress
+QArchiver --compress-dialog <files> # open the compress dialog
 QArchiver --preferences             # open Preferences
 QArchiver --benchmark               # open the 7-Zip benchmark
 QArchiver --lang en                 # specify the UI language

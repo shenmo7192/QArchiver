@@ -95,3 +95,7 @@ qarchiver-build-deps_*
 # CI/release staging
 dist/
 _CPack_Packages/
+
+# Local CPack/installer output
+QArchiver-*-windows-*.zip
+QArchiver-*-windows-*-setup.exe

@@ -5,6 +5,7 @@
 // Navigation and search strip for the modern layout.
 // 现代布局的导航与搜索栏。
 
+#include <QPoint>
 #include <QWidget>
 
 class QLineEdit;
@@ -24,6 +25,9 @@ public:
     void setLocation(const QString &archiveName, const QString &internalDir);
     void setNavigationState(bool canGoBack, bool canGoForward, bool canGoUp);
     void setViewMode(const QString &mode);
+    // Updates the sort button tooltip/icon to the active sort state.
+    // 更新排序按钮的提示与图标，反映当前排序状态。
+    void setSortState(const QString &tooltip, bool descending);
     QString searchText() const;
     void setSearchText(const QString &text);
     void clearSearch();
@@ -35,11 +39,15 @@ signals:
     void upRequested();
     void searchChanged(const QString &text);
     void viewModeChanged(const QString &mode);
+    // Emitted when the sort button is clicked; globalPos is the menu anchor.
+    // 点击排序按钮时发出；globalPos 为菜单锚点。
+    void sortMenuRequested(const QPoint &globalPos);
 
 private:
     QToolButton *m_backButton = nullptr;
     QToolButton *m_forwardButton = nullptr;
     QToolButton *m_upButton = nullptr;
+    QToolButton *m_sortButton = nullptr;
     QLabel *m_locationLabel = nullptr;
     QLineEdit *m_searchEdit = nullptr;
     QButtonGroup *m_viewGroup = nullptr;

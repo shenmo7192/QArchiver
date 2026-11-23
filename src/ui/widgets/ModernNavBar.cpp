@@ -132,6 +132,21 @@ ModernNavBar::ModernNavBar(QWidget *parent)
                   tr("Tree view"));
     layout->addWidget(viewSwitch);
 
+    // Compact sort menu next to the view switcher (grid view has no header).
+    // 视图切换旁的小型排序菜单（网格视图没有表头可用）。
+    m_sortButton = new QToolButton(this);
+    m_sortButton->setObjectName(QStringLiteral("ModernNavButton"));
+    m_sortButton->setIcon(Icons::modern(QStringLiteral("sort-down.png")));
+    m_sortButton->setIconSize(QSize(18, 18));
+    m_sortButton->setFixedSize(30, 28);
+    m_sortButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_sortButton->setToolTip(tr("Sort"));
+    connect(m_sortButton, &QToolButton::clicked, this, [this]() {
+        emit sortMenuRequested(
+            m_sortButton->mapToGlobal(QPoint(0, m_sortButton->height())));
+    });
+    layout->addWidget(m_sortButton);
+
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setObjectName(QStringLiteral("ModernSearchEdit"));
     m_searchEdit->setPlaceholderText(
@@ -173,6 +188,17 @@ void ModernNavBar::setViewMode(const QString &mode)
     for (QAbstractButton *button : m_viewGroup->buttons()) {
         button->setChecked(button->property("viewMode").toString() == mode);
     }
+}
+
+void ModernNavBar::setSortState(const QString &tooltip, bool descending)
+{
+    if (!m_sortButton) {
+        return;
+    }
+    m_sortButton->setToolTip(tooltip);
+    m_sortButton->setIcon(
+        Icons::modern(descending ? QStringLiteral("sort-down.png")
+                                 : QStringLiteral("sort-up.png")));
 }
 
 void ModernNavBar::setNavigationState(bool canGoBack, bool canGoForward,

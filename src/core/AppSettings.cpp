@@ -5,6 +5,7 @@
 #include "core/AppSettings.h"
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QSettings>
 
 #include <algorithm>
@@ -219,6 +220,33 @@ bool AppSettings::useLibArchiveBackend() const
     return m_useLibArchive.load();
 }
 
+QString AppSettings::localBrowsePath() const
+{
+    const QString path = value(QStringLiteral("ui/localBrowsePath"), QString())
+                             .toString();
+    return path.isEmpty() ? QDir::homePath() : path;
+}
+
+int AppSettings::sortColumn() const
+{
+    const int column = value(QStringLiteral("ui/sortColumn"), 0).toInt();
+    return std::clamp(column, 0, 5);
+}
+
+Qt::SortOrder AppSettings::sortOrder() const
+{
+    return value(QStringLiteral("ui/sortOrder"), QStringLiteral("asc")).toString()
+        == QStringLiteral("desc") ? Qt::DescendingOrder : Qt::AscendingOrder;
+}
+
+void AppSettings::setSort(int column, Qt::SortOrder order)
+{
+    setValue(QStringLiteral("ui/sortColumn"), std::clamp(column, 0, 5));
+    setValue(QStringLiteral("ui/sortOrder"),
+             order == Qt::DescendingOrder ? QStringLiteral("desc")
+                                          : QStringLiteral("asc"));
+}
+
 void AppSettings::setDefaultCompressFormat(ArchiveFormat fmt)
 {
     setValue(QStringLiteral("compress/defaultFormat"), toInt(fmt));
@@ -381,6 +409,11 @@ void AppSettings::setBackgroundImageOpacity(qreal opacity)
     setValue(QStringLiteral("ui/backgroundImageOpacity"),
              std::clamp(opacity, 0.0, 1.0));
     emit backgroundImageChanged();
+}
+
+void AppSettings::setLocalBrowsePath(const QString &path)
+{
+    setValue(QStringLiteral("ui/localBrowsePath"), path);
 }
 
 void AppSettings::setBackgroundImageOptions(const QString &path,

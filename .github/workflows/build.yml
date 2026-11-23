@@ -130,11 +130,37 @@ jobs:
         shell: pwsh
         run: cpack --config build/CPackConfig.cmake -C Release
 
+      - name: Build installer (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          # The runner image normally ships Inno Setup 6; install it through
+          # Chocolatey when it is missing.
+          # 运行器镜像通常自带 Inno Setup 6；缺失时通过 Chocolatey 安装。
+          $iscc = @(
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
+          ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+            Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress
+            $env:INNO_SETUP_ISCC = (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe')
+          } else {
+            $env:INNO_SETUP_ISCC = $iscc
+          }
+          $zip = Get-ChildItem -Filter "QArchiver-*-windows-${{ matrix.arch }}.zip" |
+            Select-Object -First 1
+          if (-not $zip) { throw 'Portable package was not created.' }
+          ./packaging/windows/build-installer.ps1 -ZipPath $zip.FullName `
+            -OutputDir (Get-Location) -Arch '${{ matrix.arch }}'
+
       - name: Upload Windows package
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: qarchiver-windows-${{ matrix.arch }}
-          path: QArchiver-*-windows-${{ matrix.arch }}.zip
+          path: |
+            QArchiver-*-windows-${{ matrix.arch }}.zip
+            QArchiver-*-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
           retention-days: 14
