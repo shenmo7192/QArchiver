@@ -967,21 +967,21 @@ QLabel#ModernViewLabel {
 /* Immersive title bar */
 QWidget#ImmersiveTitleBar {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                stop:0 #bfe4ff,
-                                stop:0.55 #7fc4f5,
-                                stop:1 #4a9fe0);
-    border-bottom: 1px solid #2f6f9f;
+                                stop:0 @titleBarTop@,
+                                stop:0.55 @titleBarMid@,
+                                stop:1 @titleBarBottom@);
+    border-bottom: 1px solid @border@;
 }
 
 QLabel#TitleBarTitle {
-    color: #ffffff;
+    color: @titleBarText@;
     font-weight: 600;
     padding-left: 2px;
 }
 
 QMenuBar#TitleBarMenuBar {
     background: transparent;
-    color: #ffffff;
+    color: @titleBarText@;
     border: none;
     padding: 0;
 }
@@ -993,7 +993,9 @@ QMenuBar#TitleBarMenuBar::item {
 }
 
 QMenuBar#TitleBarMenuBar::item:selected {
-    background: rgba(255, 255, 255, 72);
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 @hoverTop@, stop:1 @hoverBottom@);
+    border: 1px solid @hoverBorder@;
 }
 
 QToolButton#TitleBarButton,
@@ -1001,12 +1003,14 @@ QToolButton#TitleBarCloseButton {
     background: transparent;
     border: none;
     border-radius: 4px;
-    color: #ffffff;
+    color: @titleBarText@;
     font-size: 15px;
 }
 
 QToolButton#TitleBarButton:hover {
-    background: rgba(255, 255, 255, 92);
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 @hoverTop@, stop:1 @hoverBottom@);
+    border: 1px solid @hoverBorder@;
 }
 
 QToolButton#TitleBarCloseButton:hover {

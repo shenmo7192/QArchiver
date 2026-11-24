@@ -114,6 +114,19 @@ qarchiver_add_test(tst_preferences
 set_tests_properties(tst_preferences PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Immersive title bar and layout switching: drag area in the empty menu-bar
+# space, title bar survival across teardown/build, and token-driven colours.
+# 沉浸式标题栏与布局切换：菜单栏空白处的拖拽区域、重建后标题栏是否保留、
+# 以及基于 token 的配色。
+qarchiver_add_test(tst_titlebar
+    SOURCES tst_titlebar.cpp
+    LIBS qarchiver_ui
+)
+target_compile_definitions(tst_titlebar PRIVATE
+    QARCHIVER_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+set_tests_properties(tst_titlebar PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Make the bundled 7-Zip helper visible to every test that spawns a CLI
 # backend.  QARCHIVER_7Z_PATH is the first entry in
 # ProcessRunner::resolveToolPath(), so tests use exactly the binary that ships
@@ -125,7 +138,8 @@ if(QARCHIVER_BUNDLE_7ZIP)
     set(_qarchiver_test_7z_env "QARCHIVER_7Z_PATH=${QARCHIVER_7ZIP_EXE}")
     foreach(_qarchiver_test IN ITEMS
             tst_utils tst_toolchain tst_background tst_backends tst_preview
-            tst_manager tst_libarchive tst_dragout tst_preferences)
+            tst_manager tst_libarchive tst_dragout tst_preferences
+            tst_titlebar)
         if(TEST ${_qarchiver_test})
             set_tests_properties(${_qarchiver_test} PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;${_qarchiver_test_7z_env}")

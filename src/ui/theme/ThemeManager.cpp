@@ -278,6 +278,13 @@ QHash<QString, QString> lightTokens()
         {QStringLiteral("headerMid"), QStringLiteral("#e6f2fc")},
         {QStringLiteral("headerBottom"), QStringLiteral("#d2e6f7")},
         {QStringLiteral("headerSeparator"), QStringLiteral("#b8c9da")},
+        // Immersive title bar surface; kept separate from the header/toolbar
+        // tokens so the title bar can be tuned on its own.
+        // 沉浸式标题栏专用配色，与页眉/工具栏 token 分开，便于单独调整。
+        {QStringLiteral("titleBarTop"), QStringLiteral("#f4fbff")},
+        {QStringLiteral("titleBarMid"), QStringLiteral("#e3f2fd")},
+        {QStringLiteral("titleBarBottom"), QStringLiteral("#d0e7f9")},
+        {QStringLiteral("titleBarText"), QStringLiteral("#1a1a1a")},
         {QStringLiteral("separator"), QStringLiteral("#b8c9da")},
         {QStringLiteral("buttonTop"), QStringLiteral("#fdfdfd")},
         {QStringLiteral("buttonMid"), QStringLiteral("#f4f4f4")},
@@ -358,6 +365,10 @@ QHash<QString, QString> darkTokens()
         {QStringLiteral("headerMid"), QStringLiteral("#222c36")},
         {QStringLiteral("headerBottom"), QStringLiteral("#1b242d")},
         {QStringLiteral("headerSeparator"), QStringLiteral("#3f4b57")},
+        {QStringLiteral("titleBarTop"), QStringLiteral("#2a3540")},
+        {QStringLiteral("titleBarMid"), QStringLiteral("#222c36")},
+        {QStringLiteral("titleBarBottom"), QStringLiteral("#1d2630")},
+        {QStringLiteral("titleBarText"), QStringLiteral("#e6e6e6")},
         {QStringLiteral("separator"), QStringLiteral("#3f4b57")},
         {QStringLiteral("buttonTop"), QStringLiteral("#3a3a3a")},
         {QStringLiteral("buttonMid"), QStringLiteral("#333333")},
@@ -466,6 +477,12 @@ QHash<QString, QString> modernTokens(bool dark)
         tokens.insert(QStringLiteral("headerTop"), QStringLiteral("#223447"));
         tokens.insert(QStringLiteral("headerMid"), QStringLiteral("#1d252f"));
         tokens.insert(QStringLiteral("headerBottom"), QStringLiteral("#1a212a"));
+        // Immersive title bar surface, tunable independently of the header.
+        // 沉浸式标题栏专用配色，可与页眉分开调整。
+        tokens.insert(QStringLiteral("titleBarTop"), QStringLiteral("#223447"));
+        tokens.insert(QStringLiteral("titleBarMid"), QStringLiteral("#1d252f"));
+        tokens.insert(QStringLiteral("titleBarBottom"), QStringLiteral("#1a212a"));
+        tokens.insert(QStringLiteral("titleBarText"), QStringLiteral("#e6ebf2"));
         tokens.insert(QStringLiteral("brand"), QStringLiteral("#6cbaff"));
         tokens.insert(QStringLiteral("brandTag"), QStringLiteral("#8fa3b8"));
         tokens.insert(QStringLiteral("toolbarText"), QStringLiteral("#d7e0ea"));
@@ -521,6 +538,10 @@ QHash<QString, QString> modernTokens(bool dark)
         tokens.insert(QStringLiteral("headerTop"), QStringLiteral("#e1efff"));
         tokens.insert(QStringLiteral("headerMid"), QStringLiteral("#f2f8ff"));
         tokens.insert(QStringLiteral("headerBottom"), QStringLiteral("#fbfdff"));
+        tokens.insert(QStringLiteral("titleBarTop"), QStringLiteral("#e1efff"));
+        tokens.insert(QStringLiteral("titleBarMid"), QStringLiteral("#f2f8ff"));
+        tokens.insert(QStringLiteral("titleBarBottom"), QStringLiteral("#fbfdff"));
+        tokens.insert(QStringLiteral("titleBarText"), QStringLiteral("#1e2a39"));
         tokens.insert(QStringLiteral("brand"), QStringLiteral("#1b7eff"));
         tokens.insert(QStringLiteral("brandTag"), QStringLiteral("#8fa3b8"));
         tokens.insert(QStringLiteral("toolbarText"), QStringLiteral("#2b3a4a"));

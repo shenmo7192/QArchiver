@@ -319,7 +319,16 @@ void MainWindow::applyActionIcons()
 
 void MainWindow::setupMenuBar()
 {
-    QMenuBar *bar = m_titleBar ? m_titleBar->menuBarWidget() : menuBar();
+    // The immersive title bar always hosts the menus; never fall back to
+    // QMainWindow::menuBar(), which would replace the title bar in the
+    // menu-widget slot with a lazily created QMenuBar.
+    // 菜单始终由沉浸式标题栏承载；不能回退到 QMainWindow::menuBar()，
+    // 否则它会用一个新建的 QMenuBar 顶掉 menuWidget 槽位里的标题栏。
+    Q_ASSERT(m_titleBar);
+    if (!m_titleBar) {
+        return;
+    }
+    QMenuBar *bar = m_titleBar->menuBarWidget();
     bar->clear();
     bar->setNativeMenuBar(false);
 

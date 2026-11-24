@@ -42,8 +42,15 @@ ImmersiveTitleBar::ImmersiveTitleBar(QWidget *parent)
     m_menuBar = new QMenuBar(this);
     m_menuBar->setObjectName(QStringLiteral("TitleBarMenuBar"));
     m_menuBar->setNativeMenuBar(false);
-    m_menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    layout->addWidget(m_menuBar, 1, Qt::AlignVCenter);
+    // The menu bar must hug its items: if it stretched across the remaining
+    // width, QMenuBar would consume left-button presses in that empty area and
+    // the title bar would never receive them, so the window could not be
+    // dragged.  The trailing stretch keeps the empty area in the title bar.
+    // 菜单栏只占菜单项宽度：若它拉伸填满剩余空间，QMenuBar 会吞掉空白处的
+    // 左键按下事件，标题栏收不到，窗口就无法拖动。尾部弹簧把空白留给标题栏。
+    m_menuBar->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
+    layout->addWidget(m_menuBar, 0, Qt::AlignVCenter);
+    layout->addStretch(1);
 
     const auto makeButton = [this](const QString &text, const QString &name,
                                    const QString &tooltip) {

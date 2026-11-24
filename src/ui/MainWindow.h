@@ -43,6 +43,13 @@ class QTimer;
 class QAbstractItemView;
 class QSlider;
 
+// Test hook: tests/tst_titlebar.cpp drives the layout switch without the
+// modal Preferences dialog, so the immersive title bar can be checked after a
+// teardown/build cycle.
+// 测试钩子：tests/tst_titlebar.cpp 无需弹出模态偏好设置对话框即可驱动布局
+// 切换，从而检查重建流程之后沉浸式标题栏是否仍然存在。
+class TestTitleBar;
+
 // Main application window.
 // It owns two interchangeable chrome layouts share the same models, actions and
 // archive state:
@@ -141,6 +148,8 @@ private slots:
     void onContentViewModeChanged(const QString &mode);
 
 private:
+    friend class TestTitleBar;
+
     // UI construction / 界面构建
     void setupActions();
     void applyActionIcons();

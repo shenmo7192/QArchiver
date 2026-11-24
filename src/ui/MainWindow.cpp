@@ -244,6 +244,16 @@ MainWindow::~MainWindow()
 
 void MainWindow::buildUi()
 {
+    // The immersive title bar lives in the menu-widget slot.  Re-attach it in
+    // case anything (e.g. an accidental QMainWindow::menuBar() call) replaced
+    // it; QMainWindow::menuBar() lazily creates a QMenuBar and takes that slot.
+    // 标题栏占用 menuWidget 槽位。若它被意外替换（如误调用 menuBar()，
+    // 该方法会懒创建 QMenuBar 并占用该槽位），此处重新挂回并显示。
+    if (m_titleBar && menuWidget() != m_titleBar) {
+        setMenuWidget(m_titleBar);
+        m_titleBar->show();
+    }
+
     m_modernUi = AppSettings::instance().uiLayoutMode() == QStringLiteral("modern");
     applyActionIcons();
 
@@ -299,9 +309,8 @@ void MainWindow::teardownUi()
     }
     m_mainToolBar = nullptr;
 
-    if (auto *bar = menuBar()) {
+    if (auto *bar = m_titleBar ? m_titleBar->menuBarWidget() : nullptr) {
         bar->clear();
-        bar->hide();
     }
 
     QWidget *oldCentral = takeCentralWidget();
