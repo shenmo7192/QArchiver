@@ -11,6 +11,9 @@ All notable changes to QArchiver (小Q解压) are documented here.
 
 - modern 文件类型图标：`file-zip`、`file-rar` 与 `file-7z` 统一改为
   居中格式文字标识，移除拉链/圆点图案，保留各自页眉配色。
+- GitHub Actions 的 Linux deb 改为在 Debian 13 容器中构建，并在干净的
+  Debian 13 环境中验证安装，修复 Ubuntu 24.04 产物在 Debian/Deepin 上
+  依赖不匹配的问题。
 
 ## [2.4.0] - 2026-11-24
 
