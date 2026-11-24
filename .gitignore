@@ -89,6 +89,11 @@ debian/qarchiver.debhelper.log
 debian/qarchiver.substvars
 debian/*.debhelper
 qarchiver-build-deps_*
+# dpkg-buildpackage writes these next to the source tree
+*.deb
+*.dsc
+*.changes
+*.buildinfo
 
 # Cross-build lock
 .build-windows.lock

@@ -127,6 +127,16 @@ target_compile_definitions(tst_titlebar PRIVATE
 set_tests_properties(tst_titlebar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# System-places sidebar: no duplicate paths, ancestor highlighting for
+# subdirectories, and the file-system fallback outside Home.
+# 系统位置侧栏：路径不重复、子目录高亮所属位置、Home 之外回退到文件系统。
+qarchiver_add_test(tst_folderpane
+    SOURCES tst_folderpane.cpp
+    LIBS qarchiver_ui
+)
+set_tests_properties(tst_folderpane PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Make the bundled 7-Zip helper visible to every test that spawns a CLI
 # backend.  QARCHIVER_7Z_PATH is the first entry in
 # ProcessRunner::resolveToolPath(), so tests use exactly the binary that ships
@@ -139,7 +149,7 @@ if(QARCHIVER_BUNDLE_7ZIP)
     foreach(_qarchiver_test IN ITEMS
             tst_utils tst_toolchain tst_background tst_backends tst_preview
             tst_manager tst_libarchive tst_dragout tst_preferences
-            tst_titlebar)
+            tst_titlebar tst_folderpane)
         if(TEST ${_qarchiver_test})
             set_tests_properties(${_qarchiver_test} PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;${_qarchiver_test_7z_env}")

@@ -5,6 +5,7 @@
 // HaoZip-style left folder tree and details pane.
 // 好压风格的左侧文件夹树与详细信息面板。
 
+#include <QElapsedTimer>
 #include <QList>
 #include <QWidget>
 
@@ -14,6 +15,7 @@ class QTreeWidget;
 class QTreeWidgetItem;
 class QLabel;
 class QStackedWidget;
+class QShowEvent;
 class QWidget;
 
 // Left pane of the modern layout: archive folder tree + selected-entry details.
@@ -35,9 +37,16 @@ public:
 signals:
     void directoryActivated(const QString &path);
 
+protected:
+    void showEvent(QShowEvent *event) override;
+
 private:
     void rebuildTree();
     void rebuildLocalPlaces();
+    // Refresh the system-place list at most once per interval; called when the
+    // pane is shown or a directory outside the known places is opened.
+    // 限频刷新系统位置列表：仅在窗口重新显示或打开未知位置下的目录时调用。
+    void refreshLocalPlacesIfNeeded();
     QStringList directoryPaths() const;
 
     QTreeWidget *m_tree = nullptr;
@@ -54,6 +63,7 @@ private:
     QLabel *m_modifiedValue = nullptr;
     QLabel *m_pathValue = nullptr;
     QList<ArchiveEntry> m_entries;
+    QElapsedTimer m_placesRefreshTimer;
 };
 
 #endif // ARCHIVEFOLDERPANE_H

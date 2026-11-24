@@ -420,10 +420,16 @@ void MainWindow::showStartPage()
     // the same centred content area as the archive/file-manager views.
     // Returning from the local file manager must restore the archive sidebar.
     // 欢迎页保留文件夹侧栏；从本地文件管理返回时也恢复归档侧栏。
+    // Only reset the pane when no archive is open: clearing it while an archive
+    // is still loaded would drop the archive folder tree even though the
+    // archive remains open.
+    // 仅在没有打开压缩包时重置侧栏；压缩包仍打开时清空会丢失归档文件夹树。
     if (m_folderPane) {
         m_folderPane->setVisible(true);
-        m_folderPane->setLocalMode(false);
-        m_folderPane->clear();
+        if (!ArchiveManager::instance().backend()) {
+            m_folderPane->setLocalMode(false);
+            m_folderPane->clear();
+        }
     }
     setWindowTitle(tr("QArchiver"));
     updateStatusSummary();
@@ -519,9 +525,6 @@ void MainWindow::onArchiveOpened(const QString &filePath)
     applyContentViewMode();
     showArchivePage();
     resetNavigationHistory();
-    if (m_folderPane) {
-        m_folderPane->clear();
-    }
     statusBar()->showMessage(tr("Opened: %1").arg(filePath), 3000);
     setBusyIndicatorVisible(true,
         tr("Reading archive %1").arg(QFileInfo(filePath).fileName()));

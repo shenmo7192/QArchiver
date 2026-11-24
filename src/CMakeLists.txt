@@ -70,6 +70,31 @@ install(TARGETS QArchiver
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# Linux desktop entry and launcher icons.  Without these the install tree only
+# contained the executable, so the launcher/taskbar association
+# (QGuiApplication::setDesktopFileName("qarchiver")) fell back to a generic icon.
+# Linux 桌面入口与启动器图标。缺了这些，安装树里只有可执行文件，启动器/任务栏
+# 关联（setDesktopFileName("qarchiver")）会回退到通用图标。
+if(UNIX AND NOT APPLE)
+    install(FILES "${PROJECT_SOURCE_DIR}/packaging/qarchiver.desktop"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+    )
+    foreach(_icon_size 32 48 64 128 256 512)
+        install(FILES
+            "${PROJECT_SOURCE_DIR}/resources/app-icons/qarchiver-${_icon_size}.png"
+            DESTINATION
+                ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_icon_size}x${_icon_size}/apps
+            RENAME qarchiver.png
+        )
+    endforeach()
+    # Legacy fallback for environments without a hicolor icon cache.
+    # 旧环境的兜底图标（不依赖 hicolor 图标缓存）。
+    install(FILES "${PROJECT_SOURCE_DIR}/resources/app-icons/qarchiver-256.png"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/pixmaps
+        RENAME qarchiver.png
+    )
+endif()
+
 # Explorer context-menu extension (dynamic menu labels / archive exclusion).
 # 资源管理器右键菜单扩展（动态文案 / 排除压缩包）。
 if(WIN32)

@@ -338,8 +338,23 @@ void MainWindow::setupMenuBar()
     fileMenu->addSeparator();
 
     auto *startPageAction = fileMenu->addAction(tr("Start Page"));
-    connect(startPageAction, &QAction::triggered,
-            this, &MainWindow::showStartPage);
+    connect(startPageAction, &QAction::triggered, this, [this]() {
+        // Showing the start page must not leave an archive loaded behind it;
+        // close the archive first so the folder pane and window title match
+        // the visible page.
+        // 显示起始页时不能把压缩包留在后台：先关闭压缩包，使侧栏和标题栏与
+        // 可见页面一致。
+        if (ArchiveManager::instance().isBusy()) {
+            return;
+        }
+        if (ArchiveManager::instance().backend()) {
+            onCloseArchive();
+            if (ArchiveManager::instance().backend()) {
+                return;
+            }
+        }
+        showStartPage();
+    });
 
     auto *browseLocalAction = fileMenu->addAction(tr("Browse Local Files..."));
     connect(browseLocalAction, &QAction::triggered, this, [this]() {

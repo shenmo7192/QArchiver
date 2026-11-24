@@ -12,11 +12,12 @@
 #include <QFileInfo>
 #include <QStorageInfo>
 #include <QStandardPaths>
-#include <QSet>
 #include <QAbstractItemView>
+#include <QEvent>
 #include <QFrame>
 #include <QIcon>
 #include <QSet>
+#include <QShowEvent>
 #include <QSize>
 #include <QFormLayout>
 #include <QHeaderView>
@@ -174,7 +175,12 @@ void ArchiveFolderPane::setLocalMode(bool local)
     }
     if (m_tree) {
         m_tree->setRootIsDecorated(!local);
-        m_tree->clear();
+        // rebuildLocalPlaces() already clears the tree when entering local
+        // mode; only the archive tree needs an explicit clear here.
+        // 进入本地模式时 rebuildLocalPlaces() 已清空树，仅归档树需要显式清空。
+        if (!local) {
+            m_tree->clear();
+        }
     }
     if (local) {
         rebuildLocalPlaces();
@@ -189,16 +195,26 @@ void ArchiveFolderPane::rebuildLocalPlaces()
     const bool wasBlocked = m_tree->blockSignals(true);
     m_tree->clear();
 
-    const auto addPlace = [this](const QString &label, const QString &path,
-                                 const QString &icon = QStringLiteral("folder.png")) {
+    // Deduplicate by cleaned absolute path: XDG user directories may point at
+    // the same folder (for example all at $HOME on minimal systems).
+    // 按清理后的绝对路径去重：XDG 用户目录可能指向同一文件夹（如精简系统上
+    // 全部回退到 $HOME）。
+    QSet<QString> seen;
+    const auto addPlace = [this, &seen](const QString &label, const QString &path,
+                                        const QString &icon = QStringLiteral("folder.png")) {
         const QFileInfo info(path);
         if (!info.exists() || !info.isDir()) {
             return;
         }
+        const QString cleaned = QDir::cleanPath(info.absoluteFilePath());
+        if (seen.contains(cleaned)) {
+            return;
+        }
+        seen.insert(cleaned);
         auto *item = new QTreeWidgetItem(m_tree);
         item->setText(0, label);
         item->setIcon(0, Icons::fileType(icon));
-        item->setData(0, Qt::UserRole, QDir::cleanPath(info.absoluteFilePath()));
+        item->setData(0, Qt::UserRole, cleaned);
         item->setToolTip(0, info.absoluteFilePath());
     };
 
@@ -217,10 +233,6 @@ void ArchiveFolderPane::rebuildLocalPlaces()
                                QStandardPaths::MoviesLocation));
     addPlace(tr("File System"), QDir::rootPath());
 
-    QSet<QString> seen;
-    for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
-        seen.insert(m_tree->topLevelItem(i)->data(0, Qt::UserRole).toString());
-    }
     const QList<QStorageInfo> volumes = QStorageInfo::mountedVolumes();
     for (const QStorageInfo &volume : volumes) {
         if (!volume.isValid() || !volume.isReady()) {
@@ -258,6 +270,38 @@ void ArchiveFolderPane::rebuildLocalPlaces()
 
     m_tree->setRootIsDecorated(false);
     m_tree->blockSignals(wasBlocked);
+    m_placesRefreshTimer.start();
+}
+
+void ArchiveFolderPane::refreshLocalPlacesIfNeeded()
+{
+    if (!m_localMode || !m_tree) {
+        return;
+    }
+    // QStorageInfo::mountedVolumes() can touch network mounts; never run it on
+    // every directory switch.
+    // mountedVolumes() 可能触碰网络挂载，不能在每次切换目录时都执行。
+    constexpr qint64 kRefreshIntervalMs = 5000;
+    if (m_placesRefreshTimer.isValid()
+        && m_placesRefreshTimer.elapsed() < kRefreshIntervalMs) {
+        return;
+    }
+    rebuildLocalPlaces();
+}
+
+void ArchiveFolderPane::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    if (!m_localMode || !m_tree) {
+        return;
+    }
+    const QString current = m_tree->currentItem()
+        ? m_tree->currentItem()->data(0, Qt::UserRole).toString()
+        : QString();
+    refreshLocalPlacesIfNeeded();
+    if (!current.isEmpty()) {
+        setCurrentLocalPath(current);
+    }
 }
 
 void ArchiveFolderPane::setCurrentLocalPath(const QString &path)
@@ -266,20 +310,66 @@ void ArchiveFolderPane::setCurrentLocalPath(const QString &path)
         return;
     }
     const QString target = QDir::cleanPath(path);
-    QTreeWidgetItem *match = nullptr;
-    for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
-        QTreeWidgetItem *item = m_tree->topLevelItem(i);
-        if (QDir::cleanPath(item->data(0, Qt::UserRole).toString()) == target) {
-            match = item;
-            break;
+
+    // Prefer the deepest place that contains the target; navigating into a
+    // subdirectory should still highlight its place instead of leaving the
+    // previous selection behind.  Paths compare case-insensitively on Windows.
+    // 选中最深的包含该目录的位置；进入子目录时仍高亮所属位置，而不是残留上一
+    // 个选中项。Windows 下路径比较忽略大小写。
+    const auto findPlace = [this](const QString &wanted) -> QTreeWidgetItem * {
+#ifdef Q_OS_WIN
+        const Qt::CaseSensitivity cs = Qt::CaseInsensitive;
+#else
+        const Qt::CaseSensitivity cs = Qt::CaseSensitive;
+#endif
+        QTreeWidgetItem *best = nullptr;
+        int bestLength = -1;
+        for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
+            QTreeWidgetItem *item = m_tree->topLevelItem(i);
+            const QString place = QDir::cleanPath(
+                item->data(0, Qt::UserRole).toString());
+            if (place.isEmpty()) {
+                continue;
+            }
+            const bool equal = wanted.compare(place, cs) == 0;
+            // A place that is itself a root ("C:/" or "/") already ends with
+            // a separator, so any absolute path below it counts as inside.
+            // 位置本身就是根目录（"C:/" 或 "/"）时已以分隔符结尾，其下任意
+            // 绝对路径都算包含于该位置。
+            const bool inside = wanted.size() > place.size()
+                && wanted.startsWith(place, cs)
+                && (place.endsWith(QLatin1Char('/'))
+                    || wanted.at(place.size()) == QLatin1Char('/'));
+            if ((equal || inside) && place.size() > bestLength) {
+                best = item;
+                bestLength = place.size();
+            }
         }
+        return best;
+    };
+
+    QTreeWidgetItem *match = findPlace(target);
+    // Matching only the file-system root is not specific enough: the directory
+    // may be on a volume mounted after the list was built.  Refresh on demand,
+    // throttled.  Paths inside Home/Desktop/etc. skip the refresh entirely.
+    // 仅匹配到文件系统根说明位置不够具体：目录可能位于列表构建后才挂载的卷上，
+    // 按需限频刷新；位于主目录/桌面等具体位置下的路径则完全跳过刷新。
+    const bool onlyRootMatch = match
+        && QDir::cleanPath(match->data(0, Qt::UserRole).toString())
+               == QDir::cleanPath(QDir::rootPath())
+        && target != QDir::cleanPath(QDir::rootPath());
+    if (!match || onlyRootMatch) {
+        refreshLocalPlacesIfNeeded();
+        match = findPlace(target);
     }
-    if (!match) {
-        return;
-    }
+
     const bool wasBlocked = m_tree->blockSignals(true);
-    m_tree->setCurrentItem(match);
-    m_tree->scrollToItem(match);
+    if (match) {
+        m_tree->setCurrentItem(match);
+        m_tree->scrollToItem(match);
+    } else {
+        m_tree->setCurrentItem(nullptr);
+    }
     m_tree->blockSignals(wasBlocked);
 }
 

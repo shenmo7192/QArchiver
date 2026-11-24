@@ -7,12 +7,14 @@
 #include "ui/models/FileListModel.h"
 
 #include <QApplication>
+#include <QEvent>
 #include <QFontMetrics>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QPainter>
 #include <QStyledItemDelegate>
 #include <QStyleOptionViewItem>
+#include <QShowEvent>
 #include <QTextLayout>
 #include <QTextLine>
 #include <QTextOption>
@@ -171,19 +173,49 @@ ArchiveGridView::ArchiveGridView(QWidget *parent)
 
 void ArchiveGridView::setModel(QAbstractItemModel *model)
 {
+    // Disconnect the previous model explicitly: Qt keeps lambda connections
+    // alive and repeated setModel() calls would otherwise stack handlers.
+    // 显式断开旧模型：Qt 不会自动移除 lambda 连接，重复 setModel() 会叠加。
+    if (m_connectedModel) {
+        disconnect(m_connectedModel, nullptr, this, nullptr);
+    }
+    m_connectedModel = nullptr;
+
     QListView::setModel(model);
     if (!model) {
         return;
     }
-    const auto schedule = [this]() {
-        QTimer::singleShot(0, this, &ArchiveGridView::updateGridHeight);
-    };
+    m_connectedModel = model;
+
+    const auto schedule = [this]() { scheduleGridHeightUpdate(); };
     connect(model, &QAbstractItemModel::modelReset, this, schedule);
     connect(model, &QAbstractItemModel::layoutChanged, this, schedule);
     connect(model, &QAbstractItemModel::rowsInserted, this, schedule);
     connect(model, &QAbstractItemModel::rowsRemoved, this, schedule);
-    connect(model, &QAbstractItemModel::dataChanged, this, schedule);
-    schedule();
+    // Only text changes can alter the wrapped label height; thumbnail and
+    // selection roles must not trigger a full scan.
+    // 只有显示文本会改变换行高度；缩略图/选中状态等角色不应触发全量测量。
+    connect(model, &QAbstractItemModel::dataChanged, this,
+            [this](const QModelIndex &, const QModelIndex &,
+                   const QList<int> &roles) {
+                if (!roles.isEmpty() && !roles.contains(Qt::DisplayRole)) {
+                    return;
+                }
+                scheduleGridHeightUpdate();
+            });
+    scheduleGridHeightUpdate();
+}
+
+void ArchiveGridView::scheduleGridHeightUpdate()
+{
+    if (m_gridHeightUpdatePending || !model() || !isVisible()) {
+        return;
+    }
+    m_gridHeightUpdatePending = true;
+    QTimer::singleShot(0, this, [this]() {
+        m_gridHeightUpdatePending = false;
+        updateGridHeight();
+    });
 }
 
 void ArchiveGridView::updateGridHeight()
@@ -228,6 +260,27 @@ void ArchiveGridView::updateGridHeight()
                             8 + iconHeight + 8 + textHeight + 8);
     if (gridSize().height() != height) {
         setGridSize(QSize(width, height));
+    }
+}
+
+void ArchiveGridView::showEvent(QShowEvent *event)
+{
+    QListView::showEvent(event);
+    // The view may have been hidden (list/tree mode) while the model changed.
+    // 视图可能在模型变化期间处于隐藏状态（列表/树模式）。
+    scheduleGridHeightUpdate();
+}
+
+void ArchiveGridView::changeEvent(QEvent *event)
+{
+    QListView::changeEvent(event);
+    // Keep the cell height in sync when the font, application font or screen
+    // DPI changes.
+    // 字体、应用字体或屏幕 DPI 变化时同步单元格高度。
+    if (event->type() == QEvent::FontChange
+        || event->type() == QEvent::ApplicationFontChange
+        || event->type() == QEvent::ScreenChangeInternal) {
+        scheduleGridHeightUpdate();
     }
 }
 

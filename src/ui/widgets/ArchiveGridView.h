@@ -7,6 +7,7 @@
 
 #include <QListView>
 #include <QPoint>
+#include <QPointer>
 #include <QStringList>
 
 class QAbstractItemModel;
@@ -41,10 +42,20 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private:
+    // Coalesce expensive height scans: thumbnail completion emits one
+    // dataChanged per image and must not trigger a full QTextLayout sweep each
+    // time. / 合并昂贵的高度扫描：缩略图完成会逐张发 dataChanged，不能每次都
+    // 全量测量文件名。
+    void scheduleGridHeightUpdate();
+
     QPoint m_dragStartPos;
     bool m_dragActive = false;
+    bool m_gridHeightUpdatePending = false;
+    QPointer<QAbstractItemModel> m_connectedModel;
 };
 
 #endif // ARCHIVEGRIDVIEW_H

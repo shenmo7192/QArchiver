@@ -137,9 +137,11 @@ QList<ArchiveEntry> MainWindow::selectedEntries() const
 void MainWindow::updateSelectionDetails()
 {
     if (m_localBrowse) {
-        // The folder/details pane is hidden for local listings; there is no
-        // archive-internal directory to track.
-        // 本地列表不显示文件夹/详细信息面板，也没有压缩包内部目录需要跟踪。
+        // Local browsing hides the archive details pane and has no
+        // archive-internal directory to track; the system-places sidebar is
+        // maintained by loadLocalDirectory()/updateLocalModeUi().
+        // 本地浏览隐藏压缩包详情面板，也没有压缩包内部目录需要跟踪；系统位置
+        // 侧栏由 loadLocalDirectory()/updateLocalModeUi() 维护。
         return;
     }
 

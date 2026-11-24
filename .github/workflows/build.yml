@@ -81,7 +81,21 @@ jobs:
               apt-get update
               apt-get install -y --no-install-recommends \
                 /dist/qarchiver_*_${{ matrix.arch }}.deb
-              dpkg -s qarchiver
+              dpkg -s qarchiver >/dev/null
+              # The package must not depend on anything missing from a clean
+              # Debian 13 install (the reason this job exists).
+              if ldd /usr/bin/QArchiver | grep -q "not found"; then
+                echo "QArchiver has unresolved shared libraries" >&2
+                exit 1
+              fi
+              # Verify the bundled helper and the desktop integration actually
+              # made it into the package.
+              dpkg -L qarchiver > /tmp/qarchiver-files.txt
+              helper="$(grep -m1 '/libexec/qarchiver/7zip/7zzs$' /tmp/qarchiver-files.txt)"
+              test -n "$helper"
+              test -x "$helper"
+              test -f /usr/share/applications/qarchiver.desktop
+              test -f /usr/share/icons/hicolor/256x256/apps/qarchiver.png
             '
 
       - name: Upload Debian package

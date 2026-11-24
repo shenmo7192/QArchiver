@@ -19,8 +19,10 @@ QArchiver 是一个基于 Qt 6 的压缩/解压工具，核心思路是：
 
 - 现代好压（HaoZip）风格默认界面：扁平渐变头部、大号彩色工具栏、文件夹面板、
   详细信息面板、路径导航、包内搜索与归档状态摘要；可在偏好设置中即时切换回经典布局。
-- 起始页：拖放区、最近打开、打开/一键解压入口；未打开压缩包时主视图直接浏览
-  本地目录（Windows/Linux），支持导航、搜索、网格/列表/树形视图与右键压缩。
+- 起始页：拖放区、最近打开、打开/一键解压入口和“文件管理”按钮，启动默认停留
+  在欢迎页；从“文件管理”进入本地目录浏览（Windows/Linux），现代布局显示系统
+  位置侧栏（主目录、桌面、文档、下载、图片、音乐、视频、文件系统及用户挂载
+  卷），经典布局不显示该侧栏；支持导航、搜索、网格/列表/树形视图与右键压缩。
 - 排序：右键空白处或视图旁的排序按钮可按键名/大小/类型/修改时间升降序排列，
   设置持久化（`ui/sortColumn`、`ui/sortOrder`），网格视图同样生效。
 - 一键解压：自动解压到以压缩包命名的独立文件夹，冲突目录自动改名；
@@ -211,7 +213,9 @@ QT_WIN=/path/to/6.8.2/mingw_64 QT_HOST=debian \
 ### 2.6 CI 与发布
 
 - `.github/workflows/build.yml`：可复用矩阵。
-  - `ubuntu-24.04` / `ubuntu-24.04-arm` 原生构建并生成 amd64/arm64 deb；
+  - `ubuntu-24.04` / `ubuntu-24.04-arm` 上运行 Debian 13 容器，构建并生成
+    amd64/arm64 deb，再在干净的 Debian 13 容器中验证安装（动态库依赖、
+    内置 7-Zip 辅助程序与桌面入口）；
   - `windows-latest` 用 MSVC 2022 构建 x64 并运行测试；
   - `windows-latest` 加 `-A ARM64` + Qt `win64_msvc2022_arm64_cross_compiled`
     交叉构建 arm64 ZIP（不运行测试）。
@@ -899,6 +903,12 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - 工具栏按钮默认“图标在上，文本在下”，可在偏好设置切换；现代工具栏的
   “设置/关于”与左侧功能按钮使用同一大按钮样式。
 - “最近文件”侧边栏默认隐藏，在偏好设置中勾选“显示最近文件侧边栏”后显示。
+- 现代布局在“文件管理”本地浏览时，左侧面板切换为系统位置侧栏（主目录、桌面、
+  文档、下载、图片、音乐、视频、文件系统及 `/media`、`/mnt`、`/run/media` 下的
+  用户挂载卷）。位置按清理后的绝对路径去重；浏览子目录时高亮其所属位置（取最
+  深前缀），不再残留上一个选中项。位置列表在窗口重新显示，或打开只落在文件系统
+  根下的目录时限频刷新（默认 5s），避免每次导航都调用 `QStorageInfo::mountedVolumes()`
+  （网络挂载可能较慢）。经典布局不提供系统位置侧栏。
 - 本版本不提供压缩包属性对话框：该信息与文件管理器的“文件属性”弹窗重复，故工具栏“属性”按钮与右键菜单“属性”项均已移除。
 - 双击文件：预览。图片会静默预解压同目录图片，交给系统查看器连续浏览。
 - 图片缩略图由 `ThumbnailManager` 按需提取：独立读取后端在小型线程池中解压单张图片，缩放到 128px 内并写入持久缓存；模型收到完成信号后只刷新对应图标。现代布局各视图都启用缩略图，列表视图按行高（约 22px）等比例缩放、宽度上限 96px；经典布局只在网格视图启用，列表/树保持普通图片图标。
@@ -906,7 +916,9 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
   `ArchiveGridView`（`QListView::IconMode`）和自定义 delegate，支持多选、
   右键菜单、拖出与详细信息联动。delegate 的 `sizeHint()` 返回完整网格单元，
   图标在单元内居中；文件名用 `QTextLayout` 按任意字符换行并逐行居中，
-  长文件名可显示多行。
+  长文件名可显示多行。单元格高度按当前目录最长换行文件名动态计算：只有
+  `DisplayRole` 变化才触发重算（缩略图等只改图标的变化忽略），模型批量变化
+  合并为一次零延时扫描，视图隐藏时跳过，重新显示或字体/DPI 变化时补算。
 - 树状模式双击目录：展开/折叠。
 - 列表模式双击目录：进入目录；双击 `..`：返回上一级。
 - 现代导航栏在内容列表上方提供网格/列表/树形切换，主页与归档页均可用；
@@ -1034,7 +1046,11 @@ Name, Size, Packed, Modified, Encrypted
 - 现代文件列表 delegate 使用扁平行选中/悬停配色，不绘制底部分隔线和虚线焦点框；
   经典 delegate 与 `ArchiveTreeView::drawBranches()` 共同绘制 Aero 渐变整行高亮。
 - 现代进度条为蓝色渐变；经典进度条为 Windows 7 绿色渐变。
-- 标题栏保持系统原生，不做自绘。
+- 窗口使用沉浸式无边框标题栏 `ImmersiveTitleBar`，放在 `QMainWindow::setMenuWidget()`
+  槽位：集成应用图标、菜单、最小化/最大化/关闭、拖动与双击最大化及尺寸调整，
+  现代/经典布局共用，菜单集中到标题栏。菜单栏只占菜单项自身宽度，右侧空白归
+  标题栏以支持拖动；标题栏背景/文字使用独立的 `titleBarTop`/`titleBarMid`/
+  `titleBarBottom`/`titleBarText` 主题 token，随布局与浅深主题切换。
 - `MessageBoxUtils::showWarning()` 使用 `:/icons/classic/warning.ico`；连续看图的准备进度
   对话框不使用该警告图标。
 
@@ -1059,8 +1075,8 @@ Name, Size, Packed, Modified, Encrypted
     `AppSettings` 读取；偏好设置保存后经 `AppSettings::backgroundImageChanged()`
     实时重载。
 - 经典布局的占位页（起始页）使用中央 `BackgroundWidget` 绘制同一张图；页面切换时
-  自动启用/禁用该中央图片，避免与归档页 viewport 图片重叠。现代布局未打开压缩包时
-  直接显示本地目录浏览页，背景图由归档视图 viewport 绘制。
+  自动启用/禁用该中央图片，避免与归档页 viewport 图片重叠。现代布局的欢迎页不
+  绘制背景图；从“文件管理”进入本地目录浏览后，背景图由归档视图 viewport 绘制。
 
 ### 10.6 工具栏与图标
 
@@ -1230,6 +1246,8 @@ resources/
 | `tst_manager` | 打开/列表/解压流程、打开失败保留当前包、危险符号链接跳过/中止、覆盖已有目标压缩、RAR 分卷替换、加密 7z 回退命令行、图片同目录连续预览、后端选择开关、只读 libarchive 后端的添加/删除写回退 |
 | `tst_libarchive` | zip / tar.gz / tar.xz / gz 往返、AES-256 zip 密码、加密 7z 报不支持、损坏包检测、选择性解压、目录选中、硬链接重建 |
 | `tst_preferences` | 偏好设置中 libarchive 开关与 `AppSettings` 的双向联动、连续看图阈值与最近文件上限裁剪、布局/一键解压设置往返、性能测试对话框构建、列表模式目录索引/重复项、网格模式隐藏 `..`、缩略图开关与等比缩放、分卷图标（offscreen 平台运行） |
+| `tst_titlebar` | 沉浸式标题栏与布局切换：菜单栏不拉伸（空白区可拖拽）、空白处拖拽/双击最大化、`teardownUi()`/`buildUi()` 后标题栏仍挂在 menuWidget 槽位、误调 `menuBar()` 后可自愈、标题栏颜色使用主题 token（offscreen 平台运行） |
+| `tst_folderpane` | 系统位置侧栏：位置路径不重复、进入子目录后仍高亮所属位置、Home 之外的目录回退到“文件系统”（offscreen 平台运行） |
 | `tst_dragout` | 拖出 staging：路径剪枝、体积统计（含负值/溢出拒绝）、staging 映射、单文件/目录/嵌套选择、恶意路径/危险符号链接拦截、纯 gz 流、加密 7z 回退命令行、`QARCHIVER_NO_LIBARCHIVE` 下同样通过、准备结果缓存复用与失效 |
 
 测试目标统一由 `tests/CMakeLists.txt` 的 `qarchiver_add_test(<name>
@@ -1243,10 +1261,10 @@ SOURCES ... LIBS ... DATA_DIR ...)` 注册：链接分层静态库而不是复�
 |---|---|
 | `tst_toolchain` | `qarchiver_utils` |
 | `tst_utils`、`tst_backends`、`tst_libarchive` | `qarchiver_core` |
-| `tst_background`、`tst_preview`、`tst_manager`、`tst_dragout`、`tst_preferences` | `qarchiver_ui` |
+| `tst_background`、`tst_preview`、`tst_manager`、`tst_dragout`、`tst_preferences`、`tst_titlebar`、`tst_folderpane` | `qarchiver_ui` |
 
 `tst_libarchive` 只在找到 libarchive 时构建，因此 `-DQARCHIVER_USE_LIBARCHIVE=OFF`
-的构建会运行 8 个测试而不是 9 个；其余测试在两种配置下都必须通过。
+的构建会运行 10 个测试而不是 11 个；其余测试在两种配置下都必须通过。
 
 运行：
 

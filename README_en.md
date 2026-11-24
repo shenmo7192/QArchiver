@@ -46,9 +46,11 @@ git push origin 2.4.0-2
 - Immersive frameless title bar with integrated menus, minimize/maximize/close, drag and double-click maximize
 - Modern HaoZip-style interface: flat gradient header, large colorful toolbar, folder and details panes,
   path navigation, in-archive search, and an archive status summary
-- Browse local directories when no archive is open (Windows/Linux): navigation, search,
-  grid/list/tree views, double-click to enter a folder or open a file, and right-click compression
-- Welcome page: drop area, recent files list, Open / One-click Extract entries and a File Manager button; starts on the welcome page with the sidebar visible
+- Welcome page: drop area, recent files list, Open / One-click Extract entries and a File Manager button; starts on the welcome page
+- Local file manager (opened from the welcome page's File Manager button): navigation, search,
+  grid/list/tree views, double-click to enter a folder or open a file, and right-click compression;
+  the modern layout shows a system-places sidebar (Home, Desktop, Documents, Downloads, Pictures,
+  Music, Videos, File System and user-mounted volumes), while the classic layout does not
 - The navigation bar above the archive list provides grid/list/tree switching on both the welcome and archive pages
 - Sort menu in the context menu and next to the view switcher: name/size/type/modified,
   ascending or descending, remembered across sessions (also applies to the grid view)
@@ -67,7 +69,7 @@ git push origin 2.4.0-2
   original toolbar, recent-files sidebar, background image, and toolbar style options. Its filter row
   also hosts Forward, Back and Up buttons to the left of the search field
 - Browse archive contents in a grid by default, switchable between grid, list, and tree views; filtering and sorting supported;
-  grid icons are centred and long filenames wrap across multiple lines
+  grid icons are centred and long filenames wrap across multiple lines, with the cell height following the longest name in the current folder
 - Extraction: all or selected entries, overwrite strategies (ask/overwrite/skip/rename), password, encoding hints
 - Compression: 7z / zip / tar / tar.gz / tar.bz2 / tar.xz / gz / bz2 / xz; if `rar` is installed on the system, RAR and RAR volumes can also be created
 - Read `.tar.zst` / `.tzst` / `.zst` (read-only, using the bundled 7-Zip)
@@ -338,8 +340,10 @@ QArchiver --lang en                 # specify the UI language
 GitHub Actions:
 
 - `.github/workflows/build.yml`: reusable matrix that builds Linux amd64/arm64
-  natively and produces .deb packages, builds and tests Windows x64 natively,
-  and cross-builds Windows ARM64;
+  inside Debian 13 containers and produces .deb packages, verifies installation
+  in a clean Debian 13 container (shared-library dependencies, bundled 7-Zip
+  and desktop entry), builds and tests Windows x64 natively, and cross-builds
+  Windows ARM64;
 - `.github/workflows/ci.yml`: build and test on every push and pull request;
 - `.github/workflows/release.yml`: on a `v*` tag, build all four artifacts,
   generate `SHA256SUMS`, and create a GitHub Release.
@@ -357,7 +361,9 @@ manager (dispatch, cancellation, fallback, keeping the current archive on open f
 libarchive backend (round-trip, AES password, corruption detection, selective extraction, hard link reconstruction),
 preferences dialog and config sync (continuous image threshold, recent files limit), RAR/RAR volume creation and
 old volume replacement, fallback 7-Zip `--help` validation and RAR Codecs detection, continuous viewing of images in the same directory,
-list-mode directory indexing, background image caching. Tests use the bundled 7-Zip via `QARCHIVER_7Z_PATH`;
+list-mode directory indexing, background image caching, the immersive title bar (kept across
+layout switches, draggable menu-bar gap, token-driven colours), and the system-places sidebar
+(no duplicate paths, subdirectory ancestor highlighting, file-system fallback). Tests use the bundled 7-Zip via `QARCHIVER_7Z_PATH`;
 RAR creation test cases are automatically skipped when the system has no `rar`, and `QARCHIVER_RAR_PATH` can be used to
 specify the rar executable under test.
 The `tarDotPrefixAndNonAscii` compatibility test case is automatically skipped when the system has no `tar`;
