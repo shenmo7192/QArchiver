@@ -138,11 +138,11 @@ struct MenuBitmap {
 HICON loadFileTypeIcon(const wchar_t *name, DWORD attributes, bool appIcon)
 {
     if (appIcon) {
-        HICON small = nullptr;
+        HICON smallIcon = nullptr;
         const std::wstring exe = executablePath();
         if (!exe.empty()
-            && ExtractIconExW(exe.c_str(), 0, nullptr, &small, 1) > 0) {
-            return small;
+            && ExtractIconExW(exe.c_str(), 0, nullptr, &smallIcon, 1) > 0) {
+            return smallIcon;
         }
     }
 
