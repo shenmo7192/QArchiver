@@ -23,13 +23,22 @@ if (-not (Test-Path -LiteralPath $ZipPath)) {
 $zip = (Resolve-Path -LiteralPath $ZipPath).Path
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    $cmakeFile = Join-Path $PSScriptRoot '..\..\CMakeLists.txt'
-    $match = Select-String -Path $cmakeFile `
-        -Pattern 'VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1
-    if (-not $match) {
-        throw "Cannot read the project version from $cmakeFile"
+    # Prefer the version encoded in QArchiver-<version>-windows-<arch>.zip,
+    # which carries the release revision (e.g. 2.4.0-1).
+    $zipName = [System.IO.Path]::GetFileNameWithoutExtension($zip)
+    $zipVersion = [regex]::Match($zipName,
+        '^QArchiver-(.+)-windows-(x64|arm64)$').Groups[1].Value
+    if (-not [string]::IsNullOrWhiteSpace($zipVersion)) {
+        $Version = $zipVersion
+    } else {
+        $cmakeFile = Join-Path $PSScriptRoot '..\..\CMakeLists.txt'
+        $match = Select-String -Path $cmakeFile `
+            -Pattern 'VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1
+        if (-not $match) {
+            throw "Cannot read the project version from $cmakeFile"
+        }
+        $Version = $match.Matches[0].Groups[1].Value
     }
-    $Version = $match.Matches[0].Groups[1].Value
 }
 
 $dist = [System.IO.Path]::GetFullPath($OutputDir)
@@ -57,14 +66,15 @@ if (-not $iscc) {
         '"choco install innosetup -y" or set INNO_SETUP_ISCC.')
 }
 
+$VersionNumeric = $Version -replace '-', '.'
 Write-Host "Building QArchiver $Version installer for $Arch"
 Write-Host "  payload: $stage"
 Write-Host "  output:  $dist"
 
 $archAllowed = if ($Arch -eq 'arm64') { 'arm64' } else { 'x64compatible' }
 & $iscc (Join-Path $PSScriptRoot 'QArchiver.iss') `
-    "/DAppVersion=$Version" "/DSourceDir=$stage" `
-    "/DOutputDir=$dist" "/DArch=$Arch" "/DArchAllowed=$archAllowed"
+    "/DAppVersion=$Version" "/DAppVersionNumeric=$VersionNumeric" `
+    "/DSourceDir=$stage" "/DOutputDir=$dist" "/DArch=$Arch" "/DArchAllowed=$archAllowed"
 if ($LASTEXITCODE -ne 0) {
     throw "ISCC failed with exit code $LASTEXITCODE"
 }

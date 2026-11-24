@@ -7,6 +7,12 @@ project(QArchiver
     LANGUAGES CXX
 )
 
+# Package/release revision shown to users and used for artifact names.  The
+# CMake project version stays numeric (2.4.0) for compiler/resource metadata.
+# 包/发行修订号用于产物命名与界面版本；CMake 项目版本保持数字形式 2.4.0，
+# 供编译器与 Windows 资源使用。
+set(QARCHIVER_RELEASE_VERSION "2.4.0-1")
+
 # The shared core/backends/utils layers use C++20; Qt 6.4 supports it.
 # core/backends/utils 等公共层使用 C++20；Qt 6.4 支持该标准。
 set(CMAKE_CXX_STANDARD 20)
@@ -94,9 +100,9 @@ if(WIN32)
     set(CPACK_GENERATOR "ZIP")
     set(CPACK_PACKAGE_NAME "QArchiver")
     set(CPACK_PACKAGE_VENDOR "QArchiver")
-    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_VERSION "${QARCHIVER_RELEASE_VERSION}")
     set(CPACK_PACKAGE_FILE_NAME
-        "QArchiver-${PROJECT_VERSION}-windows-${QARCHIVER_WINDOWS_ARCH}")
+        "QArchiver-${QARCHIVER_RELEASE_VERSION}-windows-${QARCHIVER_WINDOWS_ARCH}")
     set(CPACK_PACKAGE_INSTALL_DIRECTORY "QArchiver")
     set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY

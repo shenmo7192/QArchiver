@@ -3,6 +3,15 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [2.4.0-1] - 2026-11-24
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Changed / 变更
+
+- modern 文件类型图标：`file-zip`、`file-rar` 与 `file-7z` 统一改为
+  居中格式文字标识，移除拉链/圆点图案，保留各自页眉配色。
+
 ## [2.4.0] - 2026-11-24
 
 作者：shenmo <shenmo@spark-app.store>
@@ -231,4 +240,5 @@ All notable changes to QArchiver (小Q解压) are documented here.
 [2.2.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.2.0
 [2.3.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.3.0
 [2.3.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.3.1
+[2.4.0-1]: https://github.com/shenmo7192/QArchiver/releases/tag/2.4.0-1
 [2.4.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.4.0

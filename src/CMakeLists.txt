@@ -41,7 +41,7 @@ qt_add_executable(QArchiver
 )
 
 target_compile_definitions(QArchiver PRIVATE
-    QARCHIVER_VERSION="${PROJECT_VERSION}"
+    QARCHIVER_VERSION="${QARCHIVER_RELEASE_VERSION}"
 )
 
 # Windows icon, version resource, manifest and deployment rules.
