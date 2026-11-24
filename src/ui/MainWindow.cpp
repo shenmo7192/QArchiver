@@ -24,6 +24,7 @@
 #include "ui/widgets/BackgroundWidget.h"
 #include "ui/widgets/SidebarWidget.h"
 #include "ui/widgets/ModernToolBar.h"
+#include "ui/widgets/ImmersiveTitleBar.h"
 #include "ui/widgets/ModernNavBar.h"
 #include "ui/widgets/ArchiveFolderPane.h"
 #include "ui/widgets/WelcomePage.h"
@@ -100,8 +101,27 @@ MainWindow::MainWindow(QWidget *parent)
 {
     setWindowTitle(tr("QArchiver"));
     setWindowIcon(Icons::modern(QStringLiteral("app-icon.png")));
+    setWindowFlag(Qt::FramelessWindowHint, true);
     resize(1180, 760);
     setMinimumSize(880, 560);
+
+    // The menu widget sits above toolbars and central content, giving the
+    // modern/classic layouts one shared immersive title bar.
+    // 菜单控件位于工具栏与内容上方，让现代/经典布局共用同一个沉浸式标题栏。
+    m_titleBar = new ImmersiveTitleBar(this);
+    setMenuWidget(m_titleBar);
+    connect(m_titleBar, &ImmersiveTitleBar::minimizeRequested,
+            this, &QWidget::showMinimized);
+    connect(m_titleBar, &ImmersiveTitleBar::maximizeRequested, this, [this]() {
+        if (isMaximized()) {
+            showNormal();
+        } else {
+            showMaximized();
+        }
+        m_titleBar->updateMaximizeState();
+    });
+    connect(m_titleBar, &ImmersiveTitleBar::closeRequested,
+            this, &QWidget::close);
 
     m_model = new FileListModel(this);
     m_proxyModel = new FilterProxyModel(this);
@@ -244,9 +264,9 @@ void MainWindow::buildUi()
         }
         updateStatusSummary();
     } else {
-        // No archive open: browse the local file system (both layouts).
-        // 未打开压缩包：浏览本地文件系统（两种布局均是）。
-        loadLocalDirectory(AppSettings::instance().localBrowsePath(), false);
+        // Start on the welcome page; the file manager is entered explicitly.
+        // 启动时显示欢迎页，只有用户主动点击后才进入文件管理。
+        showStartPage();
     }
 
     updateNavLocation();
@@ -387,8 +407,14 @@ void MainWindow::showStartPage()
         showPlaceholder(
             tr("No archive open.\nUse the Open button or drag a file here."));
     }
+    // Keep the folder pane visible on the welcome page so its content uses
+    // the same centred content area as the archive/file-manager views.
+    // Returning from the local file manager must restore the archive sidebar.
+    // 欢迎页保留文件夹侧栏；从本地文件管理返回时也恢复归档侧栏。
     if (m_folderPane) {
-        m_folderPane->setVisible(false);
+        m_folderPane->setVisible(true);
+        m_folderPane->setLocalMode(false);
+        m_folderPane->clear();
     }
     setWindowTitle(tr("QArchiver"));
     updateStatusSummary();
@@ -478,6 +504,8 @@ void MainWindow::onArchiveOpened(const QString &filePath)
     setWindowTitle(tr("QArchiver - %1").arg(QFileInfo(filePath).fileName()));
     if (m_folderPane) {
         m_folderPane->setVisible(true);
+        m_folderPane->setLocalMode(false);
+        m_folderPane->clear();
     }
     applyContentViewMode();
     showArchivePage();
@@ -853,6 +881,9 @@ void MainWindow::changeEvent(QEvent *event)
     if (event->type() == QEvent::PaletteChange
         || event->type() == QEvent::StyleChange) {
         updateSearchIcon();
+    }
+    if (event->type() == QEvent::WindowStateChange && m_titleBar) {
+        m_titleBar->updateMaximizeState();
     }
     QMainWindow::changeEvent(event);
 }

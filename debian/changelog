@@ -1,3 +1,11 @@
+qarchiver (2.4.0) unstable; urgency=medium
+
+  * Add an immersive frameless title bar shared by both layouts.
+  * Start on the welcome page and add an explicit File Manager entry.
+  * Merge upstream 2.3.1 fixes, classic path label and file-type icon layout.
+
+ -- shenmo <shenmo@spark-app.store>  Tue, 24 Nov 2026 18:42:00 +0800
+
 qarchiver (2.3.1) unstable; urgency=medium
 
   * Read .tar.zst / .tzst / .zst archives (read-only through the bundled

@@ -3,6 +3,28 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [2.4.0] - 2026-11-24
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Added / 新增
+
+- 沉浸式无边框标题栏：应用图标、菜单、最小化/最大化/关闭按钮、拖动、
+  双击最大化与右下角尺寸调整；现代/经典布局共用。
+- 欢迎页新增“文件管理”按钮，启动默认停留在欢迎页；保留左侧文件夹侧栏，
+  内容按正常内容区居中。
+- 本地文件管理使用系统位置侧栏（主目录、桌面、文档、下载、图片、音乐、
+  视频、文件系统及用户挂载卷）；从文件管理返回起始页时恢复归档侧栏。
+- 网格单元格高度按当前目录最长文件名动态计算，长文件名（包括选中状态）
+  完整换行显示，不再被固定单元格高度截断。
+- 合并上游 yincolor/QArchiver 的 2.3.1 修复、经典样式路径框、文件类型图标
+  目录整理、MIME 关联和预览逻辑修复。
+
+### Changed / 变更
+
+- 默认启动行为从“直接进入本地文件浏览”改为“欢迎页”。
+- 经典布局菜单集成到沉浸式标题栏中。
+
 ## [2.3.1] - 2026-11-24
 
 作者：shenmo <shenmo@spark-app.store>
@@ -208,3 +230,4 @@ All notable changes to QArchiver (小Q解压) are documented here.
 [2.2.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.2.0
 [2.3.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.3.0
 [2.3.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.3.1
+[2.4.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.4.0

@@ -37,17 +37,18 @@ context-menu scripts are in the same directory. The release includes one
 Publish a release:
 
 ```bash
-git tag v2.3.1
-git push origin v2.3.1
+git tag v2.4.0
+git push origin v2.4.0
 ```
 
 ## Features
 
+- Immersive frameless title bar with integrated menus, minimize/maximize/close, drag and double-click maximize
 - Modern HaoZip-style interface: flat gradient header, large colorful toolbar, folder and details panes,
   path navigation, in-archive search, and an archive status summary
 - Browse local directories when no archive is open (Windows/Linux): navigation, search,
   grid/list/tree views, double-click to enter a folder or open a file, and right-click compression
-- Welcome page: drop area, recent files list, and Open / One-click Extract entries
+- Welcome page: drop area, recent files list, Open / One-click Extract entries and a File Manager button; starts on the welcome page with the sidebar visible
 - The navigation bar above the archive list provides grid/list/tree switching on both the welcome and archive pages
 - Sort menu in the context menu and next to the view switcher: name/size/type/modified,
   ascending or descending, remembered across sessions (also applies to the grid view)

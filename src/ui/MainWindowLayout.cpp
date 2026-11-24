@@ -80,6 +80,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QSizeGrip>
 #include <QSlider>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -194,6 +195,9 @@ void MainWindow::setupModernUi()
             this, &MainWindow::onOpen);
     connect(m_welcomePage, &WelcomePage::oneClickExtractRequested,
             this, &MainWindow::onOneClickExtract);
+    connect(m_welcomePage, &WelcomePage::fileManagerRequested, this, [this]() {
+        browseLocalDirectory(AppSettings::instance().localBrowsePath());
+    });
     connect(m_welcomePage, &WelcomePage::recentFileActivated,
             this, &MainWindow::onSidebarFileOpened);
 
@@ -203,11 +207,8 @@ void MainWindow::setupModernUi()
 void MainWindow::setupClassicUi()
 {
     setMinimumSize(880, 560);
-    if (auto *bar = menuBar()) {
-        bar->hide();
-    }
-
     setupClassicToolbar();
+    setupMenuBar();
     setupClassicCentralWidget();
     setupClassicSidebar();
     applyToolButtonStyle();
@@ -483,6 +484,11 @@ void MainWindow::setupStatusBar()
     } else {
         statusBar()->addPermanentWidget(m_busyWidget);
     }
+    // A size grip keeps the frameless window resizable from its corner.
+    // 无边框窗口通过右下角尺寸手柄调整大小。
+    auto *sizeGrip = new QSizeGrip(this);
+    sizeGrip->setObjectName(QStringLiteral("WindowSizeGrip"));
+    statusBar()->addPermanentWidget(sizeGrip);
     statusBar()->showMessage(tr("Ready"), 2000);
 }
 
@@ -693,6 +699,7 @@ void MainWindow::applyItemSizeInternal(int size, bool persist)
         m_gridView->setIconSize(QSize(size, size));
         m_gridView->setGridSize(
             QSize(qMax(128, size + 24), size + 52));
+        m_gridView->updateGridHeight();
     }
     if (m_treeView) {
         // Classic list/tree rows are designed for compact Explorer-like rows;

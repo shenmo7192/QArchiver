@@ -72,6 +72,8 @@ add_library(qarchiver_ui STATIC
     widgets/BackgroundWidget.h
     widgets/SidebarWidget.cpp
     widgets/SidebarWidget.h
+    widgets/ImmersiveTitleBar.cpp
+    widgets/ImmersiveTitleBar.h
     widgets/ModernToolBar.cpp
     widgets/ModernToolBar.h
     widgets/ModernNavBar.cpp

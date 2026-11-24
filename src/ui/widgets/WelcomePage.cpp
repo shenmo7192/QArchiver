@@ -69,8 +69,15 @@ WelcomePage::WelcomePage(QWidget *parent)
     oneClickButton->setObjectName(QStringLiteral("WelcomeSecondary"));
     oneClickButton->setIcon(Icons::modern(QStringLiteral("oneclick.png")));
     oneClickButton->setIconSize(QSize(18, 18));
+    auto *fileManagerButton = new QPushButton(tr("File Manager"), dropZone);
+    fileManagerButton->setObjectName(QStringLiteral("WelcomeSecondary"));
+    fileManagerButton->setIcon(Icons::fileType(QStringLiteral("folder.png")));
+    fileManagerButton->setIconSize(QSize(18, 18));
+    fileManagerButton->setToolTip(
+        tr("Browse local files without opening an archive"));
     buttonRow->addWidget(openButton);
     buttonRow->addWidget(oneClickButton);
+    buttonRow->addWidget(fileManagerButton);
     buttonRow->addStretch(1);
     dropLayout->addSpacing(4);
     dropLayout->addLayout(buttonRow);
@@ -129,6 +136,8 @@ WelcomePage::WelcomePage(QWidget *parent)
             this, &WelcomePage::openRequested);
     connect(oneClickButton, &QPushButton::clicked,
             this, &WelcomePage::oneClickExtractRequested);
+    connect(fileManagerButton, &QPushButton::clicked,
+            this, &WelcomePage::fileManagerRequested);
     connect(clearButton, &QToolButton::clicked, this, []() {
         RecentFilesManager::instance().clear();
     });

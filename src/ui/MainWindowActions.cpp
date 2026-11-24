@@ -20,6 +20,7 @@
 #include "ui/widgets/BackgroundWidget.h"
 #include "ui/widgets/SidebarWidget.h"
 #include "ui/widgets/ModernToolBar.h"
+#include "ui/widgets/ImmersiveTitleBar.h"
 #include "ui/widgets/ModernNavBar.h"
 #include "ui/widgets/ArchiveFolderPane.h"
 #include "ui/widgets/WelcomePage.h"
@@ -318,7 +319,7 @@ void MainWindow::applyActionIcons()
 
 void MainWindow::setupMenuBar()
 {
-    QMenuBar *bar = menuBar();
+    QMenuBar *bar = m_titleBar ? m_titleBar->menuBarWidget() : menuBar();
     bar->clear();
     bar->setNativeMenuBar(false);
 

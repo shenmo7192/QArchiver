@@ -24,6 +24,7 @@ class ModernNavBar;
 class ArchiveFolderPane;
 class PathLabel;
 class WelcomePage;
+class ImmersiveTitleBar;
 class ProgressDialog;
 class ArchiveBackend;
 class QStackedWidget;
@@ -235,6 +236,9 @@ private:
     ArchiveGridView *m_gridView = nullptr;
     QStackedWidget *m_viewStack = nullptr;
     QStackedWidget *m_centralStack = nullptr;
+
+    // Immersive title bar / 沉浸式标题栏
+    ImmersiveTitleBar *m_titleBar = nullptr;
 
     // Classic layout / 经典布局
     QLineEdit *m_searchEdit = nullptr;
