@@ -184,7 +184,10 @@ void MainWindow::loadLocalDirectory(const QString &path, bool addHistory)
         m_treeView->setFlatMode(true);
         m_treeView->expandToDepth(0);
     }
-    if (m_folderPane) {
+    // Only rebuild the sidebar when entering local browsing; keeping it while
+    // navigating preserves the system places list.
+    // 仅从非本地模式进入时清理侧栏；本地目录间导航保留系统位置列表。
+    if (m_folderPane && !wasLocal) {
         m_folderPane->clear();
     }
     if (m_modernNavBar) {

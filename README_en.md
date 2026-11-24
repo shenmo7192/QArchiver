@@ -37,8 +37,8 @@ context-menu scripts are in the same directory. The release includes one
 Publish a release:
 
 ```bash
-git tag v2.4.0
-git push origin v2.4.0
+git tag 2.4.0-2
+git push origin 2.4.0-2
 ```
 
 ## Features

@@ -3,6 +3,15 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [2.4.0-2] - 2026-11-24
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Changed / 变更
+
+- modern 文件类型图标：`file-zip`、`file-rar` 与 `file-7z` 统一改为
+  居中格式文字标识，移除拉链/圆点图案，保留各自页眉配色。
+
 ## [2.4.0] - 2026-11-24
 
 作者：shenmo <shenmo@spark-app.store>
@@ -15,6 +24,7 @@ All notable changes to QArchiver (小Q解压) are documented here.
   内容按正常内容区居中。
 - 本地文件管理使用系统位置侧栏（主目录、桌面、文档、下载、图片、音乐、
   视频、文件系统及用户挂载卷）；从文件管理返回起始页时恢复归档侧栏。
+- 修复点击系统位置后侧栏位置列表被清空的问题。
 - 网格单元格高度按当前目录最长文件名动态计算，长文件名（包括选中状态）
   完整换行显示，不再被固定单元格高度截断。
 - 合并上游 yincolor/QArchiver 的 2.3.1 修复、经典样式路径框、文件类型图标
@@ -230,4 +240,5 @@ All notable changes to QArchiver (小Q解压) are documented here.
 [2.2.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.2.0
 [2.3.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.3.0
 [2.3.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.3.1
+[2.4.0-2]: https://github.com/shenmo7192/QArchiver/releases/tag/2.4.0-2
 [2.4.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.4.0

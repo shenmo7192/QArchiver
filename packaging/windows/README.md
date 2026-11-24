@@ -24,16 +24,16 @@ ctest --test-dir build -C Release --output-on-failure
 cpack --config build/CPackConfig.cmake -C Release
 ```
 
-生成 `QArchiver-2.4.0-windows-x64.zip`，根目录包含 `QArchiver.exe`、
+生成 `QArchiver-2.4.0-2-windows-x64.zip`，根目录包含 `QArchiver.exe`、
 `7zip\7z.exe`、`7zip\7z.dll` 以及 `windeployqt` 部署的 Qt 运行库。
 
 在便携 ZIP 基础上生成安装器（需要 Inno Setup 6 的 `ISCC.exe`）：
 
 ```powershell
-.\build-installer.ps1 -ZipPath .\QArchiver-2.4.0-windows-x64.zip -Arch x64
+.\build-installer.ps1 -ZipPath .\QArchiver-2.4.0-2-windows-x64.zip -Arch x64
 ```
 
-生成 `QArchiver-2.4.0-windows-x64-setup.exe`。安装器默认安装到
+生成 `QArchiver-2.4.0-2-windows-x64-setup.exe`。安装器默认安装到
 `Program Files\QArchiver`，创建开始菜单项（桌面快捷方式为可选项）、卸载入口，
 并询问是否注册资源管理器右键菜单与关联压缩包格式（默认选中）。安装器运行时
 会注册 `QArchiverShell.dll`（进程内右键菜单扩展）；关联格式由
@@ -50,14 +50,14 @@ cmake --build build-arm64 --config Release
 cpack --config build-arm64/CPackConfig.cmake -C Release
 ```
 
-生成 `QArchiver-2.4.0-windows-arm64.zip`，内置原生 ARM64 的
+生成 `QArchiver-2.4.0-2-windows-arm64.zip`，内置原生 ARM64 的
 `7zip\7z.exe` / `7z.dll`。ARM64 可执行文件无法在 x64 主机上运行测试，
 因此不执行 `ctest`。
 
 生成 ARM64 安装器：
 
 ```powershell
-.\build-installer.ps1 -ZipPath .\QArchiver-2.4.0-windows-arm64.zip -Arch arm64
+.\build-installer.ps1 -ZipPath .\QArchiver-2.4.0-2-windows-arm64.zip -Arch arm64
 ```
 
 MinGW 构建时请使用与 Qt 包匹配的编译器，并把 `libstdc++-6.dll`、

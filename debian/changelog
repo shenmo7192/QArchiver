@@ -1,3 +1,10 @@
+qarchiver (2.4.0-2) unstable; urgency=medium
+
+  * 最终体验打磨：modern 主题 ZIP/RAR 图标改为与 7z 一致的
+    居中格式文字标识，并统一三个格式的文字位置。
+
+ -- shenmo <shenmo@spark-app.store>  Tue, 24 Nov 2026 19:55:00 +0800
+
 qarchiver (2.4.0) unstable; urgency=medium
 
   * Add an immersive frameless title bar shared by both layouts.
