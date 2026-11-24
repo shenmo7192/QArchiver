@@ -1,5 +1,5 @@
-# Reusable build workflow for Linux (amd64/arm64) and Windows (x64/arm64).
-# 可复用的 Linux（amd64/arm64）与 Windows（x64/arm64）构建工作流。
+# Reusable build workflow for Debian 13 (amd64/arm64) and Windows (x64/arm64).
+# 可复用的 Debian 13（amd64/arm64）与 Windows（x64/arm64）构建工作流。
 
 name: Build
 
@@ -17,11 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Linux x86_64 (deb)
+          - name: Debian 13 x86_64 (deb)
             os: ubuntu-24.04
             platform: linux
             arch: amd64
-          - name: Linux ARM64 (deb)
+          - name: Debian 13 ARM64 (deb)
             os: ubuntu-24.04-arm
             platform: linux
             arch: arm64
@@ -45,31 +45,44 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------------------------------------------------------------------
-      # Linux / Debian package
+      # Debian 13 package
+      # Build inside Debian 13 so the generated Depends/ABI match Debian and
+      # Deepin instead of Ubuntu 24.04 (noble).
+      # 在 Debian 13 容器内构建，使依赖与 ABI 面向 Debian/Deepin，而不是 Ubuntu 24.04。
       # ---------------------------------------------------------------------
-      - name: Install Debian build dependencies
+      - name: Build Debian 13 package and run tests
         if: matrix.platform == 'linux'
         run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            --no-install-recommends build-essential devscripts equivs fakeroot
-          sudo DEBIAN_FRONTEND=noninteractive \
-            mk-build-deps --install --remove \
-            --tool "apt-get -y --no-install-recommends" debian/control
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -w /work \
+            -e DEBIAN_FRONTEND=noninteractive \
+            debian:13 bash -euxo pipefail -c '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                build-essential ca-certificates devscripts equivs fakeroot
+              mk-build-deps --install --remove \
+                --tool "apt-get -y --no-install-recommends" debian/control
+              cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+              cmake --build build --parallel "$(nproc)"
+              ctest --test-dir build --output-on-failure
+              mkdir -p dist
+              dpkg-buildpackage -us -uc -b -jauto
+              cp ../qarchiver_*_${{ matrix.arch }}.deb dist/
+            '
 
-      - name: Build and test (Linux)
+      - name: Verify package installs on Debian 13
         if: matrix.platform == 'linux'
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-          cmake --build build --parallel "$(nproc)"
-          ctest --test-dir build --output-on-failure
-
-      - name: Build Debian package (Linux)
-        if: matrix.platform == 'linux'
-        run: |
-          mkdir -p dist
-          dpkg-buildpackage -us -uc -b -jauto
-          cp ../qarchiver_*_${{ matrix.arch }}.deb dist/
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/dist:/dist:ro" \
+            -e DEBIAN_FRONTEND=noninteractive \
+            debian:13 bash -euxo pipefail -c '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /dist/qarchiver_*_${{ matrix.arch }}.deb
+              dpkg -s qarchiver
+            '
 
       - name: Upload Debian package
         if: matrix.platform == 'linux'
