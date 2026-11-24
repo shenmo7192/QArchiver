@@ -28,7 +28,8 @@ QIcon modern(const QString &fileName)
 
 QIcon fileType(const QString &fileName)
 {
-    return QIcon(QLatin1String(fileTypeRoot()) + fileName);
+    const bool modern = ThemeManager::isModernLayout();
+    return QIcon(QLatin1String(fileTypeRoot(modern)) + fileName);
 }
 
 QIcon themed(const QString &baseName)

@@ -5,7 +5,8 @@ The script renders SVG sources with rsvg-convert and writes the PNGs into the
 folders used by the resource bundle:
 
     resources/icons/modern/              toolbar and navigation icons, app logo
-    resources/icons/file-types/          file-type icons
+    resources/icons/file-types/modern/   modern file-type icons
+    resources/icons/file-types/classic/  classic file-type icons
     resources/themes/modern/light/       glyphs for light backgrounds
     resources/themes/modern/dark/        glyphs for dark backgrounds
     resources/svg/modern/                committed SVG sources
@@ -31,7 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / "resources"
 ICONS = RES / "icons" / "modern"
-FILE_TYPES = RES / "icons" / "file-types"
+FILE_TYPES = RES / "icons" / "file-types" / "modern"
 GLYPHS_ROOT = RES / "themes" / "modern"
 GLYPHS_LIGHT = GLYPHS_ROOT / "light"
 GLYPHS_DARK = RES / "themes" / "modern" / "dark"

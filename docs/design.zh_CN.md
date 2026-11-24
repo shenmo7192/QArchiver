@@ -993,7 +993,8 @@ Name, Size, Packed, Modified, Encrypted
 |---|---|
 | `:/icons/classic/` | 经典主题工具栏/文件图标 |
 | `:/icons/modern/` | 现代主题工具栏与导航图标 |
-| `:/icons/file-types/` | 文件类型图标 |
+| `:/icons/file-types/classic/` | 经典布局文件类型图标 |
+| `:/icons/file-types/modern/` | 现代布局文件类型图标 |
 | `:/themes/aero/` | `aero.qss` 与 `light/`、`dark/` 字形 |
 | `:/themes/modern/` | `modern.qss` 与 `light/`、`dark/` 字形 |
 
@@ -1064,8 +1065,9 @@ Name, Size, Packed, Modified, Encrypted
 ### 10.6 工具栏与图标
 
 - 现代布局图标位于 `resources/icons/modern/`（工具栏/导航 64px，导航小图标 32px，
-  深色变体 `*-light.png`）；文件类型图标位于 `resources/icons/file-types/`，
-  统一 64px，网格以 56px 显示仍清晰。
+  深色变体 `*-light.png`）；文件类型图标按布局分为
+  `resources/icons/file-types/modern/` 与 `resources/icons/file-types/classic/`，
+  两套使用相同文件名，`Icons::fileType()` 按当前布局选择目录。
 - 生成脚本 `tools/gen_modern_icons.py`：SVG 源同时落到 `resources/svg/modern/`，
   应用图标写 `resources/app-icons/qarchiver-<size>.png` 与 `qarchiver.ico`。
 - 文件类型覆盖图片、音视频、PDF、Office（文档/表格/演示）、代码、字体、
@@ -1179,6 +1181,8 @@ resources/
 │   ├── classic/               经典主题 48px 字形 + 64px 文件/文件夹图标
 │   ├── modern/                工具栏与导航图标、app.png、app-icon.png
 │   └── file-types/            文件类型图标
+│       ├── classic/           经典布局图标
+│       └── modern/            现代布局图标
 ├── themes/
 │   ├── aero/    aero.qss + 深浅共用位图 + light/ + dark/
 │   └── modern/  modern.qss + 深浅共用字形 + light/ + dark/
@@ -1189,8 +1193,8 @@ resources/
 ```
 
 - 三个清单由 `tools/update_qrc.py` 生成；**资源路径恒等于文件在 `resources/`
-  下的目录路径**（例如 `resources/icons/file-types/file.pdf` →
-  `:/icons/file-types/file.pdf`），不额外维护别名映射。
+  下的目录路径**（例如 `resources/icons/file-types/modern/file-pdf.png` →
+  `:/icons/file-types/modern/file-pdf.png`），不额外维护别名映射。
 - 清单在 `resources/CMakeLists.txt` 中通过 `target_sources(QArchiver ...)`
   挂到可执行文件并设置 `AUTORCC ON`，因此**图标与样式表全部内置进可执行文件**，
   运行期不需要资源目录。可用 `nm build/src/QArchiver | grep qInitResources` 确认

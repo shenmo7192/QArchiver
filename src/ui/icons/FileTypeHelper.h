@@ -11,11 +11,10 @@
 #include "common/ArchiveConstants.h"
 
 // Maps a member/file name to a coarse kind, a localized description and the
-// icon used by the file list.  The modern icon set lives under :/modern and is
-// selected only for the modern layout; the classic layout keeps its original
-// Aero icons.
+// icon used by the file list.  Each layout has its own complete file-type set
+// (classic under :/icons/file-types/classic, modern under .../modern).
 // 将成员/文件名映射为粗略类型、本地化描述及列表图标。
-// 现代图标位于 :/modern，仅现代布局使用；经典布局保留原有 Aero 图标。
+// 两种布局各自拥有完整的文件类型图标集（经典与现代分别位于不同目录）。
 class FileTypeHelper {
 public:
     enum class Kind {

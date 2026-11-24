@@ -50,6 +50,7 @@ private slots:
     void thumbnailsEnabledRole();
     void thumbnailDisplaySize();
     void splitVolumeIcons();
+    void fileTypeKindPriority();
 
 private:
     static QCheckBox *passwordRememberCheck(PasswordDialog &dialog)
@@ -515,20 +516,55 @@ void TestPreferences::thumbnailDisplaySize()
 // Split-volume suffixes must map to the archive icons, while ordinary .r??
 // files such as .rtf must not be treated as archives.
 // 分卷后缀必须映射到对应压缩包图标；.rtf 等普通 .r?? 文件不能当成压缩包。
+void TestPreferences::fileTypeKindPriority()
+{
+    // E-books must win over the generic document set. / 电子书优先于通用文档类型。
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("book.epub"), false),
+             FileTypeHelper::Kind::Ebook);
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("book.mobi"), false),
+             FileTypeHelper::Kind::Ebook);
+
+    // Batch files are source code, not executables. / 批处理文件归类为源码。
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("build.bat"), false),
+             FileTypeHelper::Kind::Code);
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("build.cmd"), false),
+             FileTypeHelper::Kind::Executable);
+}
+
 void TestPreferences::splitVolumeIcons()
 {
     QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.part1.rar"), false, true),
-             QStringLiteral(":/icons/file-types/file-rar.png"));
+             QStringLiteral(":/icons/file-types/modern/file-rar.png"));
     QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.r00"), false, true),
-             QStringLiteral(":/icons/file-types/file-rar.png"));
+             QStringLiteral(":/icons/file-types/modern/file-rar.png"));
     QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.zip.001"), false, true),
-             QStringLiteral(":/icons/file-types/file-zip.png"));
+             QStringLiteral(":/icons/file-types/modern/file-zip.png"));
     QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.7z.001"), false, true),
-             QStringLiteral(":/icons/file-types/file-7z.png"));
+             QStringLiteral(":/icons/file-types/modern/file-7z.png"));
     QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.tar.zst"), false, true),
-             QStringLiteral(":/icons/file-types/file-tar.png"));
+             QStringLiteral(":/icons/file-types/modern/file-tar.png"));
     QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("notes.rtf"), false, true),
-             QStringLiteral(":/icons/file-types/file-text.png"));
+             QStringLiteral(":/icons/file-types/modern/file-text.png"));
+
+    // Classic layout uses its own complete file-type set instead of falling
+    // back to the generic classic file/folder icons.
+    // 经典布局使用自己完整的文件类型图标集，而不是退回通用文件/文件夹图标。
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.part1.rar"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-rar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.r00"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-rar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.zip.001"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-zip.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.7z.001"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-7z.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.tar.zst"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-tar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("notes.rtf"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-text.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("folder"), true, false),
+             QStringLiteral(":/icons/file-types/classic/folder.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("unknown.xyz"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file.png"));
 }
 
 QTEST_MAIN(TestPreferences)

@@ -9,6 +9,7 @@ added or renamed.  Run this script after touching ``resources/``:
 Layout produced by the script::
 
     resources/icons.qrc          -> /icons/classic, /icons/modern, /icons/file-types
+                                     (file-types/{classic,modern}/ nested)
     resources/themes-aero.qrc    -> /themes/aero
     resources/themes-modern.qrc  -> /themes/modern
 
@@ -71,7 +72,7 @@ def main() -> int:
 
     write_qrc(
         "icons.qrc",
-        "QArchiver icon resources: /icons/classic, /icons/modern, /icons/file-types",
+        "QArchiver icon resources: /icons/classic, /icons/modern, /icons/file-types/{classic,modern}",
         [
             ("/icons/classic", classic),
             ("/icons/modern", modern),

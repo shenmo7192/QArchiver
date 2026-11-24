@@ -25,16 +25,12 @@ bool isOneOf(const QString &suffix, const QSet<QString> &set)
     return set.contains(suffix);
 }
 
-// Icon path helpers: the resource roots live in IconUtils. / 图标路径辅助函数：
+// Icon path helper: the resource roots live in IconUtils. / 图标路径辅助函数：
 // 资源根目录由 IconUtils 统一提供。
-QString aeroPath(const char *fileName)
+QString fileTypePath(const char *fileName, bool modern)
 {
-    return QString::fromLatin1(Icons::aeroRoot()) + QLatin1String(fileName);
-}
-
-QString fileTypePath(const char *fileName)
-{
-    return QString::fromLatin1(Icons::fileTypeRoot()) + QLatin1String(fileName);
+    return QString::fromLatin1(Icons::fileTypeRoot(modern))
+        + QLatin1String(fileName);
 }
 
 } // namespace
@@ -107,7 +103,7 @@ FileTypeHelper::Kind FileTypeHelper::kindFor(const QString &fileName, bool isDir
 
     static const QSet<QString> document = {
         QStringLiteral("doc"), QStringLiteral("docx"), QStringLiteral("odt"),
-        QStringLiteral("epub"), QStringLiteral("mobi"), QStringLiteral("wps")
+        QStringLiteral("wps")
     };
     if (isOneOf(suffix, document)) {
         return Kind::Document;
@@ -146,7 +142,7 @@ FileTypeHelper::Kind FileTypeHelper::kindFor(const QString &fileName, bool isDir
     static const QSet<QString> executable = {
         QStringLiteral("exe"), QStringLiteral("dll"), QStringLiteral("so"),
         QStringLiteral("dylib"), QStringLiteral("bin"), QStringLiteral("com"),
-        QStringLiteral("bat"), QStringLiteral("cmd")
+        QStringLiteral("cmd")
     };
     if (isOneOf(suffix, executable)) {
         return Kind::Executable;
@@ -265,39 +261,36 @@ QString FileTypeHelper::description(const QString &fileName, bool isDir)
 
 QString FileTypeHelper::iconPath(const QString &fileName, bool isDir, bool modern)
 {
-    if (!modern) {
-        return isDir ? aeroPath("folder.png") : aeroPath("file.png");
-    }
     if (isDir) {
-        return fileTypePath("folder.png");
+        return fileTypePath("folder.png", modern);
     }
 
     switch (kindFor(fileName, false)) {
-    case Kind::Folder:       return fileTypePath("folder.png");
-    case Kind::Image:        return fileTypePath("file-image.png");
-    case Kind::Text:         return fileTypePath("file-text.png");
-    case Kind::Audio:        return fileTypePath("file-audio.png");
-    case Kind::Video:        return fileTypePath("file-video.png");
-    case Kind::Pdf:          return fileTypePath("file-pdf.png");
-    case Kind::Document:     return fileTypePath("file-doc.png");
-    case Kind::Spreadsheet:  return fileTypePath("file-sheet.png");
-    case Kind::Presentation: return fileTypePath("file-ppt.png");
-    case Kind::Code:         return fileTypePath("file-code.png");
-    case Kind::Executable:   return fileTypePath("file-exe.png");
-    case Kind::Font:         return fileTypePath("file-font.png");
-    case Kind::Iso:          return fileTypePath("file-iso.png");
-    case Kind::Ebook:        return fileTypePath("file-ebook.png");
-    case Kind::Database:     return fileTypePath("file-database.png");
-    case Kind::Torrent:      return fileTypePath("file-torrent.png");
-    case Kind::Design:       return fileTypePath("file-design.png");
-    case Kind::Subtitle:     return fileTypePath("file-subtitle.png");
-    case Kind::ThreeD:       return fileTypePath("file-3d.png");
-    case Kind::Package:      return fileTypePath("file-package.png");
+    case Kind::Folder:       return fileTypePath("folder.png", modern);
+    case Kind::Image:        return fileTypePath("file-image.png", modern);
+    case Kind::Text:         return fileTypePath("file-text.png", modern);
+    case Kind::Audio:        return fileTypePath("file-audio.png", modern);
+    case Kind::Video:        return fileTypePath("file-video.png", modern);
+    case Kind::Pdf:          return fileTypePath("file-pdf.png", modern);
+    case Kind::Document:     return fileTypePath("file-doc.png", modern);
+    case Kind::Spreadsheet:  return fileTypePath("file-sheet.png", modern);
+    case Kind::Presentation: return fileTypePath("file-ppt.png", modern);
+    case Kind::Code:         return fileTypePath("file-code.png", modern);
+    case Kind::Executable:   return fileTypePath("file-exe.png", modern);
+    case Kind::Font:         return fileTypePath("file-font.png", modern);
+    case Kind::Iso:          return fileTypePath("file-iso.png", modern);
+    case Kind::Ebook:        return fileTypePath("file-ebook.png", modern);
+    case Kind::Database:     return fileTypePath("file-database.png", modern);
+    case Kind::Torrent:      return fileTypePath("file-torrent.png", modern);
+    case Kind::Design:       return fileTypePath("file-design.png", modern);
+    case Kind::Subtitle:     return fileTypePath("file-subtitle.png", modern);
+    case Kind::ThreeD:       return fileTypePath("file-3d.png", modern);
+    case Kind::Package:      return fileTypePath("file-package.png", modern);
     case Kind::Archive: {
         const QString suffix = FormatRegistry::kindSuffix(fileName);
         if (suffix == QLatin1String("zip")
             || suffix == QLatin1String("zip.001")) {
-            return fileTypePath("file-zip.png");
+            return fileTypePath("file-zip.png", modern);
         }
         static const QRegularExpression oldRarVolumeRe(
             QStringLiteral("^r\\d{2,}$"),
@@ -305,18 +298,18 @@ QString FileTypeHelper::iconPath(const QString &fileName, bool isDir, bool moder
         if (suffix == QLatin1String("rar")
             || suffix == QLatin1String("partNN.rar")
             || oldRarVolumeRe.match(suffix).hasMatch()) {
-            return fileTypePath("file-rar.png");
+            return fileTypePath("file-rar.png", modern);
         }
         if (suffix == QLatin1String("7z")
             || suffix == QLatin1String("7z.001")) {
-            return fileTypePath("file-7z.png");
+            return fileTypePath("file-7z.png", modern);
         }
-        return fileTypePath("file-tar.png");
+        return fileTypePath("file-tar.png", modern);
     }
     case Kind::Other:
         break;
     }
-    return fileTypePath("file.png");
+    return fileTypePath("file.png", modern);
 }
 
 QIcon FileTypeHelper::icon(const QString &fileName, bool isDir, bool modern)
