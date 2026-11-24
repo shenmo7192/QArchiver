@@ -24,7 +24,7 @@ $zip = (Resolve-Path -LiteralPath $ZipPath).Path
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     # Prefer the version encoded in QArchiver-<version>-windows-<arch>.zip,
-    # which carries the release revision (e.g. 2.4.0-1).
+    # which carries the release revision (e.g. 2.4.0-2).
     $zipName = [System.IO.Path]::GetFileNameWithoutExtension($zip)
     $zipVersion = [regex]::Match($zipName,
         '^QArchiver-(.+)-windows-(x64|arm64)$').Groups[1].Value

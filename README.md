@@ -34,8 +34,8 @@ xx.zip”、压缩到 7z/ZIP/tar 等）。安装器提供简体中文 / English 
 发布新版本：
 
 ```bash
-git tag 2.4.0-1
-git push origin 2.4.0-1
+git tag 2.4.0-2
+git push origin 2.4.0-2
 ```
 
 ## 功能

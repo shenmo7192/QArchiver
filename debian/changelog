@@ -1,4 +1,4 @@
-qarchiver (2.4.0-1) unstable; urgency=medium
+qarchiver (2.4.0-2) unstable; urgency=medium
 
   * 最终体验打磨：modern 主题 ZIP/RAR 图标改为与 7z 一致的
     居中格式文字标识，并统一三个格式的文字位置。

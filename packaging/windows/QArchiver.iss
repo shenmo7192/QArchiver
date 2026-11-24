@@ -4,7 +4,7 @@
 ; Build from the staged portable package:
 ; 从已部署好的便携包目录构建：
 ;
-;   ISCC.exe QArchiver.iss /DAppVersion=2.4.0-1 ^
+;   ISCC.exe QArchiver.iss /DAppVersion=2.4.0-2 ^
 ;       /DSourceDir=C:\path\to\staged ^
 ;       /DOutputDir=C:\path\to\dist /DArch=x64
 ;
@@ -17,10 +17,10 @@
 ; 新增格式时请同步修改两处。
 
 #ifndef AppVersion
-  #define AppVersion "2.4.0-1"
+  #define AppVersion "2.4.0-2"
 #endif
 #ifndef AppVersionNumeric
-  #define AppVersionNumeric "2.4.0.1"
+  #define AppVersionNumeric "2.4.0.2"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\..\build-windows\package"

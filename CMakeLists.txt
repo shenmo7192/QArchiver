@@ -11,7 +11,7 @@ project(QArchiver
 # CMake project version stays numeric (2.4.0) for compiler/resource metadata.
 # 包/发行修订号用于产物命名与界面版本；CMake 项目版本保持数字形式 2.4.0，
 # 供编译器与 Windows 资源使用。
-set(QARCHIVER_RELEASE_VERSION "2.4.0-1")
+set(QARCHIVER_RELEASE_VERSION "2.4.0-2")
 
 # The shared core/backends/utils layers use C++20; Qt 6.4 supports it.
 # core/backends/utils 等公共层使用 C++20；Qt 6.4 支持该标准。
