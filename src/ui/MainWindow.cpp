@@ -409,7 +409,13 @@ void MainWindow::showStartPage()
     }
     // Keep the folder pane visible on the welcome page so its content uses
     // the same centred content area as the archive/file-manager views.
-    // 欢迎页保留文件夹侧栏，使内容与归档/文件管理视图使用同一居中区域。
+    // Returning from the local file manager must restore the archive sidebar.
+    // 欢迎页保留文件夹侧栏；从本地文件管理返回时也恢复归档侧栏。
+    if (m_folderPane) {
+        m_folderPane->setVisible(true);
+        m_folderPane->setLocalMode(false);
+        m_folderPane->clear();
+    }
     setWindowTitle(tr("QArchiver"));
     updateStatusSummary();
     updateActionsState();
@@ -498,6 +504,8 @@ void MainWindow::onArchiveOpened(const QString &filePath)
     setWindowTitle(tr("QArchiver - %1").arg(QFileInfo(filePath).fileName()));
     if (m_folderPane) {
         m_folderPane->setVisible(true);
+        m_folderPane->setLocalMode(false);
+        m_folderPane->clear();
     }
     applyContentViewMode();
     showArchivePage();

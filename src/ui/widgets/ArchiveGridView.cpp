@@ -16,6 +16,7 @@
 #include <QTextLayout>
 #include <QTextLine>
 #include <QTextOption>
+#include <QTimer>
 
 namespace {
 // QListView's icon-mode delegate limits the label to the icon width on some
@@ -166,6 +167,68 @@ ArchiveGridView::ArchiveGridView(QWidget *parent)
             emit entryActivated(path);
         }
     });
+}
+
+void ArchiveGridView::setModel(QAbstractItemModel *model)
+{
+    QListView::setModel(model);
+    if (!model) {
+        return;
+    }
+    const auto schedule = [this]() {
+        QTimer::singleShot(0, this, &ArchiveGridView::updateGridHeight);
+    };
+    connect(model, &QAbstractItemModel::modelReset, this, schedule);
+    connect(model, &QAbstractItemModel::layoutChanged, this, schedule);
+    connect(model, &QAbstractItemModel::rowsInserted, this, schedule);
+    connect(model, &QAbstractItemModel::rowsRemoved, this, schedule);
+    connect(model, &QAbstractItemModel::dataChanged, this, schedule);
+    schedule();
+}
+
+void ArchiveGridView::updateGridHeight()
+{
+    if (!model()) {
+        return;
+    }
+
+    const int width = qMax(120, gridSize().width());
+    const int iconHeight = iconSize().height();
+    const int textWidth = qMax(40, width - 8);
+    const QFontMetricsF metrics(font());
+    const qreal lineHeight = qMax<qreal>(1, metrics.lineSpacing());
+
+    QTextOption option;
+    option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+
+    int maxLines = 1;
+    for (int row = 0; row < model()->rowCount(); ++row) {
+        const QString text = model()->index(row, 0).data(Qt::DisplayRole).toString();
+        if (text.isEmpty()) {
+            continue;
+        }
+        QTextLayout layout(text, font());
+        layout.setTextOption(option);
+        layout.beginLayout();
+        int lines = 0;
+        while (true) {
+            QTextLine line = layout.createLine();
+            if (!line.isValid()) {
+                break;
+            }
+            line.setLineWidth(textWidth);
+            ++lines;
+        }
+        layout.endLayout();
+        maxLines = qMax(maxLines, qMax(1, lines));
+    }
+
+    const int textHeight = qCeil(maxLines * lineHeight);
+    const int height = qMax(iconHeight + 52,
+                            8 + iconHeight + 8 + textHeight + 8);
+    if (gridSize().height() != height) {
+        setGridSize(QSize(width, height));
+    }
 }
 
 QStringList ArchiveGridView::selectedEntryPaths() const

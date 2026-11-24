@@ -27,15 +27,23 @@ public:
     void clear();
     void setCurrentDirectory(const QString &directory);
     void setSelection(const QList<ArchiveEntry> &entries);
+    // Switch the pane between archive folders and system places.
+    // 在压缩包文件夹树与系统位置侧栏之间切换。
+    void setLocalMode(bool local);
+    void setCurrentLocalPath(const QString &path);
 
 signals:
     void directoryActivated(const QString &path);
 
 private:
     void rebuildTree();
+    void rebuildLocalPlaces();
     QStringList directoryPaths() const;
 
     QTreeWidget *m_tree = nullptr;
+    QLabel *m_header = nullptr;
+    QWidget *m_detailsPane = nullptr;
+    bool m_localMode = false;
     QLabel *m_emptyLabel = nullptr;
     QStackedWidget *m_detailsStack = nullptr;
     QLabel *m_nameValue = nullptr;

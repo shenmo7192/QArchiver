@@ -699,6 +699,7 @@ void MainWindow::applyItemSizeInternal(int size, bool persist)
         m_gridView->setIconSize(QSize(size, size));
         m_gridView->setGridSize(
             QSize(qMax(128, size + 24), size + 52));
+        m_gridView->updateGridHeight();
     }
     if (m_treeView) {
         // Classic list/tree rows are designed for compact Explorer-like rows;

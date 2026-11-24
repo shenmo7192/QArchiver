@@ -4,12 +4,13 @@
 <context>
     <name>ArchiveFolderPane</name>
     <message>
-        <location filename="../src/ui/widgets/ArchiveFolderPane.cpp" line="+68"/>
+        <location filename="../src/ui/widgets/ArchiveFolderPane.cpp" line="+72"/>
+        <location line="+98"/>
         <source>Folders</source>
         <translation>Folders</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="-74"/>
         <source>Details</source>
         <translation>Details</translation>
     </message>
@@ -54,12 +55,57 @@
         <translation>Path:</translation>
     </message>
     <message>
-        <location line="+81"/>
+        <location line="+41"/>
+        <source>Places</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>Home</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Desktop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Documents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Downloads</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Pictures</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Music</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Videos</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>File System</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+116"/>
         <source>Archive root</source>
         <translation>Archive root</translation>
     </message>
     <message>
-        <location line="+84"/>
+        <location line="+88"/>
         <source>%1 items selected</source>
         <translation>%1 items selected</translation>
     </message>
@@ -1130,12 +1176,12 @@ Overwrite it?</translation>
     <name>MainWindow</name>
     <message>
         <location filename="../src/ui/MainWindow.cpp" line="+102"/>
-        <location line="+311"/>
+        <location line="+317"/>
         <source>QArchiver</source>
         <translation>QArchiver</translation>
     </message>
     <message>
-        <location line="-225"/>
+        <location line="-231"/>
         <source>Unsafe Symbolic Link</source>
         <translation>Unsafe Symbolic Link</translation>
     </message>
@@ -1177,7 +1223,7 @@ Skipping the link prevents it and its contents from being extracted. Aborting re
     </message>
     <message>
         <location filename="../src/ui/MainWindowActions.cpp" line="+212"/>
-        <location filename="../src/ui/MainWindowNavigation.cpp" line="+614"/>
+        <location filename="../src/ui/MainWindowNavigation.cpp" line="+618"/>
         <location line="+79"/>
         <source>Open</source>
         <translation>Open</translation>
@@ -1248,41 +1294,41 @@ Use the Open button or drag a file here.</translation>
     </message>
     <message>
         <location line="+166"/>
-        <location line="+68"/>
+        <location line="+69"/>
         <source>Size</source>
         <translation type="unfinished">Size</translation>
     </message>
     <message>
-        <location line="-67"/>
-        <location line="+69"/>
+        <location line="-68"/>
+        <location line="+70"/>
         <source>Packed size</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-68"/>
-        <location line="+70"/>
+        <location line="-69"/>
+        <location line="+71"/>
         <source>Type</source>
         <translation type="unfinished">Type</translation>
     </message>
     <message>
-        <location line="-69"/>
-        <location line="+70"/>
+        <location line="-70"/>
+        <location line="+71"/>
         <source>Modified</source>
         <translation type="unfinished">Modified</translation>
     </message>
     <message>
-        <location line="-69"/>
+        <location line="-70"/>
         <source>Encrypted</source>
         <translation type="unfinished">Encrypted</translation>
     </message>
     <message>
         <location line="+2"/>
-        <location line="+61"/>
+        <location line="+62"/>
         <source>Name</source>
         <translation type="unfinished">Name</translation>
     </message>
     <message>
-        <location line="-58"/>
+        <location line="-59"/>
         <source>Sort: %1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1297,7 +1343,7 @@ Use the Open button or drag a file here.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+47"/>
         <source>Sort by</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1312,7 +1358,7 @@ Use the Open button or drag a file here.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-313"/>
+        <location line="-314"/>
         <source>Recent Files</source>
         <translation>Recent Files</translation>
     </message>
@@ -1357,7 +1403,7 @@ Use the Open button or drag a file here.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+102"/>
+        <location line="+106"/>
         <source>Compress to</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1506,7 +1552,7 @@ This cannot be undone.</translation>
         <translation>About QArchiver</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="+330"/>
+        <location filename="../src/ui/MainWindow.cpp" line="+338"/>
         <source>Extracted to %1</source>
         <translation>Extracted to %1</translation>
     </message>
@@ -1527,8 +1573,8 @@ This cannot be undone.</translation>
         <translation>Extract Selected...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="-265"/>
-        <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="-239"/>
+        <location filename="../src/ui/MainWindow.cpp" line="-267"/>
+        <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="-243"/>
         <source>QArchiver - %1</source>
         <translation>QArchiver - %1</translation>
     </message>
@@ -1704,8 +1750,8 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="-106"/>
-        <location filename="../src/ui/MainWindowNavigation.cpp" line="-514"/>
+        <location filename="../src/ui/MainWindow.cpp" line="-112"/>
+        <location filename="../src/ui/MainWindowNavigation.cpp" line="-518"/>
         <location line="+71"/>
         <source>No archive open</source>
         <translation>No archive open</translation>
@@ -1731,7 +1777,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>%1 · Unpacked %2</translation>
     </message>
     <message>
-        <location line="+374"/>
+        <location line="+378"/>
         <location line="+79"/>
         <source>Open With...</source>
         <translation type="unfinished"></translation>
@@ -1757,7 +1803,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-473"/>
+        <location line="-477"/>
         <location line="+55"/>
         <source>%1 files, %2 folders (%3)</source>
         <translation>%1 files, %2 folders (%3)</translation>
@@ -1848,12 +1894,12 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>&lt;h3&gt;QArchiver (小Q解压)&lt;/h3&gt;&lt;p&gt;A lightweight Qt-based archive manager for Linux and Windows.&lt;/p&gt;&lt;p&gt;The modern interface follows HaoZip: flat toolbar, folder and details panes, one-click extraction and the classic layout in Preferences. No ads, no bundled security scanners.&lt;/p&gt;&lt;p&gt;Supports: tar, tar.gz, tar.xz, tar.bz2, zip, 7z, rar, gz, bz2, xz&lt;/p&gt;&lt;p&gt;Version: %1&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="+87"/>
+        <location filename="../src/ui/MainWindow.cpp" line="+93"/>
         <source>Opening %1...</source>
         <translation>Opening %1...</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+31"/>
         <source>Opened: %1</source>
         <translation>Opened: %1</translation>
     </message>
@@ -1891,7 +1937,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
     </message>
     <message>
         <location line="+2"/>
-        <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+251"/>
+        <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+255"/>
         <source>Unsupported Format</source>
         <translation>Unsupported Format</translation>
     </message>
@@ -1966,7 +2012,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location line="-139"/>
+        <location line="-141"/>
         <source>Detecting format: %1</source>
         <translation>Detecting format: %1</translation>
     </message>
@@ -1976,7 +2022,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>Detecting archive format...</translation>
     </message>
     <message>
-        <location line="+192"/>
+        <location line="+194"/>
         <source>Unable to open archive.
 %1</source>
         <translation>Unable to open archive.

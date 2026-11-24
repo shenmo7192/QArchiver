@@ -4,12 +4,13 @@
     <context>
         <name>ArchiveFolderPane</name>
         <message>
-            <location filename="../src/ui/widgets/ArchiveFolderPane.cpp" line="+68" />
+            <location filename="../src/ui/widgets/ArchiveFolderPane.cpp" line="+72" />
+            <location line="+98" />
             <source>Folders</source>
             <translation>文件夹</translation>
         </message>
         <message>
-            <location line="+23" />
+            <location line="-74" />
             <source>Details</source>
             <translation>详细信息</translation>
         </message>
@@ -54,12 +55,57 @@
             <translation>路径：</translation>
         </message>
         <message>
-            <location line="+81" />
+            <location line="+41" />
+            <source>Places</source>
+            <translation>位置</translation>
+        </message>
+        <message>
+            <location line="+35" />
+            <source>Home</source>
+            <translation>主目录</translation>
+        </message>
+        <message>
+            <location line="+1" />
+            <source>Desktop</source>
+            <translation>桌面</translation>
+        </message>
+        <message>
+            <location line="+2" />
+            <source>Documents</source>
+            <translation>文档</translation>
+        </message>
+        <message>
+            <location line="+2" />
+            <source>Downloads</source>
+            <translation>下载</translation>
+        </message>
+        <message>
+            <location line="+2" />
+            <source>Pictures</source>
+            <translation>图片</translation>
+        </message>
+        <message>
+            <location line="+2" />
+            <source>Music</source>
+            <translation>音乐</translation>
+        </message>
+        <message>
+            <location line="+2" />
+            <source>Videos</source>
+            <translation>视频</translation>
+        </message>
+        <message>
+            <location line="+2" />
+            <source>File System</source>
+            <translation>文件系统</translation>
+        </message>
+        <message>
+            <location line="+116" />
             <source>Archive root</source>
             <translation>压缩包根目录</translation>
         </message>
         <message>
-            <location line="+84" />
+            <location line="+88" />
             <source>%1 items selected</source>
             <translation>已选择 %1 项</translation>
         </message>
@@ -1130,12 +1176,12 @@ Overwrite it?</source>
         <name>MainWindow</name>
         <message>
             <location filename="../src/ui/MainWindow.cpp" line="+102" />
-            <location line="+311" />
+            <location line="+317" />
             <source>QArchiver</source>
             <translation>QArchiver</translation>
         </message>
         <message>
-            <location line="-225" />
+            <location line="-231" />
             <source>Unsafe Symbolic Link</source>
             <translation>不安全的符号链接</translation>
         </message>
@@ -1177,7 +1223,7 @@ Skipping the link prevents it and its contents from being extracted. Aborting re
         </message>
         <message>
             <location filename="../src/ui/MainWindowActions.cpp" line="+212" />
-            <location filename="../src/ui/MainWindowNavigation.cpp" line="+614" />
+            <location filename="../src/ui/MainWindowNavigation.cpp" line="+618" />
             <location line="+79" />
             <source>Open</source>
             <translation>打开</translation>
@@ -1282,7 +1328,7 @@ Use the Open button or drag a file here.</source>
             <translation>打开压缩包</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+418" />
+            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+422" />
             <source>Select Files to Compress</source>
             <translation>选择要压缩的文件</translation>
         </message>
@@ -1342,7 +1388,7 @@ This cannot be undone.</source>
             <translation>关于 QArchiver</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="+330" />
+            <location filename="../src/ui/MainWindow.cpp" line="+338" />
             <source>Extracted to %1</source>
             <translation>已解压到 %1</translation>
         </message>
@@ -1363,8 +1409,8 @@ This cannot be undone.</source>
             <translation>解压选中项...</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="-265" />
-            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="-239" />
+            <location filename="../src/ui/MainWindow.cpp" line="-267" />
+            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="-243" />
             <source>QArchiver - %1</source>
             <translation>QArchiver - %1</translation>
         </message>
@@ -1520,8 +1566,8 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>帮助(&amp;H)</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="-106" />
-            <location filename="../src/ui/MainWindowNavigation.cpp" line="-514" />
+            <location filename="../src/ui/MainWindow.cpp" line="-112" />
+            <location filename="../src/ui/MainWindowNavigation.cpp" line="-518" />
             <location line="+71" />
             <source>No archive open</source>
             <translation>未打开压缩包</translation>
@@ -1633,12 +1679,12 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>&lt;h3&gt;QArchiver（小Q解压）&lt;/h3&gt;&lt;p&gt;轻量的 Qt 压缩包管理器，支持 Linux 与 Windows。&lt;/p&gt;&lt;p&gt;现代界面参考好压：扁平工具栏、文件夹与详细信息面板、一键解压，并可在偏好设置中切换回经典布局。没有广告，也不捆绑安全扫描器。&lt;/p&gt;&lt;p&gt;支持：tar、tar.gz、tar.xz、tar.bz2、zip、7z、rar、gz、bz2、xz&lt;/p&gt;&lt;p&gt;版本：%1&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="+87" />
+            <location filename="../src/ui/MainWindow.cpp" line="+93" />
             <source>Opening %1...</source>
             <translation>正在打开 %1...</translation>
         </message>
         <message>
-            <location line="+29" />
+            <location line="+31" />
             <source>Opened: %1</source>
             <translation>已打开：%1</translation>
         </message>
@@ -1676,7 +1722,7 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
         </message>
         <message>
             <location line="+2" />
-            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+251" />
+            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+255" />
             <source>Unsupported Format</source>
             <translation>不支持的格式</translation>
         </message>
@@ -1746,7 +1792,7 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>已取消</translation>
         </message>
         <message>
-            <location line="-139" />
+            <location line="-141" />
             <source>Detecting format: %1</source>
             <translation>正在检测格式：%1</translation>
         </message>
@@ -1756,7 +1802,7 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>正在检测压缩包格式...</translation>
         </message>
         <message>
-            <location line="+192" />
+            <location line="+194" />
             <source>Unable to open archive.
 %1</source>
             <translation>无法打开压缩包。
@@ -1868,7 +1914,7 @@ For a self-contained installation, download the official 7-Zip command-line tool
             <translation>本地文件夹 · %1</translation>
         </message>
         <message>
-            <location line="+444" />
+            <location line="+448" />
             <source>Add to "%1"</source>
             <translation>添加到 "%1"</translation>
         </message>
@@ -1888,12 +1934,12 @@ For a self-contained installation, download the official 7-Zip command-line tool
             <translation>刷新</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="-249" />
+            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="-253" />
             <source>%1 items</source>
             <translation>%1 个项目</translation>
         </message>
         <message>
-            <location line="+102" />
+            <location line="+106" />
             <source>Compress to</source>
             <translation>压缩到</translation>
         </message>
@@ -1988,41 +2034,41 @@ Overwrite it?</source>
         </message>
         <message>
             <location filename="../src/ui/MainWindowLayout.cpp" line="+236" />
-            <location line="+61" />
+            <location line="+62" />
             <source>Name</source>
             <translation>名称</translation>
         </message>
         <message>
-            <location line="-67" />
-            <location line="+68" />
+            <location line="-68" />
+            <location line="+69" />
             <source>Size</source>
             <translation>大小</translation>
         </message>
         <message>
-            <location line="-246" />
+            <location line="-247" />
             <source>Icon size (Ctrl + wheel)</source>
             <translation>图标大小（Ctrl + 滚轮）</translation>
         </message>
         <message>
             <location line="+179" />
-            <location line="+69" />
+            <location line="+70" />
             <source>Packed size</source>
             <translation>压缩后大小</translation>
         </message>
         <message>
-            <location line="-68" />
-            <location line="+70" />
+            <location line="-69" />
+            <location line="+71" />
             <source>Type</source>
             <translation>类型</translation>
         </message>
         <message>
-            <location line="-69" />
-            <location line="+70" />
+            <location line="-70" />
+            <location line="+71" />
             <source>Modified</source>
             <translation>修改时间</translation>
         </message>
         <message>
-            <location line="-69" />
+            <location line="-70" />
             <source>Encrypted</source>
             <translation>加密</translation>
         </message>
@@ -2042,7 +2088,7 @@ Overwrite it?</source>
             <translation>排序：%1（%2）</translation>
         </message>
         <message>
-            <location line="+49" />
+            <location line="+50" />
             <source>Sort by</source>
             <translation>排序方式</translation>
         </message>

@@ -539,6 +539,10 @@ void MainWindow::onNavUp()
 
 void MainWindow::onFolderDirectoryActivated(const QString &path)
 {
+    if (m_localBrowse) {
+        loadLocalDirectory(path, true);
+        return;
+    }
     navigateToDirectory(path, true);
 }
 

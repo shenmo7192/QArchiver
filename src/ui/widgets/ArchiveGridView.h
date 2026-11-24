@@ -9,6 +9,7 @@
 #include <QPoint>
 #include <QStringList>
 
+class QAbstractItemModel;
 class QMouseEvent;
 class QWheelEvent;
 
@@ -24,6 +25,12 @@ public:
     // Selected archive entry paths (full internal paths).
     // 选中的压缩包条目路径（完整内部路径）。
     QStringList selectedEntryPaths() const;
+
+    // Recompute the cell height from the longest wrapped file name.
+    // 按最长换行文件名重新计算单元格高度。
+    void updateGridHeight();
+
+    void setModel(QAbstractItemModel *model) override;
 
 signals:
     void entryActivated(const QString &path);

@@ -254,7 +254,11 @@ void MainWindow::openLocalEntry(const QString &name)
 void MainWindow::updateLocalModeUi()
 {
     if (m_folderPane) {
-        m_folderPane->setVisible(!m_localBrowse);
+        m_folderPane->setVisible(true);
+        m_folderPane->setLocalMode(m_localBrowse);
+        if (m_localBrowse) {
+            m_folderPane->setCurrentLocalPath(m_localBrowseDir);
+        }
     }
     updateNavLocation();
     updateNavigationState();
