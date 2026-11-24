@@ -185,6 +185,11 @@ void ArchiveManager::finishOpen(const QString &filePath, ArchiveFormat format)
     }
 }
 
+QString ArchiveManager::nameEncoding() const
+{
+    return m_backend ? m_backend->nameEncoding() : QString();
+}
+
 void ArchiveManager::listContents(const ListOptions &options)
 {
     if (!m_backend) {
@@ -195,6 +200,11 @@ void ArchiveManager::listContents(const ListOptions &options)
     m_pending = options;
     m_retryCount = 0;
 
+    // No encoding hint here on purpose: every backend re-detects the encoding
+    // from the archive itself, which is deterministic, while reusing a value
+    // from a previous listing could be stale if the archive changed on disk.
+    // 此处故意不传编码提示：每个后端都会从压缩包本身重新检测（结果是确定的），
+    // 而复用上次列表的值在压缩包被外部修改后可能已过期。
     if (!startOperation(m_backend, [options](ArchiveBackend *backend) {
             backend->listContents(options);
         })) {
@@ -225,6 +235,13 @@ void ArchiveManager::extract(const ExtractOptions &options)
     }
 
     ExtractOptions effective = options;
+    // Decode member names exactly like the listing did, and let the CLI
+    // backends build their listfile in the archive's own code page.
+    // 按与列表一致的方式解码成员名，并让命令行后端按压缩包自身的代码页
+    // 生成列表文件。
+    if (effective.encodingHint.isEmpty()) {
+        effective.encodingHint = nameEncoding();
+    }
     QSet<QString> rejected;
     if (!validateExtraction(options, &rejected)) {
         return;

@@ -60,6 +60,15 @@ public:
     // Current archive path / 当前压缩包路径
     QString archivePath() const { return m_archivePath; }
 
+    // Encoding of legacy entry names as detected (or imposed by the caller) by
+    // the backend, e.g. "UTF-8" or "GB18030".  Callers reuse this value for
+    // extraction and drag-out so member names are decoded exactly like the
+    // listing that produced them.  Empty means "not detected yet".
+    // 后端检测（或调用方指定）的旧式条目名编码，例如 "UTF-8"、"GB18030"。
+    // 解压与拖出复用该值，保证成员名按与列表一致的方式解码。
+    // 返回空串表示尚未检测。
+    virtual QString nameEncoding() const { return QString(); }
+
     // Cooperative cancellation: the manager sets this flag from the GUI
     // thread; long-running backends poll it between process I/O operations.
     // 协作式取消：管理器从 GUI 线程设置该标志；

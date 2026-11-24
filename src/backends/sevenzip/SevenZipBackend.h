@@ -25,6 +25,7 @@ public:
     void closeArchive() override;
 
     ArchiveFormat format() const override { return m_format; }
+    QString nameEncoding() const override { return m_nameEncoding; }
     bool isReadOnly() const override { return false; }
     bool supportsEncryption() const override { return true; }
     bool supportsVolume() const override { return true; }

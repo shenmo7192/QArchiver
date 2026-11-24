@@ -332,7 +332,11 @@ void TarBackend::listContents(const ListOptions &options)
     }
 
     m_entries = parser.takeEntries();
-    m_nameEncoding = EncodingDetector::detect(result.stdOutRaw);
+    // Vote on the member-name lines only (see SevenZipUtils::sampleNameBytes).
+    // 仅对成员名行投票（见 SevenZipUtils::sampleNameBytes）。
+    const QByteArray nameSample = SevenZipUtils::sampleNameBytes(result.stdOutRaw);
+    m_nameEncoding = nameSample.isEmpty() ? QStringLiteral("UTF-8")
+                                          : EncodingDetector::detect(nameSample);
     emit fileListReady(m_entries);
 }
 
@@ -341,6 +345,11 @@ void TarBackend::extract(const ExtractOptions &options)
     if (!m_isOpen) {
         emit errorOccurred(ArchiveErrorCode::Unknown, tr("Archive not opened"));
         return;
+    }
+    if (!options.encodingHint.isEmpty()) {
+        // Honour an explicit user choice over the detected encoding.
+        // 用户显式选择优先于检测结果。
+        m_nameEncoding = options.encodingHint;
     }
 
     const QString sevenZip = SevenZipUtils::resolveSevenZip();

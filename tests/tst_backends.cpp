@@ -16,7 +16,9 @@
 #include "backends/stream/StreamBackend.h"
 #include "backends/tar/TarBackend.h"
 #include "backends/sevenzip/ZipBackend.h"
+#include "backends/sevenzip/SevenZipUtils.h"
 #include "common/ArchiveOptions.h"
+#include "utils/EncodingDetector.h"
 #include "utils/MimeTypeHelper.h"
 
 namespace {
@@ -132,6 +134,7 @@ private slots:
 #ifdef Q_OS_LINUX
     void legacyGbkZipSelectedExtract();
 #endif
+    void legacyNameSampleIgnoresHeader();
     void gzipStream();
     void streamCompressRoundTrip();
     void zstdStreams();
@@ -1128,6 +1131,19 @@ void TestBackends::legacyGbkZipSelectedExtract()
     QVERIFY2(listed, "legacy GBK zip list failed");
     QCOMPARE(entries.size(), 1);
     QCOMPARE(entries.first().path, QStringLiteral("中文测试.txt"));
+    // The detected encoding has to be exposed so the UI can hand it back to
+    // extraction and drag-out.  7-Zip converts legacy names to UTF-8 when the
+    // system locale uses a matching code page and passes the raw bytes through
+    // otherwise, so the exact value is locale dependent: what matters is that
+    // re-encoding the listed name with it reproduces the same characters.
+    // 检测到的编码必须可以导出，以便界面回传给解压与拖出。7-Zip 在系统 locale
+    // 使用匹配代码页时会把旧式名称转成 UTF-8，否则原样输出原始字节，
+    // 因此具体值取决于 locale：关键是按该编码重编码后能还原同样的字符。
+    const QString encoding = reader.nameEncoding();
+    QVERIFY(!encoding.isEmpty());
+    QCOMPARE(EncodingDetector::decode(
+                 EncodingDetector::encode(entries.first().path, encoding), encoding),
+             entries.first().path);
 
     const QString dest = temp.filePath(QStringLiteral("out"));
     ExtractOptions options;
@@ -1141,6 +1157,45 @@ void TestBackends::legacyGbkZipSelectedExtract()
              QStringLiteral("legacy"));
 }
 #endif
+
+// The encoding vote must look at member-name lines only: the 7-Zip banner and
+// the archive's own (always UTF-8) path would otherwise outvote a legacy
+// archive that has just a few non-UTF-8 members.
+// 编码投票必须只看成员名行：否则 7-Zip 横幅与压缩包自身（始终为 UTF-8）的
+// 路径会把只含少量非 UTF-8 成员的旧式压缩包的判断带偏。
+void TestBackends::legacyNameSampleIgnoresHeader()
+{
+    const QByteArray gbkName = QByteArray::fromHex("d6d0cec4b2e2cad42e747874");
+    const QByteArray archivePathUtf8 = QStringLiteral("/tmp/测试.zip").toUtf8();
+
+    QByteArray output = QByteArrayLiteral(
+        "7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20\n"
+        "\n"
+        "Scanning the drive for archives:\n"
+        "1 file, 123 bytes (1 KiB)\n"
+        "\n"
+        "Listing archive: ");
+    output.append(archivePathUtf8);
+    output.append(QByteArrayLiteral("\n\n--\nPath = "));
+    output.append(archivePathUtf8);
+    output.append(QByteArrayLiteral("\nType = zip\nPhysical Size = 123\n\n----------\nPath = "));
+    output.append(gbkName);
+    output.append(QByteArrayLiteral("\nSize = 6\nModified = 2024-01-01\n"));
+
+    const QByteArray sample = SevenZipUtils::sampleNameBytes(output);
+    QVERIFY(!sample.contains(QByteArrayLiteral("7-Zip")));
+    QVERIFY(!sample.contains(QByteArrayLiteral("Type = zip")));
+    QVERIFY(!sample.contains(archivePathUtf8));
+    QCOMPARE(sample, gbkName + '\n');
+    QCOMPARE(EncodingDetector::detect(sample), QStringLiteral("GB18030"));
+
+    // Without the "----------" separator the helper falls back to every
+    // "Path = " value: better a slightly noisier sample than none at all.
+    // 没有 "----------" 分隔行时，辅助函数回退到所有 "Path = " 值：
+    // 宁可样本略噪，也不要完全取不到样本。
+    QCOMPARE(SevenZipUtils::sampleNameBytes(QByteArrayLiteral("Path = a.zip\n")),
+             QByteArrayLiteral("a.zip\n"));
+}
 
 // Create pure gzip/bzip2/xz streams through StreamBackend and read them back.
 // 通过 StreamBackend 创建纯 gzip/bzip2/xz 流并重新读取。

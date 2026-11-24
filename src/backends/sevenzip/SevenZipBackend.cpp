@@ -255,7 +255,13 @@ void SevenZipBackend::listContents(const ListOptions &options)
     }
 
     m_entries = parser.takeEntries();
-    m_nameEncoding = EncodingDetector::detect(result.stdOutRaw);
+    // Vote on the member-name lines only: the raw stdout also carries the
+    // 7-Zip banner, sizes and timestamps, which would bias the detection.
+    // 仅对成员名行投票：原始 stdout 还包含 7-Zip 横幅、大小与时间戳，
+    // 会干扰检测。
+    const QByteArray nameSample = SevenZipUtils::sampleNameBytes(result.stdOutRaw);
+    m_nameEncoding = nameSample.isEmpty() ? QStringLiteral("UTF-8")
+                                          : EncodingDetector::detect(nameSample);
     m_encrypted = std::any_of(m_entries.cbegin(), m_entries.cend(),
                               [](const ArchiveEntry &entry) { return entry.isEncrypted; });
     emit fileListReady(m_entries);
@@ -266,6 +272,13 @@ void SevenZipBackend::extract(const ExtractOptions &options)
     if (!m_isOpen) {
         emit errorOccurred(ArchiveErrorCode::Unknown, tr("Archive not opened"));
         return;
+    }
+    if (!options.encodingHint.isEmpty()) {
+        // An explicit user choice overrides the detected encoding so the
+        // listfile is written in the code page the archive really uses.
+        // 用户显式选择会覆盖检测结果，使列表文件按压缩包实际使用的
+        // 代码页写出。
+        m_nameEncoding = options.encodingHint;
     }
 
     const QString sevenZip = sevenZipPath();
@@ -501,7 +514,6 @@ void SevenZipBackend::compress(const CompressOptions &options)
 
     const int total = FileUtils::countFiles(options.sourceFiles);
     int processed = 0;
-    int lastLoggedPercent = -1;
 
     ProcessOutputOptions outputOptions;
     outputOptions.maxStdOutBytes = 1024 * 1024;
@@ -510,20 +522,22 @@ void SevenZipBackend::compress(const CompressOptions &options)
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
         QString(), 0, &m_cancelRequested,
-        [this, total, &processed, &lastLoggedPercent](
-            const QString &line, bool isError) {
+        [this, total, &processed](const QString &line, bool isError) {
             if (isError || line.isEmpty()) {
                 return;
             }
             const int percent = sevenZipPercent(line);
             if (percent >= 0) {
+                // Percentages go through progressChanged only: the dialog shows
+                // them in its progress bar and stats line.  Routing them
+                // through outputReady used to overwrite the "current file"
+                // label with "Compressing... 40%".
+                // 百分比只走 progressChanged：对话框用它更新进度条与统计行。
+                // 之前经 outputReady 会把握手文件名的标签覆盖成
+                // “正在压缩... 40%”。
                 const int current =
                     total > 0 ? qBound(0, total * percent / 100, total) : 0;
                 emit progressChanged(percent, total, current, -1);
-                if (percent == 100 || percent >= lastLoggedPercent + 10) {
-                    emit outputReady(tr("Compressing... %1%").arg(percent));
-                    lastLoggedPercent = percent;
-                }
                 return;
             }
             emit outputReady(line);

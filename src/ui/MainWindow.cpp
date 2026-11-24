@@ -745,9 +745,21 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
             m_openAfterCompress = false;
             m_compressCloseAfter = false;
             m_dialogOnly = false;
-            show();
-            openArchivePath(target);
-            updateActionsState();
+            m_lastCompressTarget.clear();
+            // Defer to the event loop: this slot runs inside ArchiveManager's
+            // operationFinished emission, and ArchiveManager still has to
+            // clean up the finished backend/session after it returns.  Opening
+            // the new archive synchronously would re-enter the manager while
+            // it is still cleaning up the previous operation.
+            // 推迟到事件循环：本槽在 ArchiveManager 的 operationFinished 发射
+            // 过程中执行，而 ArchiveManager 返回后还要清理已完成的后端/会话。
+            // 同步打开新压缩包会在它还没清理完时就重入管理器。
+            QTimer::singleShot(0, this, [this, target]() {
+                show();
+                openArchivePath(target);
+                updateStatusSummary();
+                updateActionsState();
+            });
             return;
         }
         if (m_compressCloseAfter) {

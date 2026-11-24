@@ -9,6 +9,8 @@
 #include <QElapsedTimer>
 #include <QProcess>
 
+#include "utils/LogLineBuffer.h"
+
 class QProcess;
 class QPlainTextEdit;
 class QComboBox;
@@ -39,8 +41,8 @@ private slots:
 
 private:
     void setRunning(bool running);
-    void appendChunk(const QByteArray &chunk);
-    void flushBuffer();
+    void appendChunk(LogLineBuffer &buffer, const QByteArray &chunk);
+    void flushBuffer(LogLineBuffer &buffer);
     void updateSummary();
 
     QProcess *m_process = nullptr;
@@ -54,7 +56,11 @@ private:
     QLabel *m_summaryLabel = nullptr;
     QTimer *m_elapsedTimer = nullptr;
     QElapsedTimer m_elapsed;
-    QByteArray m_buffer;
+    // Separate buffers: stdout and stderr are independent streams and would
+    // splice half lines together in a single buffer.
+    // 分开缓冲：stdout 与 stderr 是独立流，共用缓冲区会把半行拼在一起。
+    LogLineBuffer m_stdoutBuffer;
+    LogLineBuffer m_stderrBuffer;
     int m_lastLogSecond = -1;
     bool m_running = false;
     bool m_stopping = false;

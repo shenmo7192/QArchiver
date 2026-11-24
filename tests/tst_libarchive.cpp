@@ -4,6 +4,8 @@
 
 #include <QtTest>
 
+#include <array>
+
 #include <QDir>
 #include <QFile>
 #include <QProcess>
@@ -38,6 +40,9 @@ private slots:
     void selectedExtractionOnly();
     void directorySelectionExtractsSubtree();
     void hardLinksAreRecreatedSafely();
+    void legacyNameEncodingIsDecoded();
+    void legacyBig5NamesAreDecoded();
+    void explicitEncodingHintWins();
 
 private:
     struct Result {
@@ -198,6 +203,124 @@ private:
     QString m_7z;
     QString m_tar;
 };
+
+namespace {
+
+// Little-endian writers for the hand-built ZIP fixture below.
+// 下方手工构造 ZIP 夹具用的小端写入函数。
+void appendUInt16(QByteArray &out, quint16 value)
+{
+    out.append(static_cast<char>(value & 0xFF));
+    out.append(static_cast<char>((value >> 8) & 0xFF));
+}
+
+void appendUInt32(QByteArray &out, quint32 value)
+{
+    for (int shift = 0; shift < 32; shift += 8) {
+        out.append(static_cast<char>((value >> shift) & 0xFF));
+    }
+}
+
+// Standard IEEE 802.3 CRC-32, needed by the ZIP headers.
+// ZIP 头部需要的标准 IEEE 802.3 CRC-32。
+quint32 crc32Of(const QByteArray &data)
+{
+    static const auto table = [] {
+        std::array<quint32, 256> values {};
+        for (quint32 i = 0; i < values.size(); ++i) {
+            quint32 value = i;
+            for (int bit = 0; bit < 8; ++bit) {
+                value = (value & 1u) ? (0xEDB88320u ^ (value >> 1)) : (value >> 1);
+            }
+            values[i] = value;
+        }
+        return values;
+    }();
+
+    quint32 crc = 0xFFFFFFFFu;
+    for (const char byte : data) {
+        const auto index = (crc ^ static_cast<quint8>(byte)) & 0xFFu;
+        crc = table[index] ^ (crc >> 8);
+    }
+    return crc ^ 0xFFFFFFFFu;
+}
+
+struct ZipMember {
+    QByteArray rawName;   // name bytes exactly as stored / 按原样存储的名称字节
+    QByteArray content;
+};
+
+// Minimal "stored" ZIP writer.
+//
+// The tests need member names that a third-party tool cannot easily produce:
+// legacy bytes *without* the UTF-8 flag.  7-Zip always flags names it writes
+// (it converts them to UTF-8 first), so the fixture is assembled here instead
+// of shipping a pre-built archive in the repository.
+// 最小化的 "stored" ZIP 写入器。
+// 测试需要第三方工具不容易产生的成员名：不带 UTF-8 标志的旧式字节。
+// 7-Zip 写出的名称总是带该标志（它先转成 UTF-8），因此这里自行拼装夹具，
+// 而不在仓库中存放预生成的压缩包。
+QByteArray buildStoredZip(const QList<ZipMember> &members)
+{
+    QByteArray local;
+    QByteArray central;
+
+    for (const ZipMember &member : members) {
+        const quint32 crc = crc32Of(member.content);
+        const auto size = static_cast<quint32>(member.content.size());
+        const auto nameLength = static_cast<quint16>(member.rawName.size());
+        const auto offset = static_cast<quint32>(local.size());
+
+        appendUInt32(local, 0x04034b50u);   // local file header signature
+        appendUInt16(local, 20);            // version needed to extract
+        appendUInt16(local, 0);             // flags: no UTF-8 flag (bit 11)
+        appendUInt16(local, 0);             // method: stored
+        appendUInt16(local, 0);             // last mod time
+        appendUInt16(local, 0x21);          // last mod date (1980-01-01)
+        appendUInt32(local, crc);
+        appendUInt32(local, size);          // compressed size
+        appendUInt32(local, size);          // uncompressed size
+        appendUInt16(local, nameLength);
+        appendUInt16(local, 0);             // extra field length
+        local.append(member.rawName);
+        local.append(member.content);
+
+        appendUInt32(central, 0x02014b50u); // central directory header
+        appendUInt16(central, 20);          // version made by
+        appendUInt16(central, 20);          // version needed to extract
+        appendUInt16(central, 0);           // flags
+        appendUInt16(central, 0);           // method: stored
+        appendUInt16(central, 0);           // last mod time
+        appendUInt16(central, 0x21);        // last mod date
+        appendUInt32(central, crc);
+        appendUInt32(central, size);
+        appendUInt32(central, size);
+        appendUInt16(central, nameLength);
+        appendUInt16(central, 0);           // extra field length
+        appendUInt16(central, 0);           // comment length
+        appendUInt16(central, 0);           // disk number start
+        appendUInt16(central, 0);           // internal attributes
+        appendUInt32(central, 0);           // external attributes
+        appendUInt32(central, offset);      // local header offset
+        central.append(member.rawName);
+    }
+
+    QByteArray zip = local;
+    const auto centralOffset = static_cast<quint32>(zip.size());
+    zip.append(central);
+
+    appendUInt32(zip, 0x06054b50u);         // end of central directory
+    appendUInt16(zip, 0);                   // this disk
+    appendUInt16(zip, 0);                   // disk with central directory
+    appendUInt16(zip, static_cast<quint16>(members.size()));
+    appendUInt16(zip, static_cast<quint16>(members.size()));
+    appendUInt32(zip, static_cast<quint32>(central.size()));
+    appendUInt32(zip, centralOffset);
+    appendUInt16(zip, 0);                   // comment length
+    return zip;
+}
+
+} // namespace
 
 // Build the archive fixtures used by the tests.
 // 构建测试使用的压缩包夹具。
@@ -528,6 +651,140 @@ void TestLibArchive::hardLinksAreRecreatedSafely()
 #else
     QSKIP("hard link assertions are Unix-only");
 #endif
+}
+
+void TestLibArchive::legacyNameEncodingIsDecoded()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+
+    // GBK/GB18030 name bytes without the UTF-8 flag.  The names contain "㐀"
+    // (U+3400), whose GB18030 form is the four-byte sequence 81 39 ee 39:
+    // such bytes are invalid UTF-8, Big5 and Shift-JIS, so the detected result
+    // does not depend on the locale of the machine running the test.
+    // 不带 UTF-8 标志的 GBK/GB18030 名称字节。“㐀”（U+3400）的 GB18030 形式是
+    // 四字节序列 81 39 ee 39，该序列在 UTF-8、Big5、Shift-JIS 下均非法，
+    // 因此检测结果不依赖运行测试的机器 locale。
+    const QByteArray gbkName =
+        QByteArray::fromHex("b2e2cad4cec4b1be8139ee395f47424b2e747874");   // 测试文本㐀_GBK.txt
+    const QByteArray gb18030Name =
+        QByteArray::fromHex("b2e2cad4cec4b1be325f474231383033302e747874"); // 测试文本2_GB18030.txt
+
+    QList<ZipMember> members;
+    members.append({gbkName, QByteArrayLiteral("alpha")});
+    members.append({gb18030Name, QByteArrayLiteral("bravo")});
+
+    const QString archivePath = temp.filePath(QStringLiteral("legacy-names.zip"));
+    QVERIFY(writeFile(archivePath, buildStoredZip(members)));
+
+    LibArchiveBackend backend(ArchiveFormat::Zip);
+    backend.openArchive(archivePath);
+
+    QList<ArchiveEntry> entries;
+    const Result listed = list(backend, ListOptions(), &entries);
+    QVERIFY2(listed.success, qPrintable(listed.message));
+    QCOMPARE(entries.size(), 2);
+    QCOMPARE(backend.nameEncoding(), QStringLiteral("GB18030"));
+    QCOMPARE(entries.at(0).path, QStringLiteral("测试文本㐀_GBK.txt"));
+    QCOMPARE(entries.at(1).path, QStringLiteral("测试文本2_GB18030.txt"));
+    for (const ArchiveEntry &entry : entries) {
+        // A U+FFFD here means the raw bytes were decoded with the process
+        // locale, which is exactly what this test guards against.
+        // 出现 U+FFFD 说明原始字节被按进程 locale 解码了，正是本测试要防的情况。
+        QVERIFY2(!entry.path.contains(QChar(0xFFFD)), qPrintable(entry.path));
+    }
+
+    // Extraction has to write the very same names to disk.
+    // 解压落盘的文件名必须与之完全一致。
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    QVERIFY(QDir().mkpath(dest));
+    ExtractOptions options;
+    options.destDir = dest;
+    const Result extracted = extract(backend, options);
+    QVERIFY2(extracted.success, qPrintable(extracted.message));
+    QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("测试文本㐀_GBK.txt"))),
+             QByteArrayLiteral("alpha"));
+    QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("测试文本2_GB18030.txt"))),
+             QByteArrayLiteral("bravo"));
+}
+
+void TestLibArchive::legacyBig5NamesAreDecoded()
+{
+    // Big5 names must be recognised automatically, without any hint and
+    // regardless of the machine locale (Big5 and GB18030 byte ranges overlap
+    // heavily, so this relies on the plausibility ranking).
+    // Big5 名称必须在无需提示、且与机器 locale 无关的情况下被正确识别
+    //（Big5 与 GB18030 的字节范围高度重叠，这里依赖可信度排序）。
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+
+    const QByteArray big5Name = QByteArray::fromHex("b4fab8d5a4e5a5f32e747874"); // 測試文件.txt
+    QList<ZipMember> members;
+    members.append({big5Name, QByteArrayLiteral("traditional")});
+
+    const QString archivePath = temp.filePath(QStringLiteral("legacy-big5-auto.zip"));
+    QVERIFY(writeFile(archivePath, buildStoredZip(members)));
+
+    LibArchiveBackend backend(ArchiveFormat::Zip);
+    backend.openArchive(archivePath);
+
+    QList<ArchiveEntry> entries;
+    const Result listed = list(backend, ListOptions(), &entries);
+    QVERIFY2(listed.success, qPrintable(listed.message));
+    QCOMPARE(entries.size(), 1);
+    QCOMPARE(backend.nameEncoding(), QStringLiteral("Big5"));
+    QCOMPARE(entries.at(0).path, QStringLiteral("測試文件.txt"));
+    QVERIFY(!entries.at(0).path.contains(QChar(0xFFFD)));
+
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    QVERIFY(QDir().mkpath(dest));
+    ExtractOptions options;
+    options.destDir = dest;
+    const Result extracted = extract(backend, options);
+    QVERIFY2(extracted.success, qPrintable(extracted.message));
+    QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("測試文件.txt"))),
+             QByteArrayLiteral("traditional"));
+}
+
+void TestLibArchive::explicitEncodingHintWins()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+
+    // Big5 "中文.txt" (a4 a4 a4 e5) without the UTF-8 flag: Big5 and GB18030
+    // overlap, so only an explicit hint decodes it reliably.
+    // 不带 UTF-8 标志的 Big5 “中文.txt”（a4 a4 a4 e5）：
+    // Big5 与 GB18030 有重叠，只有显式提示才能可靠解码。
+    const QByteArray big5Name = QByteArray::fromHex("a4a4a4e52e747874");
+    QList<ZipMember> members;
+    members.append({big5Name, QByteArrayLiteral("big5")});
+
+    const QString archivePath = temp.filePath(QStringLiteral("legacy-big5.zip"));
+    QVERIFY(writeFile(archivePath, buildStoredZip(members)));
+
+    LibArchiveBackend backend(ArchiveFormat::Zip);
+    backend.openArchive(archivePath);
+
+    ListOptions listOptions;
+    listOptions.encodingHint = QStringLiteral("Big5");
+    QList<ArchiveEntry> entries;
+    const Result listed = list(backend, listOptions, &entries);
+    QVERIFY2(listed.success, qPrintable(listed.message));
+    QCOMPARE(entries.size(), 1);
+    QCOMPARE(entries.at(0).path, QStringLiteral("中文.txt"));
+    QCOMPARE(backend.nameEncoding(), QStringLiteral("Big5"));
+
+    // The hint must also reach extraction (the UI hands the detected encoding back).
+    // 提示也必须作用于解压（界面会把检测到的编码回传）。
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    QVERIFY(QDir().mkpath(dest));
+    ExtractOptions options;
+    options.destDir = dest;
+    options.encodingHint = QStringLiteral("Big5");
+    const Result extracted = extract(backend, options);
+    QVERIFY2(extracted.success, qPrintable(extracted.message));
+    QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("中文.txt"))),
+             QByteArrayLiteral("big5"));
 }
 
 QTEST_GUILESS_MAIN(TestLibArchive)

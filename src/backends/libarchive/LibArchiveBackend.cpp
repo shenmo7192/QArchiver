@@ -22,6 +22,7 @@
 #include <windows.h>
 #endif
 
+#include "utils/EncodingDetector.h"
 #include "utils/FileUtils.h"
 #include "utils/Logger.h"
 
@@ -43,47 +44,14 @@ struct ReaderDeleter {
 };
 using ReaderPtr = std::unique_ptr<struct archive, ReaderDeleter>;
 
-// libarchive module name, used to pass per-format options such as hdrcharset.
-// libarchive 模块名，用于传递 hdrcharset 等按格式区分的选项。
-const char *moduleName(ArchiveFormat fmt)
-{
-    switch (fmt) {
-    case ArchiveFormat::Zip:
-        return "zip";
-    case ArchiveFormat::SevenZip:
-        return "7zip";
-    case ArchiveFormat::Tar:
-    case ArchiveFormat::TarGz:
-    case ArchiveFormat::TarXz:
-    case ArchiveFormat::TarBz2:
-    case ArchiveFormat::TarZst:
-        return "tar";
-    case ArchiveFormat::Gzip:
-    case ArchiveFormat::Bzip2:
-    case ArchiveFormat::Xz:
-    case ArchiveFormat::Zstd:
-    case ArchiveFormat::Rar4:
-    case ArchiveFormat::Rar5:
-    case ArchiveFormat::Unknown:
-        break;
-    }
-    return nullptr;
-}
-
-// libarchive exposes entry names as UTF-8 when the archive carries them; legacy
-// archives (CP437/GBK in zip, unrar'ed tar) only have byte strings.
-// 压缩包内带编码信息时，libarchive 以 UTF-8 暴露条目名；
-// 旧式压缩包（zip 中的 CP437/GBK、tar）只有字节串。
-QString entryPathString(struct archive_entry *entry)
-{
-    if (const char *utf8 = archive_entry_pathname_utf8(entry)) {
-        return QString::fromUtf8(utf8);
-    }
-    if (const char *raw = archive_entry_pathname(entry)) {
-        return QString::fromLocal8Bit(raw);
-    }
-    return QString();
-}
+// libarchive entry names are decoded by the backend itself: the zip reader
+// only yields UTF-8 when the archive carries the UTF-8 flag, and legacy
+// archives (GBK/Big5/CP437 names) hand out raw bytes that must not be
+// interpreted with the process locale.
+// 条目名由后端自行解码：zip 读取器只在压缩包带 UTF-8 标志时给出 UTF-8，
+// 旧式压缩包（GBK/Big5/CP437 名称）给出的是原始字节，
+// 不能用进程 locale 解释。
+constexpr int kNameSampleBytes = 64 * 1024;
 
 QString libarchiveError(struct archive *reader)
 {
@@ -94,8 +62,7 @@ QString libarchiveError(struct archive *reader)
 }
 
 ReaderPtr openReader(const QString &filePath, ArchiveFormat fmt,
-                     const QString &password, const QString &encodingHint,
-                     QString *errorOut)
+                     const QString &password, QString *errorOut)
 {
     ReaderPtr reader(archive_read_new());
     if (!reader) {
@@ -112,18 +79,13 @@ ReaderPtr openReader(const QString &filePath, ArchiveFormat fmt,
         archive_read_support_format_raw(reader.get());
     }
 
-    if (!encodingHint.isEmpty()) {
-        if (const char *module = moduleName(fmt)) {
-            // Only the format-specific form is honoured by libarchive.
-            // libarchive 仅识别带格式前缀的形式。
-            if (archive_read_set_option(reader.get(), module, "hdrcharset",
-                                        encodingHint.toUtf8().constData())
-                < ARCHIVE_WARN) {
-                LOG_INFO("LibArchiveBackend", "Unsupported hdrcharset hint: %s",
-                         encodingHint.toUtf8().constData());
-            }
-        }
-    }
+    // Per-format "hdrcharset" is deliberately not used here: libarchive would
+    // convert the names through the current locale and fail outright on a
+    // non-UTF-8 locale.  Callers decode the raw bytes instead
+    // (see LibArchiveBackend::decodeEntryString).
+    // 此处刻意不使用按格式的 "hdrcharset"：libarchive 会按当前 locale 转换名称，
+    // 在非 UTF-8 locale 下会直接失败。名称改由调用方自行解码
+    // （见 LibArchiveBackend::decodeEntryString）。
 
     if (!password.isEmpty()) {
         archive_read_add_passphrase(reader.get(), password.toUtf8().constData());
@@ -238,8 +200,53 @@ void LibArchiveBackend::openArchive(const QString &filePath)
 
     m_archivePath = filePath;
     m_entries.clear();
+    // The name encoding belongs to the archive, not to the backend instance.
+    // 名称编码属于具体压缩包，而不是后端实例。
+    m_nameEncoding.clear();
     m_isOpen = true;
     emit archiveOpened(filePath);
+}
+
+QString LibArchiveBackend::decodeEntryString(const QByteArray &raw) const
+{
+    if (raw.isEmpty()) {
+        return QString();
+    }
+    if (m_nameEncoding.isEmpty()) {
+        // extract() without a preceding listContents(): fall back to a per-name
+        // guess instead of trusting the process locale.
+        // 未经 listContents() 直接 extract()：退化为逐名猜测，
+        // 而不是信任进程 locale。
+        return EncodingDetector::decode(raw);
+    }
+    return EncodingDetector::decode(raw, m_nameEncoding);
+}
+
+QString LibArchiveBackend::decodeLinkTarget(const QByteArray &raw) const
+{
+    if (raw.isEmpty()) {
+        return QString();
+    }
+    // Link targets are usually ASCII or already UTF-8 even in archives whose
+    // member names use a legacy encoding, so valid UTF-8 is kept untouched.
+    // 即使在成员名使用旧式编码的压缩包里，链接目标通常也是 ASCII 或已是 UTF-8，
+    // 因此合法 UTF-8 原样保留。
+    if (m_nameEncoding.compare(QStringLiteral("UTF-8"), Qt::CaseInsensitive) != 0
+        && raw.isValidUtf8()) {
+        return QString::fromUtf8(raw);
+    }
+    return decodeEntryString(raw);
+}
+
+QString LibArchiveBackend::entryPathString(struct archive_entry *entry) const
+{
+    if (const char *utf8 = archive_entry_pathname_utf8(entry)) {
+        return QString::fromUtf8(utf8);
+    }
+    if (const char *raw = archive_entry_pathname(entry)) {
+        return decodeEntryString(QByteArray(raw));
+    }
+    return QString();
 }
 
 void LibArchiveBackend::reportFailure(const QString &message,
@@ -294,33 +301,51 @@ void LibArchiveBackend::listContents(const ListOptions &options)
     }
 
     QString error;
-    ReaderPtr reader = openReader(m_archivePath, m_format, options.password,
-                                 options.encodingHint, &error);
+    ReaderPtr reader = openReader(m_archivePath, m_format, options.password, &error);
     if (!reader) {
         reportFailure(error, options.password, tr("Cannot open archive"));
         return;
     }
 
-    QList<ArchiveEntry> entries;
+    // Entry names are decoded after the whole archive has been walked: the
+    // legacy encoding is a property of the archive, so a single vote over all
+    // raw name bytes is far more reliable than a per-entry guess (which flips
+    // between UTF-8 and GB18030 inside one archive).
+    // 条目名在遍历完整包后再解码：旧式编码是整个压缩包的属性，
+    // 对所有原始名称字节统一投一次票远比逐条猜测可靠
+    // （逐条猜会在同一个包内于 UTF-8 与 GB18030 之间来回跳）。
+    struct PendingEntry {
+        ArchiveEntry item;
+        QByteArray rawPath;     // empty when libarchive already had UTF-8
+        QByteArray rawLinkTarget;
+        QByteArray rawHardLinkTarget;
+    };
+
+    QList<PendingEntry> pending;
     struct archive_entry *entry = nullptr;
     int result = ARCHIVE_OK;
 
     while ((result = archive_read_next_header(reader.get(), &entry)) == ARCHIVE_OK) {
-        QString path = FileUtils::normalizeEntryPath(entryPathString(entry));
+        PendingEntry pendingEntry;
+        ArchiveEntry &item = pendingEntry.item;
 
-        ArchiveEntry item;
-        item.path = path;
+        if (const char *utf8 = archive_entry_pathname_utf8(entry)) {
+            item.path = QString::fromUtf8(utf8);
+        } else if (const char *raw = archive_entry_pathname(entry)) {
+            pendingEntry.rawPath = QByteArray(raw);
+        }
+
         const auto type = archive_entry_filetype(entry);
         item.isDir = (type == AE_IFDIR);
         item.isSymLink = (type == AE_IFLNK);
         if (item.isSymLink) {
             if (const char *target = archive_entry_symlink(entry)) {
-                item.linkTarget = QString::fromUtf8(target);
+                pendingEntry.rawLinkTarget = QByteArray(target);
             }
         }
         if (const char *hardTarget = archive_entry_hardlink(entry)) {
             item.isHardLink = true;
-            item.hardLinkTarget = QString::fromUtf8(hardTarget);
+            pendingEntry.rawHardLinkTarget = QByteArray(hardTarget);
         }
         if (archive_entry_size_is_set(entry)) {
             item.size = archive_entry_size(entry);
@@ -331,8 +356,49 @@ void LibArchiveBackend::listContents(const ListOptions &options)
         }
         item.isEncrypted = archive_entry_is_encrypted(entry) != 0;
 
+        pending.append(pendingEntry);
+        archive_read_data_skip(reader.get());
+    }
+
+    if (result != ARCHIVE_EOF) {
+        const QString message = libarchiveError(reader.get());
+        reader.reset();
+        reportFailure(message, options.password, tr("Cannot read archive"));
+        return;
+    }
+    reader.reset();
+
+    // An explicit hint from the caller (user preference) wins over detection.
+    // 调用方显式给出的提示（用户偏好）优先于自动检测。
+    if (!options.encodingHint.isEmpty()) {
+        m_nameEncoding = options.encodingHint;
+    } else {
+        QByteArray sample;
+        for (const PendingEntry &pendingEntry : pending) {
+            if (pendingEntry.rawPath.isEmpty()) {
+                continue;
+            }
+            if (sample.size() >= kNameSampleBytes) {
+                break; // never cut a name in half / 不截断半个名称
+            }
+            sample.append(pendingEntry.rawPath);
+            sample.append('\n');
+        }
+        m_nameEncoding = sample.isEmpty() ? QStringLiteral("UTF-8")
+                                          : EncodingDetector::detect(sample);
+    }
+
+    QList<ArchiveEntry> entries;
+    for (PendingEntry &pendingEntry : pending) {
+        ArchiveEntry item = pendingEntry.item;
+        if (!pendingEntry.rawPath.isEmpty()) {
+            item.path = FileUtils::normalizeEntryPath(decodeEntryString(pendingEntry.rawPath));
+        }
+        item.path = FileUtils::normalizeEntryPath(item.path);
+        item.linkTarget = decodeLinkTarget(pendingEntry.rawLinkTarget);
+        item.hardLinkTarget = decodeEntryString(pendingEntry.rawHardLinkTarget);
+
         if (item.path.isEmpty() || item.path == QStringLiteral(".")) {
-            archive_read_data_skip(reader.get());
             continue;
         }
 
@@ -351,19 +417,12 @@ void LibArchiveBackend::listContents(const ListOptions &options)
         }
 
         entries.append(item);
-        archive_read_data_skip(reader.get());
-    }
-
-    if (result != ARCHIVE_EOF) {
-        const QString message = libarchiveError(reader.get());
-        reader.reset();
-        reportFailure(message, options.password, tr("Cannot read archive"));
-        return;
     }
 
     m_entries = entries;
-    LOG_INFO("LibArchiveBackend", "Listed %d entries from %s",
-             static_cast<int>(entries.size()), m_archivePath.toUtf8().constData());
+    LOG_INFO("LibArchiveBackend", "Listed %d entries from %s (name encoding %s)",
+             static_cast<int>(entries.size()), m_archivePath.toUtf8().constData(),
+             m_nameEncoding.toUtf8().constData());
     emit fileListReady(entries);
 }
 
@@ -372,6 +431,11 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
     if (!m_isOpen) {
         emit errorOccurred(ArchiveErrorCode::Unknown, tr("Archive not opened"));
         return;
+    }
+    if (!options.encodingHint.isEmpty()) {
+        // Honour an explicit user choice over the encoding detected while listing.
+        // 用户显式选择优先于列表时检测到的编码。
+        m_nameEncoding = options.encodingHint;
     }
     if (options.destDir.trimmed().isEmpty()) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
@@ -413,8 +477,7 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
     }
 
     QString error;
-    ReaderPtr reader = openReader(m_archivePath, m_format, options.password,
-                                  options.encodingHint, &error);
+    ReaderPtr reader = openReader(m_archivePath, m_format, options.password, &error);
     if (!reader) {
         FileUtils::removeDirectoryRecursively(tempDir);
         reportFailure(error, options.password, tr("Cannot open archive"));
@@ -502,7 +565,7 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
 
         if (type == AE_IFLNK) {
             const char *linkTarget = archive_entry_symlink(entry);
-            const QString target = linkTarget ? QString::fromUtf8(linkTarget) : QString();
+            const QString target = linkTarget ? decodeLinkTarget(QByteArray(linkTarget)) : QString();
             if (isUnderSkipped(relative, skippedSymlinks)) {
                 LOG_INFO("LibArchiveBackend", "Skipped unsafe symlink by user: %s",
                          relative.toUtf8().constData());
@@ -531,7 +594,7 @@ void LibArchiveBackend::extract(const ExtractOptions &options)
 
         if (const char *hardTarget = archive_entry_hardlink(entry)) {
             const QString target = FileUtils::normalizeEntryPath(
-                QString::fromUtf8(hardTarget));
+                decodeEntryString(QByteArray(hardTarget)));
             if (target.isEmpty()
                 || FileUtils::isPathTraversal(target, tempDir)
                 || FileUtils::isPathTraversal(relative, tempDir)) {
@@ -737,8 +800,7 @@ void LibArchiveBackend::testArchive(const TestOptions &options)
     }
 
     QString error;
-    ReaderPtr reader = openReader(m_archivePath, m_format, options.password,
-                                  QString(), &error);
+    ReaderPtr reader = openReader(m_archivePath, m_format, options.password, &error);
     if (!reader) {
         reportFailure(error, options.password, tr("Cannot open archive"));
         return;

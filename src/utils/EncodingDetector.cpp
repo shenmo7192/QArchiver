@@ -4,8 +4,10 @@
 
 #include "utils/EncodingDetector.h"
 
+#include <QLocale>
 #include <QProcess>
 #include <QStringConverter>
+#include <QStringList>
 
 #include <climits>
 
@@ -229,19 +231,151 @@ QByteArray toIconv(const QString &text, const char *toEncoding)
 
 #endif // Q_OS_WIN
 
-QString decodeWithIconv(const QByteArray &data, const QString &encodingHint)
+// iconv name for the legacy encodings supported by the detector, or nullptr.
+// 检测器支持的旧编码对应的 iconv 名称，不支持时返回 nullptr。
+const char *iconvNameFor(const QString &encodingHint)
 {
     if (encodingHint.compare(QStringLiteral("GBK"), Qt::CaseInsensitive) == 0
         || encodingHint.compare(QStringLiteral("GB2312"), Qt::CaseInsensitive) == 0
         || encodingHint.compare(QStringLiteral("GB18030"), Qt::CaseInsensitive) == 0) {
-        return fromIconv(data, "GB18030");
+        return "GB18030";
     }
     if (encodingHint.compare(QStringLiteral("Big5"), Qt::CaseInsensitive) == 0) {
-        return fromIconv(data, "BIG5");
+        return "BIG5";
     }
     if (encodingHint.compare(QStringLiteral("Shift-JIS"), Qt::CaseInsensitive) == 0
         || encodingHint.compare(QStringLiteral("SJIS"), Qt::CaseInsensitive) == 0) {
-        return fromIconv(data, "SHIFT-JIS");
+        return "SHIFT-JIS";
+    }
+    return nullptr;
+}
+
+// Legacy candidates for detect(), biased by the system locale.  The bias only
+// decides *ties*: candidates are ranked by how plausible their interpretation
+// of the bytes is (see legacyPlausibility), because GB18030 is a superset of
+// GBK and accepts almost any byte pair, so "first decodable wins" would
+// swallow every Big5 name.
+// detect() 的旧编码候选，按系统 locale 排列。locale 只决定*平票*：
+// 候选按“其解释有多可信”排序（见 legacyPlausibility），
+// 因为 GB18030 是 GBK 的超集、几乎能解码任意字节对，
+// “谁先解码成功就算谁”会把所有 Big5 名称吞成 GB18030。
+const QStringList &legacyEncodingOrder()
+{
+    static const QStringList order = [] {
+        QStringList candidates;
+        const QString locale = QLocale::system().name();
+        if (locale.startsWith(QLatin1String("zh_TW"))
+            || locale.startsWith(QLatin1String("zh_HK"))
+            || locale.startsWith(QLatin1String("zh_Hant"))) {
+            candidates << QStringLiteral("Big5");
+        } else if (locale.startsWith(QLatin1String("ja"))) {
+            candidates << QStringLiteral("Shift-JIS");
+        }
+        for (const QString &encoding : {QStringLiteral("GB18030"),
+                                        QStringLiteral("Big5"),
+                                        QStringLiteral("Shift-JIS")}) {
+            if (!candidates.contains(encoding)) {
+                candidates << encoding;
+            }
+        }
+        return candidates;
+    }();
+    return order;
+}
+
+// Minimum score gap between the two best interpretations before the ranking
+// is trusted; anything closer is treated as ambiguous and resolved by locale.
+// 两个最优解释的最小分差；小于它则视为歧义，交给 locale 顺序裁决。
+constexpr double kPlausibilityMargin = 0.05;
+
+// Byte ranges of the "frequently used" block of each legacy encoding: GB2312
+// level-1 hanzi, the Big5 frequently used block, and the Shift-JIS kana plus
+// JIS X 0208 level-1 kanji.
+// 各旧编码“常用字区”的字节范围：GB2312 一级汉字、Big5 常用字区，
+// 以及 Shift-JIS 假名与 JIS X 0208 第一水准汉字。
+//
+// score = the share of two-byte code units that fall into that block.  The
+// walk works directly on the raw bytes (iconv is only used to prove the bytes
+// are decodable at all): a two-byte code unit re-encodes to the very same
+// bytes, so its position in the code page is known without decoding character
+// by character.  A four-byte GB18030 form means a rare ideograph and scores as
+// uncommon.
+// 分数 = 落入该区间的两字节代码单元比例。扫描直接作用于原始字节
+// （iconv 只用来确认这串字节确实可解码）：两字节代码单元重新编码后仍是同样的
+// 字节，因此无需逐字解码就能知道它在码表中的位置。
+// 四字节 GB18030 形式代表罕用字，计为不常用。
+//
+// Returns -1 when the bytes are not decodable with this encoding, or when the
+// sample carries no wide characters at all.
+// 若这些字节无法用该编码解码，或样本里根本没有宽字符，返回 -1。
+double legacyPlausibility(const QByteArray &data, const QString &encoding)
+{
+    const char *iconvName = iconvNameFor(encoding);
+    if (!iconvName || data.isEmpty()) {
+        return -1.0;
+    }
+    if (fromIconv(data, iconvName).isEmpty()) {
+        return -1.0;
+    }
+
+    const bool gb18030 = encoding.compare(QStringLiteral("GB18030"), Qt::CaseInsensitive) == 0;
+    const bool big5 = encoding.compare(QStringLiteral("Big5"), Qt::CaseInsensitive) == 0;
+    const auto *bytes = reinterpret_cast<const quint8 *>(data.constData());
+    const int size = data.size();
+
+    int considered = 0;
+    int common = 0;
+    int index = 0;
+    while (index < size) {
+        const quint8 lead = bytes[index];
+        if (lead < 0x80) {
+            ++index; // ASCII carries no signal.
+            continue;
+        }
+        if (!gb18030 && !big5 && lead >= 0xA1 && lead <= 0xDF) {
+            ++considered; // Shift-JIS half-width katakana occupy one byte.
+            ++index;
+            continue;
+        }
+        if (index + 1 >= size) {
+            break;
+        }
+        const quint8 trail = bytes[index + 1];
+        ++considered;
+        if (gb18030) {
+            if (trail >= 0x30 && trail <= 0x39 && index + 3 < size) {
+                index += 4;
+                continue;
+            }
+            if (lead >= 0xB0 && lead <= 0xF7 && trail >= 0xA1 && trail <= 0xFE) {
+                ++common;
+            }
+            index += 2;
+            continue;
+        }
+        if (big5) {
+            if (lead >= 0xA4 && lead <= 0xC6) {
+                ++common;
+            }
+            index += 2;
+            continue;
+        }
+        if ((lead >= 0x82 && lead <= 0x83) || (lead >= 0x88 && lead <= 0x98)) {
+            ++common;
+        }
+        index += 2;
+    }
+
+    if (considered == 0) {
+        return -1.0;
+    }
+    return static_cast<double>(common) / considered;
+}
+
+QString decodeWithIconv(const QByteArray &data, const QString &encodingHint)
+{
+    if (const char *iconvName = iconvNameFor(encodingHint)) {
+        return fromIconv(data, iconvName);
     }
     if (encodingHint.compare(QStringLiteral("ISO-8859-1"), Qt::CaseInsensitive) == 0
         || encodingHint.compare(QStringLiteral("Latin1"), Qt::CaseInsensitive) == 0) {
@@ -275,21 +409,43 @@ QString EncodingDetector::detect(const QByteArray &data)
         return QStringLiteral("UTF-8");
     }
 
-    // GB18030 is a superset of GBK and accepts the widest range of Chinese
-    // byte sequences.  Try it before the other legacy encodings.
-    // GB18030 是 GBK 的超集，可接受范围最广的中文字节序列。
-    // 因此优先于其他旧编码尝试。
-    if (!fromIconv(data, "GB18030").isEmpty()) {
-        return QStringLiteral("GB18030");
-    }
-    if (!fromIconv(data, "BIG5").isEmpty()) {
-        return QStringLiteral("Big5");
-    }
-    if (!fromIconv(data, "SHIFT-JIS").isEmpty()) {
-        return QStringLiteral("Shift-JIS");
+    // UTF-8 always wins when it is valid (checked above).  Among the legacy
+    // encodings the most plausible interpretation wins; the locale order is
+    // only the tie-breaker.
+    // UTF-8 合法时总是优先（已在上面判定）。
+    // 旧编码之间取“最像”的那一种；locale 顺序仅用于平票裁决。
+    const QStringList &order = legacyEncodingOrder();
+
+    double bestScore = -1.0;
+    double secondScore = -1.0;
+    QString best;
+    QStringList decodable; // Kept in locale order for tie-breaking.
+    for (const QString &encoding : order) {
+        const double score = legacyPlausibility(data, encoding);
+        if (score < 0.0) {
+            continue;
+        }
+        decodable << encoding;
+        if (score > bestScore) {
+            secondScore = bestScore;
+            bestScore = score;
+            best = encoding;
+        } else if (score > secondScore) {
+            secondScore = score;
+        }
     }
 
-    return QStringLiteral("ISO-8859-1");
+    if (best.isEmpty()) {
+        return QStringLiteral("ISO-8859-1");
+    }
+    // Near-ties happen where the byte ranges overlap (a two-character Big5 name
+    // may be plausible as both); there the locale decides.
+    // 字节范围重叠处会出现近似平票（两个字的 Big5 名称在两种编码下都说得通），
+    // 此时交给 locale 裁决。
+    if (bestScore - secondScore < kPlausibilityMargin) {
+        return decodable.first();
+    }
+    return best;
 }
 
 QString EncodingDetector::decode(const QByteArray &data, const QString &encodingHint)

@@ -7,6 +7,9 @@
 
 #include "backends/ArchiveBackend.h"
 
+struct archive;
+struct archive_entry;
+
 // Read-only backend built on the system libarchive (design doc 5.6).
 //
 // Handles, without spawning any external process:
@@ -49,6 +52,7 @@ public:
     void closeArchive() override;
 
     ArchiveFormat format() const override { return m_format; }
+    QString nameEncoding() const override { return m_nameEncoding; }
     bool isReadOnly() const override { return true; }
     bool supportsEncryption() const override { return true; }
     bool supportsVolume() const override { return false; }
@@ -67,8 +71,26 @@ private:
     // 为纯流压缩包从文件名推断内部名称（"a.gz" -> "a"）。
     QString inferStreamName() const;
 
+    // Entry name of @p entry, decoded with m_nameEncoding when libarchive has
+    // no UTF-8 form for it (legacy ZIP/TAR without the UTF-8 flag).
+    // 条目名称；libarchive 没有 UTF-8 形式时（无 UTF-8 标志的旧式 ZIP/TAR）
+    // 按 m_nameEncoding 解码。
+    QString entryPathString(struct archive_entry *entry) const;
+    // Decode a raw name byte string with the archive's detected encoding.
+    // 按压缩包检测到的编码解码原始名称字节串。
+    QString decodeEntryString(const QByteArray &raw) const;
+    // Decode a symlink/hardlink target: valid UTF-8 is kept as is, everything
+    // else follows the archive's name encoding.
+    // 解码符号/硬链接目标：合法 UTF-8 原样保留，其余按压缩包名称编码解码。
+    QString decodeLinkTarget(const QByteArray &raw) const;
+
     ArchiveFormat m_format;
     QList<ArchiveEntry> m_entries;
+    // Detected (or externally imposed) encoding of legacy entry names.  Set by
+    // listContents() and reused by extract() so both agree on the names.
+    // 检测到（或外部指定）的旧式条目名编码。由 listContents() 设置，
+    // extract() 复用，保证两边对名称的判断一致。
+    QString m_nameEncoding;
 };
 
 #endif // LIBARCHIVEBACKEND_H

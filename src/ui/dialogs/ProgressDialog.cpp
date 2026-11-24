@@ -90,7 +90,14 @@ void ProgressDialog::updateProgress(int percent, int total, int current, int eta
     }
     m_progressBar->setValue(percent);
 
-    QString stats = tr("%1 / %2 files").arg(current).arg(total);
+    // Percent first: the log lines keep the current file name, so the only
+    // place the overall progress percentage is visible is this stats line.
+    // 百分比排在前面：日志行保留当前文件名，因此整体进度百分比
+    // 只在这一行统计信息中显示。
+    QString stats = tr("%1% - %2 / %3 files")
+                        .arg(percent)
+                        .arg(current)
+                        .arg(total);
     if (etaSec >= 0) {
         int mins = etaSec / 60;
         int secs = etaSec % 60;

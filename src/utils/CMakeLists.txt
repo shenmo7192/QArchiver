@@ -22,6 +22,10 @@ add_library(qarchiver_utils STATIC
     EncodingDetector.cpp
     EncodingDetector.h
 
+    # Line splitting for tool output shown in log views.
+    # 日志视图中工具输出的行切分。
+    LogLineBuffer.h
+
     # Per-user archive file associations (Windows registry / Linux mimeapps).
     # 当前用户的压缩包格式关联（Windows 注册表 / Linux mimeapps）。
     FileAssociations.cpp

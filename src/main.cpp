@@ -17,7 +17,9 @@
 #include "utils/Logger.h"
 
 #ifndef QARCHIVER_VERSION
-#define QARCHIVER_VERSION "2.3.1"
+// Fallback for builds outside CMake; CMakeLists.txt passes the real version.
+// CMake 之外的构建回退；CMakeLists.txt 会传入真实版本。
+#define QARCHIVER_VERSION "2.4.1"
 #endif
 
 int main(int argc, char *argv[])

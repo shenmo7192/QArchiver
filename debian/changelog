@@ -1,11 +1,20 @@
 qarchiver (2.4.1) unstable; urgency=medium
 
+  * Fix mojibake for archives whose member names are not UTF-8 (GBK/GB18030/
+    Big5): the libarchive backend no longer decodes raw names with the process
+    locale, and no longer passes hdrcharset (which fails outright on non-UTF-8
+    locales).  Legacy encodings are now ranked by how plausible their common
+    character blocks are, with the system locale only breaking near-ties, so
+    Big5 archives are correct on every locale.
   * Fix Explorer compression entries always producing ZIP (command id is in
     lpVerb, not lpVerbW), restore menu icons and open the created archive.
   * Install a versioned QArchiverShell DLL so in-place upgrades survive an
     Explorer-locked shell extension; clean old copies during upgrade/uninstall.
   * Improve compression log output and the 7-Zip benchmark (thread selector,
     streamed output, progress heartbeat and result summary).
+  * Open the archive created by the Explorer menu on the next event loop
+    iteration instead of re-entering the archive manager from inside its own
+    signal, and reveal only one window when compressing a multi-selection.
 
  -- shenmo <shenmo@spark-app.store>  Mon, 24 Nov 2026 21:40:00 +0800
 

@@ -1,7 +1,7 @@
 ﻿# Build the QArchiver Windows installer from a portable ZIP package.
 # 从便携 ZIP 包构建 QArchiver Windows 安装器。
 #
-#   .\build-installer.ps1 -ZipPath ..\..\QArchiver-2.3.1-windows-x64.zip
+#   .\build-installer.ps1 -ZipPath ..\..\QArchiver-2.4.1-windows-x64.zip
 #
 # Requires Inno Setup 6 (ISCC.exe).  CI installs it through Chocolatey when the
 # runner image does not provide it.
@@ -24,7 +24,7 @@ $zip = (Resolve-Path -LiteralPath $ZipPath).Path
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     # Prefer the version encoded in QArchiver-<version>-windows-<arch>.zip,
-    # which carries the release revision (e.g. 2.4.0-2).
+    # which carries the release revision (e.g. 2.4.1).
     $zipName = [System.IO.Path]::GetFileNameWithoutExtension($zip)
     $zipVersion = [regex]::Match($zipName,
         '^QArchiver-(.+)-windows-(x64|arm64)$').Groups[1].Value
@@ -79,7 +79,10 @@ if (-not $iscc) {
         '"choco install innosetup -y" or set INNO_SETUP_ISCC.')
 }
 
-$VersionNumeric = $Version -replace '-', '.'
+# Inno Setup wants a numeric, four-part version (2.4.1 -> 2.4.1.0).
+# Inno Setup 需要四段纯数字版本号（2.4.1 -> 2.4.1.0）。
+$versionParts = @((($Version -replace '-', '.') -split '\.') + @('0', '0', '0', '0'))
+$VersionNumeric = ($versionParts | Select-Object -First 4) -join '.'
 Write-Host "Building QArchiver $Version installer for $Arch"
 Write-Host "  payload: $stage"
 Write-Host "  output:  $dist"

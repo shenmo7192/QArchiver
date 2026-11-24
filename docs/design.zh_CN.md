@@ -1,6 +1,6 @@
 # QArchiver（小Q解压）设计文档
 
-> 适用版本：2.4.0-2
+> 适用版本：2.4.1
 > 文档位置：`docs/design.zh_CN.md`（根目录 `项目设计文档.md` 为指向本文件的索引）
 > 技术栈：C++20 + Qt 6.4+ Widgets
 > 平台：Linux / Windows
@@ -653,8 +653,8 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 - 符号链接目标在列表阶段写入 `ArchiveEntry::linkTarget`；`ArchiveManager` 解压前预检，命令行后端通过 listfile 排除用户选择跳过的链接及其子树；`FileUtils::unsafeExtractedSymlinks()` 在移动前复查实际链接（含 `..` 逃逸与链接链的规范化目标）。
 - libarchive 硬链接使用平台硬链接 API 创建；目标必须位于临时目录内、存在且不是符号链接，目标稍后出现时延迟创建。失败/不安全时返回 `HardLinkUnsupported` 并中止，而不是留下空文件。
 - 进度按已写入字节数（无条目大小时按条目计数），`archive_read_data_block()` 循环里检查 `isCancelled()`，可在解压过程中取消。
-- `encodingHint` 通过 `archive_read_set_option(a, "zip"|"tar", "hdrcharset", ...)` 传入（全局 `hdrcharset=` 形式 libarchive 不生效）。
-- 条目名优先 `archive_entry_pathname_utf8()`（UTF-8 标记），否则 `fromLocal8Bit()`；非 UTF-8 归档需用户提供编码提示。
+- 不使用 libarchive 的 `hdrcharset`：它按当前 locale 转换名称，非 UTF-8 locale（如 `LC_ALL=C`）下会直接导致打开失败。条目名优先 `archive_entry_pathname_utf8()`（带 UTF-8 标记时），否则取出 `archive_entry_pathname()` 的原始字节，由后端按“整个压缩包检测出的编码”自行解码，结果与进程 locale 无关。
+- 整个压缩包只检测一次编码：遍历时暂存原始名称字节，遍历结束后统一投票再逐条解码，避免逐条猜测在同一包内 UTF-8/GB18030 之间跳变。列表得到的编码存入 `m_nameEncoding`，`extract()` 复用，保证列表与落盘文件名一致；符号链接/硬链接目标同样按该编码解码（合法 UTF-8 的目标原样保留）。`encodingHint` 非空时优先于检测结果。
 - 拖拽预解压（`DragOutManager`）走同一个读路径工厂 `ArchiveManager::createReadBackend()`，并在私有 backend 内对 `UnsupportedFormat`/`EncodingError`/`CorruptedArchive` 自行做一次命令行回退；解压前先 `listContents()` 以填充进度总量。
 - 写操作不使用 libarchive：追加/删除遇到只读后端时，按 8.4 的写回退流程用 CLI 后端重开；分卷、RAR、压缩 tar 流仍不支持追加/删除。
 
@@ -842,7 +842,7 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - **覆盖策略**：`Ask` 在 UI 层收敛为全部覆盖/全部跳过；`Rename` 使用唯一文件名。
 - **进程管道**：`ProcessRunner` 同时读取 stdout/stderr，避免详细输出塞满管道导致死锁。
 - **取消与超时**：统一由 `ProcessRunner` 处理，后端不直接操作 `QProcess`。
-- **编码**：`EncodingDetector` 使用 iconv 探测/转换 GB18030、Big5、Shift-JIS 等；7z 输出按自动检测解码，旧代码页 ZIP/TAR 的选中解压使用对应 `-scs{id}` listfile，Linux 解压后自动把旧编码文件名重命名为 UTF-8。
+- **编码**：`EncodingDetector` 使用 iconv 探测/转换 GB18030、Big5、Shift-JIS 等。检测顺序为“合法 UTF-8 最优先 → 其余按可信度打分”：先用 iconv 校验可解码，再扫描源字节的两字节代码单元（两字节编码往返不变，位置即码表位置），统计落在该编码常用字区的比例（GB18030 lead B0–F7 / trail A1–FE；Big5 lead A4–C6；Shift-JIS lead 82–83 假名 / 88–98 一级汉字，单字节 A1–DF 半角假名单独计为宽字符），得分最高者胜出；最高与次高分差 < 0.05 时按系统 locale 顺序（zh_TW/zh_HK/zh_Hant → Big5、ja → Shift-JIS、其余 GB18030）敲定。因此 Big5 归档在任意 locale 下都能正确识别，而不是“首个能解码的编码胜出”。CLI 后端的编码投票只采 `-slt` 的 `Path =` 行（`SevenZipUtils::sampleNameBytes`），横幅、时间戳与压缩包自身路径不参与。7z 输出按同一检测逐行解码，旧代码页 ZIP/TAR 的选中解压使用对应 `-scs{id}` listfile，Linux 解压后自动把旧编码文件名重命名为 UTF-8。
 - **日志**：日志中密码参数替换为 `-p***`。
 - **压缩原子性**：目标已存在时先写临时文件，再把旧文件集备份、安装新文件，失败回滚，避免删除旧包后失败导致数据丢失。
 - **流式列表**：7z/tar 的 `-slt` 输出通过 `ProcessRunner` 行回调交给 `SevenZipListParser`，不再保留完整命令行文本；解析出的结构化条目最终一次性交给 UI。仅保留有限 stdout/原始字节样本用于错误与编码检测。普通压缩/解压仅保留有界 stdout 日志，stderr 错误完整保留；解析成员名时只去掉 `=` 后的一个分隔空格，保留名称首尾空格。
@@ -1238,13 +1238,13 @@ resources/
 
 | 测试 | 覆盖范围 |
 |---|---|
-| `tst_utils` | 路径规范化、Zip Slip 判断、7-Zip `-slt` 流式解析、成员名空格、大小溢出检查、符号链接目标与解压树复查 |
+| `tst_utils` | 路径规范化、Zip Slip 判断、7-Zip `-slt` 流式解析、成员名空格、大小溢出检查、符号链接目标与解压树复查、旧编码检测与代码页映射、`LogLineBuffer` 的 CR/CRLF/跨块切行 |
 | `tst_toolchain` | 7-Zip `--help` 校验、系统 PATH 回退、RAR Codecs 解析、`QARCHIVER_7Z_PATH` 覆盖 |
 | `tst_background` | 背景图片九种对齐的字符串往返、尺寸缩放规则、目标矩形、透明度绘制、路径+mtime+大小缓存（offscreen 平台运行） |
-| `tst_backends` | tar/tar.gz/tar.xz/tar.bz2/tar.zst/zip/7z/gzip 往返、纯 gz/bz2/xz 创建往返、tar.zst/zst 读取、tar 追加删除、纯 `.gz` 的 tar 探测、`.` 前缀与非 ASCII 文件名、RAR 读取/分卷/创建能力、危险符号链接失败后的临时目录清理 |
+| `tst_backends` | tar/tar.gz/tar.xz/tar.bz2/tar.zst/zip/7z/gzip 往返、纯 gz/bz2/xz 创建往返、tar.zst/zst 读取、tar 追加删除、纯 `.gz` 的 tar 探测、`.` 前缀与非 ASCII 文件名、旧编码 ZIP 的检测与选中解压（`-slt` 编码投票只采 `Path =` 行）、RAR 读取/分卷/创建能力、危险符号链接失败后的临时目录清理 |
 | `tst_preview` | 连续看图的后缀筛选、同目录选取、大小写不敏感、跳过符号链接/子目录、准备对话框阈值、批量解压样例 |
 | `tst_manager` | 打开/列表/解压流程、打开失败保留当前包、危险符号链接跳过/中止、覆盖已有目标压缩、RAR 分卷替换、加密 7z 回退命令行、图片同目录连续预览、后端选择开关、只读 libarchive 后端的添加/删除写回退 |
-| `tst_libarchive` | zip / tar.gz / tar.xz / gz 往返、AES-256 zip 密码、加密 7z 报不支持、损坏包检测、选择性解压、目录选中、硬链接重建 |
+| `tst_libarchive` | zip / tar.gz / tar.xz / gz 往返、AES-256 zip 密码、加密 7z 报不支持、损坏包检测、选择性解压、目录选中、硬链接重建、不带 UTF-8 标志的 GB18030 与 Big5 名称自动解码（含落盘文件名）、显式 `encodingHint` 覆盖检测 |
 | `tst_preferences` | 偏好设置中 libarchive 开关与 `AppSettings` 的双向联动、连续看图阈值与最近文件上限裁剪、布局/一键解压设置往返、性能测试对话框构建、列表模式目录索引/重复项、网格模式隐藏 `..`、缩略图开关与等比缩放、分卷图标（offscreen 平台运行） |
 | `tst_titlebar` | 沉浸式标题栏与布局切换：菜单栏不拉伸（空白区可拖拽）、空白处拖拽/双击最大化、`teardownUi()`/`buildUi()` 后标题栏仍挂在 menuWidget 槽位、误调 `menuBar()` 后可自愈、标题栏颜色使用主题 token（offscreen 平台运行） |
 | `tst_folderpane` | 系统位置侧栏：位置路径不重复、进入子目录后仍高亮所属位置、Home 之外的目录回退到“文件系统”（offscreen 平台运行） |
@@ -1282,7 +1282,9 @@ python3 tools/check_resources.py
 ```
 
 `tests/test_files/` 保留中英文混排的样例文件名，这是刻意为之：用来暴露编码、
-目录遍历与文件名排序问题，不要“整理”成统一命名。
+目录遍历与文件名排序问题，不要“整理”成统一命名。非 UTF-8 名称的压缩包夹具不进
+仓库：相关测试在 `QTemporaryDir` 里现场拼装（`tst_libarchive` 内置极简 stored ZIP
+写入器），测试结束随临时目录一起删除。
 
 ## 14. 扩展点
 

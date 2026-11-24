@@ -13,7 +13,9 @@
 
 #include "backends/sevenzip/SevenZipListParser.h"
 #include "common/FormatRegistry.h"
+#include "utils/EncodingDetector.h"
 #include "utils/FileUtils.h"
+#include "utils/LogLineBuffer.h"
 #include "utils/MimeAppsList.h"
 
 class TestUtils : public QObject {
@@ -30,6 +32,8 @@ private slots:
     void unsafeExtractedSymlinks();
     void parserPreservesSpacesAndLinks();
     void formatRegistrySuffixes();
+    void legacyEncodingDetection();
+    void logLineBufferSplitsLines();
     void archiveStripExtension();
     void mimeAppsListPreservesStandardFormat();
     void mimeAppsListCreatesMissingSections();
@@ -380,6 +384,128 @@ void TestUtils::mimeAppsListCreatesMissingSections()
         missing, QStringLiteral("application/zip"),
         QStringLiteral("qarchiver.desktop"), false, &error));
     QVERIFY(!QFileInfo::exists(missing));
+}
+
+// Legacy filename detection must not depend on the process locale for
+// unambiguous byte strings, and hinted decoding must round-trip.
+// 对无歧义的字节串，旧式文件名检测不能依赖进程 locale；
+// 带提示的解码必须可逆。
+void TestUtils::legacyEncodingDetection()
+{
+    // "测试文本㐀_GBK.txt" in GB18030.  "㐀" (U+3400) is stored as the
+    // four-byte sequence 81 39 ee 39, which is invalid UTF-8, Big5 and
+    // Shift-JIS, so detection is unambiguous on every locale.
+    // GB18030 的“测试文本㐀_GBK.txt”。“㐀”（U+3400）存储为四字节序列
+    // 81 39 ee 39，该序列在 UTF-8、Big5、Shift-JIS 下均非法，
+    // 因此在任何 locale 下检测都无歧义。
+    const QByteArray gbkName =
+        QByteArray::fromHex("b2e2cad4cec4b1be8139ee395f47424b2e747874");
+    QCOMPARE(EncodingDetector::detect(gbkName), QStringLiteral("GB18030"));
+    QCOMPARE(EncodingDetector::decode(gbkName), QStringLiteral("测试文本㐀_GBK.txt"));
+    QCOMPARE(EncodingDetector::decode(gbkName, QStringLiteral("GBK")),
+             QStringLiteral("测试文本㐀_GBK.txt"));
+
+    // Big5 overlaps with GB18030, so an explicit hint is what makes it correct.
+    // Big5 与 GB18030 重叠，因此只有显式提示才能正确解码。
+    const QByteArray big5Name = QByteArray::fromHex("a4a4a4e52e747874"); // 中文.txt
+    QCOMPARE(EncodingDetector::decode(big5Name, QStringLiteral("Big5")),
+             QStringLiteral("中文.txt"));
+
+    // UTF-8 must stay untouched.
+    // UTF-8 必须保持不变。
+    const QByteArray utf8Name = QStringLiteral("测试文本.txt").toUtf8();
+    QCOMPARE(EncodingDetector::detect(utf8Name), QStringLiteral("UTF-8"));
+    QCOMPARE(EncodingDetector::decode(utf8Name), QStringLiteral("测试文本.txt"));
+
+    // GB18030 and Big5 share most of their byte ranges, so "first decodable
+    // wins" used to depend on the locale.  The plausibility ranking has to
+    // tell them apart on every locale.
+    // GB18030 与 Big5 的字节范围大部分重叠，过去“谁先解码成功就算谁”导致结果
+    // 依赖 locale。可信度排序必须在任何 locale 下都能区分两者。
+    const QByteArray gbkZhongWen = QByteArray::fromHex("d6d0cec4"); // 中文
+    QCOMPARE(EncodingDetector::detect(gbkZhongWen), QStringLiteral("GB18030"));
+    QCOMPARE(EncodingDetector::decode(gbkZhongWen), QStringLiteral("中文"));
+
+    const QByteArray big5ZhongWen = QByteArray::fromHex("a4a4a4e5"); // 中文
+    QCOMPARE(EncodingDetector::detect(big5ZhongWen), QStringLiteral("Big5"));
+    QCOMPARE(EncodingDetector::decode(big5ZhongWen), QStringLiteral("中文"));
+
+    const QByteArray big5Name2 = QByteArray::fromHex("b4fab8d5a4e5a5f3"); // 測試文件
+    QCOMPARE(EncodingDetector::detect(big5Name2), QStringLiteral("Big5"));
+    QCOMPARE(EncodingDetector::decode(big5Name2), QStringLiteral("測試文件"));
+
+    const QByteArray big5Name3 =
+        QByteArray::fromHex("b6b5a5d8b669abd7b3f8a769c0c9aed7badeb27a"); // 項目進度報告檔案管理
+    QCOMPARE(EncodingDetector::detect(big5Name3), QStringLiteral("Big5"));
+    QCOMPARE(EncodingDetector::decode(big5Name3), QStringLiteral("項目進度報告檔案管理"));
+
+    // Simplified text stays GB18030 even though part of it is valid Big5.
+    // 简体文本即使部分字节合法于 Big5，也必须仍判为 GB18030。
+    const QByteArray gbkName2 = QByteArray::fromHex("b2e2cad4cec4b1becec4bcfe"); // 测试文本文件
+    QCOMPARE(EncodingDetector::detect(gbkName2), QStringLiteral("GB18030"));
+
+    // Japanese kana identify Shift-JIS regardless of the locale.
+    // 日文假名在任何 locale 下都能识别出 Shift-JIS。
+    const QByteArray sjisName =
+        QByteArray::fromHex("836583588367837483408343838b"); // テストファイル
+    QCOMPARE(EncodingDetector::detect(sjisName), QStringLiteral("Shift-JIS"));
+    QCOMPARE(EncodingDetector::decode(sjisName), QStringLiteral("テストファイル"));
+
+    // Code pages 7-Zip accepts through -scs<id> (0 = no mapping).
+    // 7-Zip 通过 -scs<id> 接受的代码页（0 表示无映射）。
+    QCOMPARE(EncodingDetector::codePageId(QStringLiteral("GB18030")), 936);
+    QCOMPARE(EncodingDetector::codePageId(QStringLiteral("GBK")), 936);
+    QCOMPARE(EncodingDetector::codePageId(QStringLiteral("Big5")), 950);
+    QCOMPARE(EncodingDetector::codePageId(QStringLiteral("Shift-JIS")), 932);
+    QCOMPARE(EncodingDetector::codePageId(QStringLiteral("UTF-8")), 0);
+}
+
+void TestUtils::logLineBufferSplitsLines()
+{
+    LogLineBuffer buffer;
+
+    // Plain LF terminated lines; the unterminated tail stays buffered.
+    // 普通 LF 结尾的行；未结束的残余内容留在缓冲区。
+    QCOMPARE(buffer.append(QByteArrayLiteral("alpha\nbeta\ngamma")),
+             QStringList({"alpha", "beta"}));
+    QVERIFY(!buffer.isEmpty());
+    QCOMPARE(buffer.flush(), QStringList({"gamma"}));
+    QVERIFY(buffer.isEmpty());
+
+    // 7-Zip rewrites progress with a bare CR; CRLF counts as one terminator, so
+    // a rewritten progress line must not glue itself onto the next line.
+    // 7-Zip 用单独的 CR 重写进度；CRLF 只算一个行结束符，
+    // 因此被重写的进度行不会和下一行粘在一起。
+    buffer.clear();
+    QCOMPARE(buffer.append(QByteArrayLiteral("10%\r20%\r\n30%\r")),
+             QStringList({"10%", "20%", "30%"}));
+    QVERIFY(buffer.isEmpty());
+
+    // Blank / whitespace-only lines would only scroll the log.
+    // 空白行只会让日志滚动，不应追加。
+    buffer.clear();
+    QVERIFY(buffer.append(QByteArrayLiteral("\n \r\n\t\n")).isEmpty());
+    QVERIFY(buffer.isEmpty());
+
+    // A chunk boundary in the middle of a line must not emit half a line.
+    // 数据块在行中间边界时不能输出半行。
+    buffer.clear();
+    QVERIFY(buffer.append(QByteArrayLiteral("part")).isEmpty());
+    QCOMPARE(buffer.append(QByteArrayLiteral("ial\n")), QStringList({"partial"}));
+
+    // A multi-byte UTF-8 character split across chunks is decoded only once the
+    // line is complete.
+    // 跨数据块的多字节 UTF-8 字符只在该行完成后才解码。
+    buffer.clear();
+    const QByteArray utf8Line = QStringLiteral("测试\n").toUtf8();
+    QVERIFY(buffer.append(utf8Line.left(4)).isEmpty());
+    QCOMPARE(buffer.append(utf8Line.mid(4)), QStringList({QStringLiteral("测试")}));
+
+    // A whitespace-only remainder is dropped on flush as well.
+    // 残余内容仅为空白时，flush 也会将其丢弃。
+    buffer.clear();
+    QVERIFY(buffer.append(QByteArrayLiteral("   ")).isEmpty());
+    QVERIFY(buffer.flush().isEmpty());
 }
 
 QTEST_GUILESS_MAIN(TestUtils)

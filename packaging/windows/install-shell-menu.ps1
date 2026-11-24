@@ -94,9 +94,16 @@ if (-not (Test-Path -LiteralPath $shellDll)) {
     # Installer payloads use a versioned filename so an in-place upgrade is not
     # blocked by Explorer still mapping the previous DLL.
     # 安装器使用带版本号的文件名，避免 Explorer 占用旧 DLL 导致升级失败。
+    # Sorting by name would pick 2.4.9 over 2.4.10, so compare the parsed
+    # version instead.
+    # 按名称排序会把 2.4.10 排到 2.4.9 前面，因此改为比较解析后的版本号。
     $versioned = Get-ChildItem -LiteralPath (Split-Path -Parent $ExePath) `
         -Filter 'QArchiverShell-*.dll' -File |
-        Sort-Object Name -Descending | Select-Object -First 1
+        Sort-Object -Descending {
+            $raw = $_.BaseName -replace '^QArchiverShell-', ''
+            $parsed = $null
+            if ([version]::TryParse($raw, [ref]$parsed)) { $parsed } else { [version]'0.0' }
+        } | Select-Object -First 1
     if ($versioned) {
         $shellDll = $versioned.FullName
     }

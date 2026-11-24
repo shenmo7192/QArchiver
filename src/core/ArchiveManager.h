@@ -86,6 +86,10 @@ public:
     bool canModifyCurrentArchive() const;
     // Last listed entries (empty before listing) / 最近一次列表结果（列表前为空）
     QList<ArchiveEntry> entries() const { return m_entries; }
+    // Encoding the backend used (or detected) for legacy member names.
+    // Empty while no archive is open or before the first listing.
+    // 后端用于（或检测出的）旧式成员名编码。未打开压缩包或尚未列表时为空。
+    QString nameEncoding() const;
 
     // Backend creation and the libarchive read policy live in
     // ArchiveBackendFactory; the manager uses them internally.

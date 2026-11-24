@@ -294,12 +294,19 @@ void runCompression(const std::vector<std::wstring> &paths,
         return;
     }
     // One process per item keeps the "name.zip next to each file" semantics
-    // for multi-selection. Open the finished archive in QArchiver.
-    // 多选时每项单独启动一个进程，保持“每个文件旁生成同名 zip”的语义，
-    // 完成后在 QArchiver 中打开。
+    // for multi-selection.  Only a single item asks for the result to be
+    // revealed: N concurrent processes each opening a main window would flood
+    // the desktop with windows the user never asked for.
+    // 多选时每项单独启动一个进程，保持“每个文件旁生成同名 zip”的语义；
+    // 仅单文件时附带 --open-after：N 个进程各开一个主窗口会把桌面刷屏。
+    const bool openAfter = paths.size() == 1;
     for (const std::wstring &path : paths) {
-        launch(std::wstring(L"--compress ") + format + L" --open-after "
-               + quote(path));
+        std::wstring arguments = std::wstring(L"--compress ") + format;
+        if (openAfter) {
+            arguments += L" --open-after";
+        }
+        arguments += L" " + quote(path);
+        launch(arguments);
     }
 }
 

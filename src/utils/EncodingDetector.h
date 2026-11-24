@@ -21,8 +21,19 @@ class EncodingDetector {
 public:
     // Detect whether the byte sequence is likely UTF-8, GB18030, Big5 or Shift-JIS.
     // Returns the detected encoding name, or "ISO-8859-1" as the last resort.
+    //
+    // Valid UTF-8 always wins.  Among the legacy encodings the most plausible
+    // interpretation wins: the share of two-byte code units that land in the
+    // encoding's frequently used block decides, and the system locale order is
+    // only used to break near-ties (where the byte ranges overlap and a two or
+    // three character name looks equally good in both).
     // 检测字节序列更可能属于 UTF-8、GB18030、Big5 还是 Shift-JIS。
     // 返回检测到的编码名，最后兜底为 "ISO-8859-1"。
+    //
+    // 合法 UTF-8 总是最优先；旧编码之间取“最像”的那一种：
+    // 由落入该编码常用字区的两字节代码单元比例决定，
+    // 系统 locale 顺序仅用于近似平票（字节范围重叠、
+    // 两三个字的名称在两种编码下都说得通）的裁决。
     static QString detect(const QByteArray &data);
 
     // Decode bytes using the detected or specified encoding.

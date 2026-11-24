@@ -9,6 +9,18 @@ All notable changes to QArchiver (小Q解压) are documented here.
 
 ### Fixed / 修复
 
+- 修复非 UTF-8（GBK/GB18030/Big5）文件名乱码：libarchive 后端不再用系统
+  locale 解码原始字节（`fromLocal8Bit`），改为按整个压缩包一次性检测编码后自行
+  解码，列表与解压落盘的文件名因此始终一致；同时不再向 libarchive 传
+  `hdrcharset`（该选项按 locale 转换，非 UTF-8 locale 下会整包失败）。
+- 文件名编码检测改为“可信度排序”：合法 UTF-8 始终最优先，其余按落入该编码
+  常用字区的两字节代码单元比例排序，系统 locale 顺序仅用于近似平票裁决。
+  Big5 名称不再在大陆/英文/日文机器上被误判成 GB18030，GBK 名称在繁体机器上
+  也能正确识别；Shift-JIS 通过假名区域可靠区分。
+- 7-Zip / tar CLI 后端的编码投票只采成员名行（`-slt` 的 `Path =`），不再让
+  横幅、时间戳和压缩包自身路径干扰判断。
+- 检测到的文件名编码通过 `ArchiveBackend::nameEncoding()` 回传给解压与拖出，
+  修复 `ListOptions/ExtractOptions.encodingHint` 此前基本无人填写的问题。
 - 修复资源管理器右键菜单中“添加到 xx.zip / 压缩到...”所有格式都生成 ZIP
   的问题：命令 ID 改为从 `lpVerb` 读取，不再误用 `lpVerbW`。
 - 右键菜单恢复文件类型图标；压缩完成后自动在 QArchiver 主窗口打开生成的
@@ -18,6 +30,17 @@ All notable changes to QArchiver (小Q解压) are documented here.
 - 压缩日志过滤空白进度行，并立即显示创建目标和进度，避免日志滚动但内容为空。
 - 性能测试线程数改为下拉框；修复日志读取通道；增加运行心跳、完整结果输出
   和结束提示。
+- 修复资源管理器右键“压缩到”完成后在 `operationFinished` 中**同步**重入
+  `ArchiveManager`（后端清理尚未执行）的时序问题：现在推迟到下一个事件循环再
+  打开新压缩包，并补上 `m_lastCompressTarget` 清理与状态栏刷新。
+- 右键菜单多选压缩时不再为每个文件各弹一个主窗口（仅单文件时带 `--open-after`）。
+- 压缩进度百分比改为在统计行显示，不再把握手当前文件名的标签覆盖成
+  “正在压缩... 40%”。
+- 性能测试对话框：stdout 与 stderr 分开缓冲（不再把两条流的半行粘在一起）、
+  正确处理 `\r` 进度行、心跳改为按间隔触发。
+- 安装脚本：Inno Setup 版本号补足四段（`2.4.1` → `2.4.1.0`）；安装 Shell 扩展时
+  按解析后的版本号而非文件名字典序选 DLL（否则 `2.4.9` 会排在 `2.4.10` 之前）。
+- 修复 `tests/CMakeLists.txt` 中文注释乱码。
 
 ## [2.4.0-2] - 2026-11-24
 

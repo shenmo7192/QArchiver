@@ -2807,8 +2807,8 @@ Overwrite it?</source>
         </message>
         <message>
             <location line="+28" />
-            <source>%1 / %2 files</source>
-            <translation>%1 / %2 个文件</translation>
+            <source>%1% - %2 / %3 files</source>
+            <translation>%1% - %2 / %3 个文件</translation>
         </message>
         <message>
             <location line="+4" />
@@ -3091,10 +3091,6 @@ The file may be missing, or there may be no associated application, insufficient
         <message>
         <source>Creating %1</source>
         <translation>正在创建 %1</translation>
-    </message>
-    <message>
-        <source>Compressing... %1%</source>
-        <translation>正在压缩... %1%</translation>
     </message>
 </context>
     <context>

@@ -187,7 +187,7 @@ void MainWindow::onEntriesDragOut(const QStringList &paths)
 
         for (int attempt = 0;; ++attempt) {
             payload = dragOut.extractForDrag(archivePath, format, entries, paths,
-                                             password);
+                                             password, manager.nameEncoding());
             if (payload.success || payload.cancelled) {
                 break;
             }

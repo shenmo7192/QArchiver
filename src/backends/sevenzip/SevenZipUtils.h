@@ -50,6 +50,17 @@ QString resolveSevenZip();
 bool appendListFileArgs(ListFile &file, const QStringList &entries,
                         const QString &encoding, QStringList &args);
 
+// Collect the raw bytes of the "Path = ..." lines from `7z l -slt` output.
+//
+// The whole stdout also contains the 7-Zip banner, sizes, timestamps and the
+// archive's own path; sampling those bytes makes the encoding vote flip on
+// archives with a single non-UTF-8 member.  Only member names are relevant.
+// 从 `7z l -slt` 输出中收集 "Path = ..." 行的原始字节。
+// 整个 stdout 还包含 7-Zip 的横幅、大小、时间戳以及压缩包自身路径，
+// 把这些字节也拿来投票，会让只含一个非 UTF-8 成员的压缩包判错。
+// 只有成员名才是相关的。
+QByteArray sampleNameBytes(const QByteArray &rawOutput);
+
 // 7-Zip on Linux writes legacy-codepage member names as raw bytes, so the
 // extracted tree can contain GBK/Big5/... filenames.  Rename them to UTF-8
 // bottom-up (children first, then the directory itself).  Windows is a no-op:

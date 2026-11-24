@@ -189,7 +189,8 @@ void BenchmarkDialog::startBenchmark()
     m_output->appendPlainText(
         tr("7-Zip prints its result table when the benchmark finishes; "
            "this normally takes about a minute."));
-    m_buffer.clear();
+    m_stdoutBuffer.clear();
+    m_stderrBuffer.clear();
     m_lastLogSecond = -1;
     m_summaryLabel->clear();
     m_summaryLabel->setVisible(false);
@@ -221,46 +222,36 @@ void BenchmarkDialog::stopBenchmark()
 
 void BenchmarkDialog::readOutput()
 {
-    appendChunk(m_process->readAllStandardOutput());
-    appendChunk(m_process->readAllStandardError());
+    // Keep the two channels apart: with one shared buffer a stdout line and a
+    // stderr line can be glued into a single bogus line.
+    // 两个通道分开处理：共用缓冲区会把一行 stdout 和一行 stderr 粘成一条错行。
+    appendChunk(m_stdoutBuffer, m_process->readAllStandardOutput());
+    appendChunk(m_stderrBuffer, m_process->readAllStandardError());
 }
 
-void BenchmarkDialog::appendChunk(const QByteArray &chunk)
+void BenchmarkDialog::appendChunk(LogLineBuffer &buffer, const QByteArray &chunk)
 {
-    if (chunk.isEmpty()) {
-        return;
-    }
-    m_buffer += chunk;
-    // Stream complete lines for a stable reading experience; keep a partial
-    // line buffered until the next chunk arrives.
-    int newline = -1;
-    while ((newline = m_buffer.indexOf('\n')) >= 0) {
-        QByteArray line = m_buffer.left(newline);
-        m_buffer.remove(0, newline + 1);
-        if (line.endsWith('\r')) {
-            line.chop(1);
-        }
-        m_output->appendPlainText(QString::fromUtf8(line));
+    // Streaming, CR handling and blank-line filtering live in LogLineBuffer so
+    // they are unit tested instead of hidden in a dialog.
+    // 流式切行、回车处理与空行过滤都在 LogLineBuffer 中，
+    // 便于单元测试，而不是埋在对话框里。
+    for (const QString &line : buffer.append(chunk)) {
+        m_output->appendPlainText(line);
     }
 }
 
-void BenchmarkDialog::flushBuffer()
+void BenchmarkDialog::flushBuffer(LogLineBuffer &buffer)
 {
-    if (m_buffer.isEmpty()) {
-        return;
+    for (const QString &line : buffer.flush()) {
+        m_output->appendPlainText(line);
     }
-    QByteArray line = m_buffer;
-    m_buffer.clear();
-    if (line.endsWith('\r')) {
-        line.chop(1);
-    }
-    m_output->appendPlainText(QString::fromUtf8(line));
 }
 
 void BenchmarkDialog::processFinished(int exitCode, QProcess::ExitStatus status)
 {
     readOutput();
-    flushBuffer();
+    flushBuffer(m_stdoutBuffer);
+    flushBuffer(m_stderrBuffer);
     m_elapsedTimer->stop();
     setRunning(false);
 
@@ -311,7 +302,7 @@ void BenchmarkDialog::updateElapsed()
     // heartbeat to the log instead of leaving it blank until the process exits.
     // 7-Zip 在输出被重定向时会缓冲基准测试的 stdout，因此定期写入心跳，
     // 避免进程结束前日志一直是空的。
-    if (seconds > 0 && seconds % 5 == 0 && seconds != m_lastLogSecond) {
+    if (seconds > 0 && seconds - m_lastLogSecond >= 5) {
         m_lastLogSecond = static_cast<int>(seconds);
         m_output->appendPlainText(
             tr("Benchmark running... %1 s").arg(seconds));

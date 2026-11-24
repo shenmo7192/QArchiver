@@ -37,8 +37,8 @@ context-menu scripts are in the same directory. The release includes one
 Publish a release:
 
 ```bash
-git tag 2.4.0-2
-git push origin 2.4.0-2
+git tag 2.4.1
+git push origin 2.4.1
 ```
 
 ## Features
@@ -70,7 +70,8 @@ git push origin 2.4.0-2
   also hosts Forward, Back and Up buttons to the left of the search field
 - Browse archive contents in a grid by default, switchable between grid, list, and tree views; filtering and sorting supported;
   grid icons are centred and long filenames wrap across multiple lines, with the cell height following the longest name in the current folder
-- Extraction: all or selected entries, overwrite strategies (ask/overwrite/skip/rename), password, encoding hints
+- Extraction: all or selected entries, overwrite strategies (ask/overwrite/skip/rename), password;
+  non-UTF-8 member names (GBK/GB18030/Big5/Shift-JIS) are detected automatically
 - Compression: 7z / zip / tar / tar.gz / tar.bz2 / tar.xz / gz / bz2 / xz; if `rar` is installed on the system, RAR and RAR volumes can also be created
 - Read `.tar.zst` / `.tzst` / `.zst` (read-only, using the bundled 7-Zip)
 - Append and delete entries (7z / zip / tar families)
@@ -391,8 +392,6 @@ which is more reliable than checking the return value of `QDrag::exec()`.
   and appending/deleting in existing RARs is still unsupported
 - Dangerous symlinks abort extraction by default; when the user chooses "skip", that link (or the entire subtree for directory links) is not extracted
 - Hard links are safely recreated only in the libarchive read backend; if the target is missing/out of bounds/is a symlink, the task aborts with a prompt
-- When no locale is set, libarchive cannot convert non-UTF-8 entry names; such archives require specifying an encoding
-  in the extraction dialog (e.g. GBK/CP936/GB18030)
 - Display/editing of archive comments is no longer provided
 - On Windows, extracting symlinks through libarchive requires Developer Mode or administrator privileges;
   the command-line 7-Zip backend usually follows/skips links directly

@@ -32,6 +32,7 @@ public:
     void closeArchive() override;
 
     ArchiveFormat format() const override { return m_format; }
+    QString nameEncoding() const override { return m_nameEncoding; }
     bool isReadOnly() const override
     {
         // 7-Zip can read zstd but not create it; keep tar.zst read-only.

@@ -13,6 +13,8 @@
 #include "utils/Logger.h"
 #include "utils/ProcessRunner.h"
 
+#include <cstring>
+
 #ifndef Q_OS_WIN
 #include <dirent.h>
 #include <cstdio>
@@ -71,6 +73,67 @@ bool ListFile::write(const QByteArray &payload)
 QString resolveSevenZip()
 {
     return ProcessRunner::resolveToolPath(QStringLiteral("7z"));
+}
+
+QByteArray sampleNameBytes(const QByteArray &rawOutput)
+{
+    // Cap the sample so a huge listing does not build a giant buffer; the vote
+    // only needs a representative slice and names are never cut in half.
+    // 限制样本大小，避免为超大列表构造巨型缓冲区；
+    // 投票只需要有代表性的一段，且不会截断半个名称。
+    constexpr int kMaxSampleBytes = 64 * 1024;
+    static const QByteArray kPathPrefix = QByteArrayLiteral("Path = ");
+
+    // `-slt` output has an archive header (which also contains a "Path = " line
+    // with the archive's own, always UTF-8, path) followed by "----------" and
+    // one block per member.  Only the member blocks are sampled.
+    // `-slt` 输出先有压缩包头部（其中也有一条 "Path = "，是压缩包自身的
+    // 始终为 UTF-8 的路径），然后是一条 "----------"，再是每个成员的块。
+    // 只采样成员块。
+    static const QByteArray kItemSeparator = QByteArrayLiteral("----------");
+
+    QList<QByteArray> names;
+    int firstItemName = -1;
+
+    const int size = rawOutput.size();
+    int pos = 0;
+    while (pos < size) {
+        int end = rawOutput.indexOf('\n', pos);
+        if (end < 0) {
+            end = size;
+        }
+        int lineEnd = end;
+        if (lineEnd > pos && rawOutput.at(lineEnd - 1) == '\r') {
+            --lineEnd;
+        }
+        const int lineLength = lineEnd - pos;
+        const char *line = rawOutput.constData() + pos;
+
+        if (lineLength == kItemSeparator.size()
+            && std::memcmp(line, kItemSeparator.constData(),
+                           static_cast<size_t>(kItemSeparator.size()))
+                == 0) {
+            firstItemName = names.size();
+        } else if (lineLength > kPathPrefix.size()
+                   && std::memcmp(line, kPathPrefix.constData(),
+                                  static_cast<size_t>(kPathPrefix.size()))
+                       == 0) {
+            names.append(QByteArray(line + kPathPrefix.size(),
+                                    lineLength - kPathPrefix.size()));
+        }
+        pos = end + 1;
+    }
+
+    QByteArray sample;
+    for (int index = firstItemName > 0 ? firstItemName : 0; index < names.size();
+         ++index) {
+        if (sample.size() >= kMaxSampleBytes) {
+            break;
+        }
+        sample.append(names.at(index));
+        sample.append('\n');
+    }
+    return sample;
 }
 
 bool appendListFileArgs(ListFile &file, const QStringList &entries,
