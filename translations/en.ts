@@ -763,7 +763,7 @@ Overwrite it?</translation>
 <context>
     <name>FileAssociations</name>
     <message>
-        <location filename="../src/utils/FileAssociations.cpp" line="+358"/>
+        <location filename="../src/utils/FileAssociations.cpp" line="+342"/>
         <source>Could not write the association for %1.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -787,12 +787,12 @@ Overwrite it?</translation>
 <context>
     <name>FileListModel</name>
     <message>
-        <location filename="../src/ui/models/FileListModel.cpp" line="+155"/>
+        <location filename="../src/ui/models/FileListModel.cpp" line="+157"/>
         <source>Parent directory</source>
         <translation>Parent directory</translation>
     </message>
     <message>
-        <location line="+59"/>
+        <location line="+56"/>
         <source>Yes</source>
         <translation>Yes</translation>
     </message>
@@ -830,7 +830,7 @@ Overwrite it?</translation>
 <context>
     <name>FileTypeHelper</name>
     <message>
-        <location filename="../src/ui/icons/FileTypeHelper.cpp" line="+232"/>
+        <location filename="../src/ui/icons/FileTypeHelper.cpp" line="+236"/>
         <source>Folder</source>
         <translation>Folder</translation>
     </message>
@@ -940,7 +940,7 @@ Overwrite it?</translation>
         <translation>File</translation>
     </message>
     <message>
-        <location line="+76"/>
+        <location line="+79"/>
         <source>Unknown</source>
         <translation>Unknown</translation>
     </message>
@@ -972,7 +972,7 @@ Overwrite it?</translation>
 <context>
     <name>LibArchiveBackend</name>
     <message>
-        <location filename="../src/backends/libarchive/LibArchiveBackend.cpp" line="+228"/>
+        <location filename="../src/backends/libarchive/LibArchiveBackend.cpp" line="+230"/>
         <source>File not found: %1</source>
         <translation>File not found: %1</translation>
     </message>
@@ -1129,13 +1129,13 @@ Overwrite it?</translation>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="+107"/>
-        <location line="+296"/>
+        <location filename="../src/ui/MainWindow.cpp" line="+102"/>
+        <location line="+311"/>
         <source>QArchiver</source>
         <translation>QArchiver</translation>
     </message>
     <message>
-        <location line="-226"/>
+        <location line="-225"/>
         <source>Unsafe Symbolic Link</source>
         <translation>Unsafe Symbolic Link</translation>
     </message>
@@ -1176,14 +1176,14 @@ Skipping the link prevents it and its contents from being extracted. Aborting re
         <translation>Abort Extraction</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowActions.cpp" line="+201"/>
-        <location filename="../src/ui/MainWindowNavigation.cpp" line="+605"/>
-        <location line="+75"/>
+        <location filename="../src/ui/MainWindowActions.cpp" line="+212"/>
+        <location filename="../src/ui/MainWindowNavigation.cpp" line="+614"/>
+        <location line="+79"/>
         <source>Open</source>
         <translation>Open</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowNavigation.cpp" line="+33"/>
+        <location filename="../src/ui/MainWindowNavigation.cpp" line="+35"/>
         <source>Add Files...</source>
         <translation>Add Files...</translation>
     </message>
@@ -1198,18 +1198,18 @@ Skipping the link prevents it and its contents from being extracted. Aborting re
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowLayout.cpp" line="+223"/>
+        <location filename="../src/ui/MainWindowLayout.cpp" line="+220"/>
         <source>Main</source>
         <translation>Main</translation>
     </message>
     <message>
         <location filename="../src/ui/MainWindowActions.cpp" line="+5"/>
-        <location line="+275"/>
+        <location line="+282"/>
         <source>Preferences</source>
         <translation>Preferences</translation>
     </message>
     <message>
-        <location line="-272"/>
+        <location line="-279"/>
         <source>About</source>
         <translation>About</translation>
     </message>
@@ -1219,7 +1219,7 @@ Skipping the link prevents it and its contents from being extracted. Aborting re
         <translation>Quit</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="+205"/>
+        <location filename="../src/ui/MainWindow.cpp" line="+204"/>
         <location filename="../src/ui/MainWindowLayout.cpp" line="+53"/>
         <source>No archive open.
 Use the Open button or drag a file here.</source>
@@ -1232,12 +1232,12 @@ Use the Open button or drag a file here.</translation>
         <translation>Choose Archive...</translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+47"/>
         <source>Filter by name or path (wildcards allowed)...</source>
         <translation>Filter by name or path (wildcards allowed)...</translation>
     </message>
     <message>
-        <location line="+152"/>
+        <location line="+154"/>
         <source>Icon size (Ctrl + wheel)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1247,42 +1247,42 @@ Use the Open button or drag a file here.</translation>
         <translation>Ready</translation>
     </message>
     <message>
-        <location line="+143"/>
-        <location line="+48"/>
+        <location line="+166"/>
+        <location line="+68"/>
         <source>Size</source>
         <translation type="unfinished">Size</translation>
     </message>
     <message>
-        <location line="-47"/>
-        <location line="+49"/>
+        <location line="-67"/>
+        <location line="+69"/>
         <source>Packed size</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-48"/>
-        <location line="+50"/>
+        <location line="-68"/>
+        <location line="+70"/>
         <source>Type</source>
         <translation type="unfinished">Type</translation>
     </message>
     <message>
-        <location line="-49"/>
-        <location line="+50"/>
+        <location line="-69"/>
+        <location line="+70"/>
         <source>Modified</source>
         <translation type="unfinished">Modified</translation>
     </message>
     <message>
-        <location line="-49"/>
+        <location line="-69"/>
         <source>Encrypted</source>
         <translation type="unfinished">Encrypted</translation>
     </message>
     <message>
         <location line="+2"/>
-        <location line="+41"/>
+        <location line="+61"/>
         <source>Name</source>
         <translation type="unfinished">Name</translation>
     </message>
     <message>
-        <location line="-38"/>
+        <location line="-58"/>
         <source>Sort: %1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1297,7 +1297,7 @@ Use the Open button or drag a file here.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+46"/>
         <source>Sort by</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1312,12 +1312,12 @@ Use the Open button or drag a file here.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-270"/>
+        <location line="-313"/>
         <source>Recent Files</source>
         <translation>Recent Files</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowExtraction.cpp" line="+173"/>
+        <location filename="../src/ui/MainWindowExtraction.cpp" line="+168"/>
         <source>Overwrite Files</source>
         <translation>Overwrite Files</translation>
     </message>
@@ -1347,12 +1347,12 @@ Use the Open button or drag a file here.</translation>
         <translation>Adding Files...</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowActions.cpp" line="+184"/>
+        <location filename="../src/ui/MainWindowActions.cpp" line="+191"/>
         <source>Open Archive</source>
         <translation>Open Archive</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+202"/>
+        <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+197"/>
         <source>%1 items</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1416,8 +1416,8 @@ Use the Open button or drag a file here.</translation>
     </message>
     <message>
         <location line="+9"/>
-        <source>A .gz / .bz2 / .xz stream can contain exactly one regular file.</source>
-        <translation type="unfinished">A .gz / .bz2 / .xz stream can contain exactly one regular file.</translation>
+        <source>A single-file compression stream can contain exactly one regular file.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+26"/>
@@ -1506,7 +1506,7 @@ This cannot be undone.</translation>
         <translation>About QArchiver</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="+332"/>
+        <location filename="../src/ui/MainWindow.cpp" line="+330"/>
         <source>Extracted to %1</source>
         <translation>Extracted to %1</translation>
     </message>
@@ -1538,7 +1538,7 @@ This cannot be undone.</translation>
         <translation>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.001);;All Files (*)</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowActions.cpp" line="-414"/>
+        <location filename="../src/ui/MainWindowActions.cpp" line="-437"/>
         <source>Download the official 7-Zip command-line tool from https://www.7-zip.org/download.html and place 7z.exe together with the matching 7z.dll in:
 %1
 
@@ -1590,26 +1590,40 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
     </message>
     <message>
         <location line="+14"/>
+        <source>Back</source>
+        <translation type="unfinished">Back</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Forward</source>
+        <translation type="unfinished">Forward</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Up</source>
+        <translation type="unfinished">Up</translation>
+    </message>
+    <message>
+        <location line="+8"/>
         <source>Compress</source>
         <translation>Compress</translation>
     </message>
     <message>
         <location line="+2"/>
-        <location line="+211"/>
+        <location line="+218"/>
         <source>Create a new archive (Ctrl+N)</source>
         <translation>Create a new archive (Ctrl+N)</translation>
     </message>
     <message>
-        <location line="-208"/>
+        <location line="-215"/>
         <source>Extract To...</source>
         <translation>Extract To...</translation>
     </message>
     <message>
         <location line="+4"/>
         <location filename="../src/ui/MainWindowExtraction.cpp" line="-4"/>
-        <location line="+46"/>
-        <location line="+6"/>
-        <location line="+63"/>
+        <location line="+53"/>
+        <location line="+76"/>
         <location filename="../src/ui/MainWindowNavigation.cpp" line="+5"/>
         <source>One-click Extract</source>
         <translation>One-click Extract</translation>
@@ -1640,7 +1654,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>Close the current archive</translation>
     </message>
     <message>
-        <location line="+74"/>
+        <location line="+81"/>
         <source>&amp;File</source>
         <translation>&amp;File</translation>
     </message>
@@ -1690,14 +1704,14 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="-109"/>
-        <location filename="../src/ui/MainWindowNavigation.cpp" line="-489"/>
-        <location line="+64"/>
+        <location filename="../src/ui/MainWindow.cpp" line="-106"/>
+        <location filename="../src/ui/MainWindowNavigation.cpp" line="-514"/>
+        <location line="+71"/>
         <source>No archive open</source>
         <translation>No archive open</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowNavigation.cpp" line="-75"/>
+        <location filename="../src/ui/MainWindowNavigation.cpp" line="-82"/>
         <source>Local folder · %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1717,13 +1731,13 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>%1 · Unpacked %2</translation>
     </message>
     <message>
-        <location line="+354"/>
-        <location line="+75"/>
+        <location line="+374"/>
+        <location line="+79"/>
         <source>Open With...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-61"/>
+        <location line="-64"/>
         <source>Add to ZIP archive</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1743,13 +1757,13 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-452"/>
+        <location line="-473"/>
         <location line="+55"/>
         <source>%1 files, %2 folders (%3)</source>
         <translation>%1 files, %2 folders (%3)</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowExtraction.cpp" line="-282"/>
+        <location filename="../src/ui/MainWindowExtraction.cpp" line="-296"/>
         <source>What would you like to select?</source>
         <translation>What would you like to select?</translation>
     </message>
@@ -1789,20 +1803,20 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>Keep Window Open</translation>
     </message>
     <message>
-        <location line="+28"/>
-        <location line="+73"/>
+        <location line="+37"/>
+        <location line="+78"/>
         <source>Reading archive contents...</source>
         <translation>Reading archive contents...</translation>
     </message>
     <message>
-        <location line="-62"/>
+        <location line="-61"/>
         <source>Cannot create the destination directory:
 %1</source>
         <translation>Cannot create the destination directory:
 %1</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+5"/>
         <source>The destination directory is not writable:
 %1</source>
         <translation>The destination directory is not writable:
@@ -1834,12 +1848,12 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>&lt;h3&gt;QArchiver (小Q解压)&lt;/h3&gt;&lt;p&gt;A lightweight Qt-based archive manager for Linux and Windows.&lt;/p&gt;&lt;p&gt;The modern interface follows HaoZip: flat toolbar, folder and details panes, one-click extraction and the classic layout in Preferences. No ads, no bundled security scanners.&lt;/p&gt;&lt;p&gt;Supports: tar, tar.gz, tar.xz, tar.bz2, zip, 7z, rar, gz, bz2, xz&lt;/p&gt;&lt;p&gt;Version: %1&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="+89"/>
+        <location filename="../src/ui/MainWindow.cpp" line="+87"/>
         <source>Opening %1...</source>
         <translation>Opening %1...</translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+29"/>
         <source>Opened: %1</source>
         <translation>Opened: %1</translation>
     </message>
@@ -1952,7 +1966,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location line="-141"/>
+        <location line="-139"/>
         <source>Detecting format: %1</source>
         <translation>Detecting format: %1</translation>
     </message>
@@ -1962,7 +1976,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>Detecting archive format...</translation>
     </message>
     <message>
-        <location line="+194"/>
+        <location line="+192"/>
         <source>Unable to open archive.
 %1</source>
         <translation>Unable to open archive.
@@ -1974,7 +1988,7 @@ QArchiver uses 7-Zip as the fallback backend for archive formats and operations 
         <translation>Operation failed</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowDragOut.cpp" line="+243"/>
+        <location filename="../src/ui/MainWindowDragOut.cpp" line="+238"/>
         <location line="+76"/>
         <source>Drag Out</source>
         <translation>Drag Out</translation>
@@ -2013,7 +2027,7 @@ Please drop them onto a file manager, the desktop, or another application.</tran
         <translation>Files are ready. Drag the selection again to copy them out.</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindowActions.cpp" line="-434"/>
+        <location filename="../src/ui/MainWindowActions.cpp" line="-457"/>
         <source>System 7-Zip Fallback</source>
         <translation>System 7-Zip Fallback</translation>
     </message>
@@ -2057,7 +2071,7 @@ For a self-contained installation, download the official 7-Zip command-line tool
 <context>
     <name>ModernNavBar</name>
     <message>
-        <location filename="../src/ui/widgets/ModernNavBar.cpp" line="+82"/>
+        <location filename="../src/ui/widgets/ModernNavBar.cpp" line="+43"/>
         <source>Back</source>
         <translation>Back</translation>
     </message>
@@ -2656,18 +2670,18 @@ For a self-contained installation, download the official 7-Zip command-line tool
 <context>
     <name>PreviewManager</name>
     <message>
-        <location filename="../src/ui/services/PreviewManager.cpp" line="+107"/>
-        <location line="+287"/>
+        <location filename="../src/ui/services/PreviewManager.cpp" line="+113"/>
+        <location line="+293"/>
         <source>Preview</source>
         <translation>Preview</translation>
     </message>
     <message>
-        <location line="-286"/>
+        <location line="-292"/>
         <source>This file is too large to preview (%1).</source>
         <translation>This file is too large to preview (%1).</translation>
     </message>
     <message>
-        <location line="+98"/>
+        <location line="+104"/>
         <source>Preparing Continuous Preview...</source>
         <translation>Preparing Continuous Preview...</translation>
     </message>
@@ -2677,7 +2691,7 @@ For a self-contained installation, download the official 7-Zip command-line tool
         <translation>Preparing continuous preview...</translation>
     </message>
     <message>
-        <location line="+121"/>
+        <location line="+120"/>
         <source>Preparing images... %1 / %2</source>
         <translation>Preparing images... %1 / %2</translation>
     </message>
@@ -2687,7 +2701,7 @@ For a self-contained installation, download the official 7-Zip command-line tool
         <translation>Cancelling...</translation>
     </message>
     <message>
-        <location line="+52"/>
+        <location line="+53"/>
         <source>Unable to extract this file for preview.</source>
         <translation>Unable to extract this file for preview.</translation>
     </message>
@@ -3031,7 +3045,7 @@ The file may be missing, or there may be no associated application, insufficient
 <context>
     <name>StreamBackend</name>
     <message>
-        <location filename="../src/backends/stream/StreamBackend.cpp" line="+92"/>
+        <location filename="../src/backends/stream/StreamBackend.cpp" line="+94"/>
         <source>File not found: %1</source>
         <translation>File not found: %1</translation>
     </message>
@@ -3098,8 +3112,8 @@ The file may be missing, or there may be no associated application, insufficient
     </message>
     <message>
         <location line="+7"/>
-        <source>Select exactly one regular file for .gz / .bz2 / .xz streams.</source>
-        <translation>Select exactly one regular file for .gz / .bz2 / .xz streams.</translation>
+        <source>Select exactly one regular file for a single-file compression stream.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+5"/>
@@ -3158,7 +3172,7 @@ The file may be missing, or there may be no associated application, insufficient
         <location line="+35"/>
         <location line="+111"/>
         <location line="+138"/>
-        <location line="+152"/>
+        <location line="+160"/>
         <location line="+40"/>
         <location line="+44"/>
         <location line="+69"/>
@@ -3168,7 +3182,7 @@ The file may be missing, or there may be no associated application, insufficient
         <translation>Failed to start 7z</translation>
     </message>
     <message>
-        <location line="-674"/>
+        <location line="-682"/>
         <source>The compressed stream does not contain a tar archive</source>
         <translation>The compressed stream does not contain a tar archive</translation>
     </message>
@@ -3188,7 +3202,7 @@ The file may be missing, or there may be no associated application, insufficient
         <location line="+36"/>
         <location line="+62"/>
         <location line="+75"/>
-        <location line="+153"/>
+        <location line="+161"/>
         <location line="+42"/>
         <location line="+41"/>
         <location line="+70"/>
@@ -3199,9 +3213,9 @@ The file may be missing, or there may be no associated application, insufficient
         <translation>Operation cancelled</translation>
     </message>
     <message>
-        <location line="-629"/>
+        <location line="-637"/>
         <location line="+85"/>
-        <location line="+154"/>
+        <location line="+162"/>
         <location line="+219"/>
         <location line="+65"/>
         <location line="+65"/>
@@ -3209,15 +3223,15 @@ The file may be missing, or there may be no associated application, insufficient
         <translation>7z tool not found</translation>
     </message>
     <message>
-        <location line="-577"/>
+        <location line="-585"/>
         <location line="+97"/>
-        <location line="+203"/>
+        <location line="+211"/>
         <location line="+288"/>
         <source>Cannot create a temporary directory</source>
         <translation>Cannot create a temporary directory</translation>
     </message>
     <message>
-        <location line="-572"/>
+        <location line="-580"/>
         <location line="+99"/>
         <source>Failed to open the compressed tar stream</source>
         <translation>Failed to open the compressed tar stream</translation>
@@ -3229,12 +3243,12 @@ The file may be missing, or there may be no associated application, insufficient
     </message>
     <message>
         <location line="+25"/>
-        <location line="+445"/>
+        <location line="+453"/>
         <source>Blocked unsafe path: %1</source>
         <translation>Blocked unsafe path: %1</translation>
     </message>
     <message>
-        <location line="-390"/>
+        <location line="-398"/>
         <source>Could not prepare the selected files for extraction</source>
         <translation>Could not prepare the selected files for extraction</translation>
     </message>
@@ -3262,6 +3276,11 @@ The file may be missing, or there may be no associated application, insufficient
         <location line="+8"/>
         <source>Extraction completed</source>
         <translation>Extraction completed</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>The bundled 7-Zip can read .tar.zst but cannot create it. Use tar.gz/tar.xz/tar.bz2 for creation.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+13"/>

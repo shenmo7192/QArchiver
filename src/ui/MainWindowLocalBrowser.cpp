@@ -4,11 +4,6 @@
 // MainWindow 本地浏览：未打开压缩包时显示的目录列表，以及不经过压缩对话框
 // 的压缩流程（资源管理器右键菜单/命令行）。
 
-// QArchiver / 小Q解压
-// MainWindow implementation: modern and classic layouts, actions, drag/drop,
-// previews, one-click extraction and dialogs.
-// MainWindow 实现：现代与经典布局、动作、拖放、预览、一键解压与对话框。
-
 #include "common/FormatRegistry.h"
 
 #include "ui/MainWindow.h"
@@ -356,8 +351,8 @@ void MainWindow::compressPaths(const QStringList &sources, ArchiveFormat format,
             || QFileInfo(absoluteSources.first()).isDir())) {
         QMessageBox::warning(
             this, tr("Create Archive"),
-            tr("A .gz / .bz2 / .xz stream can contain exactly one regular "
-               "file."));
+            tr("A single-file compression stream can contain exactly one "
+               "regular file."));
         return;
     }
 

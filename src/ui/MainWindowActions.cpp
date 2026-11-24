@@ -4,11 +4,6 @@
 // MainWindow 动作：QAction 构建、菜单、工具栏按钮样式、状态更新以及
 // 菜单/工具栏命令处理。
 
-// QArchiver / 小Q解压
-// MainWindow implementation: modern and classic layouts, actions, drag/drop,
-// previews, one-click extraction and dialogs.
-// MainWindow 实现：现代与经典布局、动作、拖放、预览、一键解压与对话框。
-
 #include "ui/MainWindow.h"
 
 #include "ui/MainWindowHelpers.h"
@@ -198,6 +193,22 @@ void MainWindow::showSevenZipFallbackInfo(const SevenZipToolInfo &info)
 
 void MainWindow::setupActions()
 {
+    // Classic-layout navigation.  The modern layout uses ModernNavBar's own
+    // buttons; these actions are added to the classic filter row only.
+    // 经典布局导航。现代布局使用 ModernNavBar 自带的按钮；
+    // 这三个动作只加入经典布局的筛选行。
+    m_backAct = new QAction(tr("Back"), this);
+    m_backAct->setShortcut(QKeySequence(Qt::ALT | Qt::Key_Left));
+    connect(m_backAct, &QAction::triggered, this, &MainWindow::onNavBack);
+
+    m_forwardAct = new QAction(tr("Forward"), this);
+    m_forwardAct->setShortcut(QKeySequence(Qt::ALT | Qt::Key_Right));
+    connect(m_forwardAct, &QAction::triggered, this, &MainWindow::onNavForward);
+
+    m_upAct = new QAction(tr("Up"), this);
+    m_upAct->setShortcut(QKeySequence(Qt::ALT | Qt::Key_Up));
+    connect(m_upAct, &QAction::triggered, this, &MainWindow::onNavUp);
+
     m_openAct = new QAction(tr("Open"), this);
     m_openAct->setShortcut(QKeySequence::Open);
     connect(m_openAct, &QAction::triggered, this, &MainWindow::onOpen);
@@ -257,6 +268,9 @@ void MainWindow::applyActionIcons()
     };
 
     if (m_modernUi) {
+        m_backAct->setIcon(modern(QStringLiteral("back.png")));
+        m_forwardAct->setIcon(modern(QStringLiteral("forward.png")));
+        m_upAct->setIcon(modern(QStringLiteral("up.png")));
         m_openAct->setIcon(modern(QStringLiteral("open.png")));
         m_newAct->setIcon(modern(QStringLiteral("compress.png")));
         m_extractAct->setIcon(modern(QStringLiteral("extract.png")));
@@ -269,12 +283,15 @@ void MainWindow::applyActionIcons()
         m_aboutAct->setIcon(modern(QStringLiteral("help.png")));
         m_quitAct->setIcon(modern(QStringLiteral("close.png")));
     } else {
+        m_backAct->setIcon(classic(QStringLiteral("left.ico")));
+        m_forwardAct->setIcon(classic(QStringLiteral("right.ico")));
+        m_upAct->setIcon(classic(QStringLiteral("up.ico")));
         m_openAct->setIcon(classic(QStringLiteral("Open.png")));
         m_newAct->setIcon(classic(QStringLiteral("New.png")));
         m_extractAct->setIcon(classic(QStringLiteral("Extract.png")));
         m_oneClickAct->setIcon(classic(QStringLiteral("Extract.png")));
-        m_testAct->setIcon(modern(QStringLiteral("test.png")));
-        m_addAct->setIcon(classic(QStringLiteral("New.png")));
+        m_testAct->setIcon(classic(QStringLiteral("test.png")));
+        m_addAct->setIcon(classic(QStringLiteral("add.png")));
         m_deleteAct->setIcon(classic(QStringLiteral("Close.png")));
         m_closeAct->setIcon(classic(QStringLiteral("Close.png")));
         m_prefsAct->setIcon(classic(QStringLiteral("Preferences.png")));
@@ -282,7 +299,8 @@ void MainWindow::applyActionIcons()
         m_quitAct->setIcon(classic(QStringLiteral("Quit.png")));
     }
 
-    for (QAction *action : {m_openAct, m_newAct, m_extractAct, m_oneClickAct,
+    for (QAction *action : {m_backAct, m_forwardAct, m_upAct,
+                            m_openAct, m_newAct, m_extractAct, m_oneClickAct,
                             m_testAct, m_addAct, m_deleteAct, m_closeAct,
                             m_prefsAct, m_aboutAct, m_quitAct}) {
         if (!action) {

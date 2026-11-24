@@ -2,12 +2,18 @@ qarchiver (2.4.0) unstable; urgency=medium
 
   * Add an immersive frameless title bar shared by both layouts.
   * Start on the welcome page and add an explicit File Manager entry.
-  * Keep file-manager browsing available from the start page.
+  * Merge upstream 2.3.1 fixes, classic path label and file-type icon layout.
 
- -- shenmo <shenmo@spark-app.store>  Tue, 24 Nov 2026 18:40:00 +0800
+ -- shenmo <shenmo@spark-app.store>  Tue, 24 Nov 2026 18:42:00 +0800
 
 qarchiver (2.3.1) unstable; urgency=medium
 
+  * Read .tar.zst / .tzst / .zst archives (read-only through the bundled
+    7-Zip).
+  * Persist the item-size slider asynchronously (400 ms) instead of writing
+    QSettings on every step; restore the default size to 96.
+  * Fix the pending "Open With" mode when a continuous preview extraction is
+    already running, and only expose that action on Windows.
   * Sort button uses the standard two-arrow icon (centred), the item-size
     slider moved to the bottom-right status bar, and Ctrl+wheel zoom remains.
   * Taller near-square folder icon, generated from an SVG source at 256px.
@@ -18,7 +24,7 @@ qarchiver (2.3.1) unstable; urgency=medium
   * Installer defaults to Simplified Chinese on Chinese systems.
   * Installers and portable ZIP stay in a single GitHub Release.
 
- -- shenmo <shenmo@spark-app.store>  Mon, 23 Nov 2026 22:40:00 +0800
+ -- shenmo <shenmo@spark-app.store>  Tue, 24 Nov 2026 00:00:00 +0800
 
 qarchiver (2.3.0) unstable; urgency=medium
 

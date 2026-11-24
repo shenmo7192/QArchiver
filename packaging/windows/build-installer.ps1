@@ -1,7 +1,7 @@
 ﻿# Build the QArchiver Windows installer from a portable ZIP package.
 # 从便携 ZIP 包构建 QArchiver Windows 安装器。
 #
-#   .\build-installer.ps1 -ZipPath ..\..\QArchiver-2.2.0-windows-x64.zip
+#   .\build-installer.ps1 -ZipPath ..\..\QArchiver-2.3.1-windows-x64.zip
 #
 # Requires Inno Setup 6 (ISCC.exe).  CI installs it through Chocolatey when the
 # runner image does not provide it.

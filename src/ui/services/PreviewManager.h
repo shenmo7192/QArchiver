@@ -51,8 +51,8 @@ private:
     QString previewRoot() const;
     QString ownPreviewDir() const;
     void finishPreview(const QString &previewDir, const QString &destPath,
-                       bool success, bool cancelled, const QString &errorMessage,
-                       bool openWith);
+                       bool success, bool cancelled,
+                       const QString &errorMessage);
     void cancelPreview(const QString &previewDir);
     void updatePreviewProgress(const QString &previewDir, int percent,
                                int total, int current, int etaSec);

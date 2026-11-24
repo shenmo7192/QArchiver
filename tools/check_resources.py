@@ -30,6 +30,8 @@ EXPECTED_PREFIXES = {
     "/icons/classic/",
     "/icons/modern/",
     "/icons/file-types/",
+    "/icons/file-types/classic/",
+    "/icons/file-types/modern/",
     "/themes/aero/",
     "/themes/modern/",
 }
@@ -50,19 +52,25 @@ def load_aliases() -> dict[str, Path]:
     return aliases
 
 
-# String literals passed to the Icons:: helpers, e.g. Icons::aero("Open.png").
+# String literals passed to the Icons:: helpers or local aliases, e.g.
+# Icons::aero("Open.png") or modern("close.png") / classic("add.png").
 # 传给 Icons:: 辅助函数的字面量，例如 Icons::aero("Open.png")。
-ICON_CALL = re.compile(r'Icons::(aero|modern|fileType)\(QStringLiteral\("([^"]+)"\)\)')
+ICON_CALL = re.compile(
+    r'(?:Icons::)?(aero|modern|fileType|classic)\(QStringLiteral\("([^"]+)"\)\)')
 
 ICON_ROOTS = {
-    "aero": "/icons/classic/",
-    "modern": "/icons/modern/",
-    "fileType": "/icons/file-types/",
+    "aero": ("/icons/classic/",),
+    "classic": ("/icons/classic/",),
+    "modern": ("/icons/modern/",),
+    "fileType": (
+        "/icons/file-types/classic/",
+        "/icons/file-types/modern/",
+    ),
 }
 
 
 def collect_icon_calls() -> list[tuple[str, str]]:
-    """Return [(helper, file name)] for every literal Icons:: call."""
+    """Return [(helper, file name)] for every literal icon call."""
     calls: list[tuple[str, str]] = []
     for path in (ROOT / "src").rglob("*"):
         if path.suffix not in {".cpp", ".h"}:
@@ -99,7 +107,7 @@ def main() -> int:
             problems.append(f"missing file for {resource}: {source}")
 
     # 2. Prefixes the code depends on.  Every directory that contains an alias
-    #    counts, including nested ones such as /icons/modern/file-types/.
+    #    counts, including nested ones such as /icons/file-types/modern/.
     prefixes: set[str] = set()
     for path in aliases:
         for parent in Path(path).parents:
@@ -125,12 +133,17 @@ def main() -> int:
             continue
         problems.append(f"unknown resource path: {reference}")
 
-    # 4. Literal Icons:: calls must point at a real alias.
+    # 4. Literal icon calls (Icons:: and local aliases) must point at a real alias.
+    #    Icons::fileType() selects the active layout's set at runtime, so each
+    #    literal must exist in both the classic and modern file-type roots.
+    #    字面量图标调用必须指向真实别名；Icons::fileType() 在运行时按布局选择，
+    #    因此每个文件名都必须同时存在于经典与现代文件类型目录。
     for helper, file_name in sorted(collect_icon_calls()):
-        resource = ICON_ROOTS[helper] + file_name
-        if resource not in aliases:
-            problems.append(f"missing icon: Icons::{helper}(\"{file_name}\")"
-                            f" -> {resource}")
+        for root in ICON_ROOTS[helper]:
+            resource = root + file_name
+            if resource not in aliases:
+                problems.append(f"missing icon: Icons::{helper}(\"{file_name}\")"
+                                f" -> {resource}")
 
     # 5. Both themes must ship the same glyph names in light/ and dark/, so a
     #    theme switch only changes the directory, never the file name.
@@ -152,7 +165,7 @@ def main() -> int:
 
     print(f"resource check ok: {len(aliases)} entries, "
           f"{len(collect_references())} referenced paths, "
-          f"{len(collect_icon_calls())} Icons:: calls")
+          f"{len(collect_icon_calls())} icon calls")
     return 0
 
 

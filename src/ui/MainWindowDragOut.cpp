@@ -3,11 +3,6 @@
 // file URL drag.
 // MainWindow 拖出：把选中条目暂存为文件并启动标准文件 URL 拖拽。
 
-// QArchiver / 小Q解压
-// MainWindow implementation: modern and classic layouts, actions, drag/drop,
-// previews, one-click extraction and dialogs.
-// MainWindow 实现：现代与经典布局、动作、拖放、预览、一键解压与对话框。
-
 #include "ui/MainWindow.h"
 
 #include "ui/MainWindowHelpers.h"

@@ -4,7 +4,7 @@
 > 文档位置：`docs/design.zh_CN.md`（根目录 `项目设计文档.md` 为指向本文件的索引）
 > 技术栈：C++20 + Qt 6.4+ Widgets
 > 平台：Linux / Windows
-> 外部工具：内置 7-Zip（Linux `7zzs` / Windows x64/ARM64 `7z.exe + 7z.dll`，负责全部格式读写/解压；RAR 读取）；系统 `rar` 可选，用于创建 RAR/RAR 分卷
+> 外部工具：内置 7-Zip（Linux `7zzs` / Windows x64/ARM64 `7z.exe + 7z.dll`，负责 7z/zip/tar 等读写、纯流解压、RAR/zstd 读取；zstd 仅只读）；系统 `rar` 可选，用于创建 RAR/RAR 分卷
 
 ## 1. 项目概述
 
@@ -35,6 +35,7 @@ QArchiver 是一个基于 Qt 6 的压缩/解压工具，核心思路是：
 - 解压全部或选中条目。
 - 创建 zip、7z、tar、tar.gz、tar.xz、tar.bz2 以及单文件 gz/bz2/xz 压缩流；
   系统安装 `rar` 时可创建 RAR 及 RAR 分卷。
+- 读取 tar.zst / tzst / 单文件 zst（内置 7-Zip 只读支持；创建 zstd 暂不支持）。
 - 向 zip/7z 或未压缩 tar 追加文件。
 - 从 zip/7z 或未压缩 tar 删除条目。
 - 完整性测试。
@@ -105,7 +106,8 @@ src/
 │   ├── ArchiveConstants.h  ArchiveEntry.h  ArchiveOptions.h
 │   ├── ArchiveError.{h,cpp}  FormatRegistry.{h,cpp}
 ├── utils/                      ProcessRunner、FileUtils、EncodingDetector、
-│                               SevenZipTool、MimeTypeHelper、Logger
+│                               SevenZipTool、MimeTypeHelper、Logger、
+│                               FileAssociations、MimeAppsList
 ├── backends/                   ArchiveBackend 及各格式实现
 │   ├── tar/  sevenzip/  rar/  stream/  libarchive/
 ├── core/                       ArchiveManager 与操作编排
@@ -320,7 +322,8 @@ MainWindow*        ArchiveManager   ArchiveBackend   ProcessRunner   FormatRegis
 
 ```text
 Unknown, Tar, TarGz, TarXz, TarBz2,
-Zip, SevenZip, Rar4, Rar5, Gzip, Bzip2, Xz
+Zip, SevenZip, Rar4, Rar5, Gzip, Bzip2, Xz,
+TarZst, Zstd  // 新增只读格式追加在末尾，保持持久化整数值稳定
 ```
 
 `ArchiveEntry`：
@@ -455,6 +458,7 @@ operationFinished(success, msg)
 | 格式 | 后端 |
 |---|---|
 | Tar / TarGz / TarXz / TarBz2 | `LibArchiveBackend` → 回退 `TarBackend` |
+| TarZst / Zstd | 直接用 `TarBackend` / `StreamBackend`（内置 7-Zip，只读） |
 | Zip | `LibArchiveBackend` → 回退 `SevenZipBackend`（zip 为它的薄子类） |
 | 7z | `LibArchiveBackend`（仅未加密）→ 回退 `SevenZipBackend` |
 | Rar4 / Rar5 | `RarBackend`（读取用内置 7-Zip；系统有 `rar` 时可创建） |
@@ -475,11 +479,12 @@ operationFinished(success, msg)
    - gzip：`1F 8B`
    - bzip2：`42 5A 68`
    - xz：`FD 37 7A 58 5A 00`
+   - zstd：`28 B5 2F FD`
    - tar：偏移 257 处的 `ustar`
 
 2. **流格式进一步探测**
-   - gzip/bzip2/xz 可能是 tar 压缩流，也可能是纯压缩流。
-   - 后缀明确为 `.tar.gz` 等时直接判定 tar 系列。
+   - gzip/bzip2/xz/zstd 可能是 tar 压缩流，也可能是纯压缩流。
+   - 后缀明确为 `.tar.gz` / `.tar.zst` 等时直接判定 tar 系列。
    - 否则用内置 7-Zip `x -so` 解出前 512 字节，检查 tar 头（`ustar` 或校验和）；
      成功则为 tar 系列，否则为纯流。只读取首块，不完整解压大文件。
 
@@ -497,16 +502,17 @@ operationFinished(success, msg)
 
 ### 7.1 Tar 系列
 
-工具：内置 7-Zip（`-ttar` / `-tgzip` / `-tbzip2` / `-txz`）。
+工具：内置 7-Zip（`-ttar` / `-tgzip` / `-tbzip2` / `-txz`；zstd 只读解压）。
 
-未压缩 `.tar` 直接操作；`.tar.gz/.xz/.bz2` 是单流格式，创建/列表/解压/测试
-分两段：先处理外层压缩流，再对临时 `.tar` 执行 7z 操作。
+未压缩 `.tar` 直接操作；`.tar.gz/.xz/.bz2/.zst` 是单流格式，列表/解压/测试
+分两段：先处理外层压缩流，再对临时 `.tar` 执行 7z 操作。zstd 只读取，
+7-Zip 不能创建 zstd，因此 `.tar.zst` 不提供创建/追加/删除。
 
 | 操作 | 命令要点 |
 |---|---|
 | 列表 | 压缩流先 `7z x -o<temp> ... -- archive` 取出 inner.tar，再 `7z l -slt -sccUTF-8 -- inner.tar` |
 | 解压 | 同上取出 inner.tar，再 `7z x -o<temp> -y -spd -sccUTF-8 [-scs... -i@members] -- inner.tar` |
-| 压缩 | 先 `7z a -ttar ... -- <temp>/inner.tar`，再 `7z a -tgzip|-txz|-tbzip2 [-mx=...] -- target inner.tar` |
+| 压缩 | 先 `7z a -ttar ... -- <temp>/inner.tar`，再 `7z a -tgzip|-txz|-tbzip2 [-mx=...] -- target inner.tar`（`.tar.zst` 不支持创建） |
 | 追加 | `7z a -ttar -spd [-spf] [-snl] -scsUTF-8 -i@sources -- archive`（仅未压缩 `.tar`） |
 | 删除 | `7z d -ttar -spd -scsUTF-8 -i@members -- archive`（仅未压缩 `.tar`） |
 | 测试 | 压缩流先取出 inner.tar，再 `7z t -sccUTF-8 -- inner.tar` |
@@ -601,9 +607,9 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 
 ### 7.4 纯压缩流
 
-工具：`7z`；读取与单文件创建均支持。
+工具：`7z`；读取支持 `.gz/.bz2/.xz/.zst`，单文件创建支持 `.gz/.bz2/.xz`。
 
-适用：`.gz`、`.bz2`、`.xz`。
+适用：`.gz`、`.bz2`、`.xz`、`.zst`。其中 `.zst` 当前只支持读取。
 
 | 操作 | 命令要点 |
 |---|---|
@@ -612,7 +618,7 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 | 测试 | `7z t -sccUTF-8 -- archive` |
 | 压缩 | `7z a -tgzip|-tbzip2|-txz -mx=N -y -sccUTF-8 -- archive file`（仅一个普通文件） |
 
-条目名由压缩包文件名去掉 `.gz/.bz2/.xz` 后缀得到。解压后把临时目录中的单个文件移动到目标目录，并应用覆盖策略。
+条目名由压缩包文件名去掉 `.gz/.bz2/.xz/.zst` 后缀得到。解压后把临时目录中的单个文件移动到目标目录，并应用覆盖策略。zstd 纯流使用内置 7-Zip 读取，暂不支持创建。
 
 ### 7.5 libarchive 读后端与命令行回退
 
@@ -625,6 +631,7 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 | zip（明文 / ZipCrypto / AES-128 / AES-256） | ✓ | 密码走 `archive_read_add_passphrase` |
 | 7z（未加密，含 PPMd） | ✓ | 加密 7z 不支持，必须回退命令行 |
 | tar / tar.gz / tar.bz2 / tar.xz | ✓ | 替代 `TarBackend`（7-Zip 子进程） |
+| tar.zst / zst | — | 固定走内置 7-Zip（`TarBackend` / `StreamBackend`，只读） |
 | gz / bz2 / xz 纯流 | ✓ | 用 raw 格式读，条目名由文件名推断 |
 | zip 分卷 / 7z 分卷 | ✗ | 直接由 `FormatRegistry::isSplitVolume()` 分流到命令行 |
 | rar | — | 回退命令行（`RarBackend`，读取用内置 7-Zip；创建用系统 `rar`） |
@@ -653,10 +660,12 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 |---|---|---|---|---|---|
 | tar | ✓ | ✓ | 仅未压缩 tar | ✗ | ✗ |
 | tar.gz / tar.xz / tar.bz2 | ✓ | ✓ | ✗ | ✗ | ✗ |
+| tar.zst / tzst | ✓ | ✗ | ✗ | ✗ | ✗ |
 | zip | ✓ | ✓ | ✓（非分卷） | ✓ | ✓ |
 | 7z | ✓ | ✓ | ✓（非分卷） | ✓ | ✓ |
 | rar | ✓ | ✓（系统有 `rar` 时） | ✗ | ✓ | ✓ |
 | gz / bz2 / xz | ✓ | ✗ | ✗ | ✗ | ✗ |
+| zst | ✓ | ✗ | ✗ | ✗ | ✗ |
 
 ## 8. 关键流程
 
@@ -892,8 +901,8 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - “最近文件”侧边栏默认隐藏，在偏好设置中勾选“显示最近文件侧边栏”后显示。
 - 本版本不提供压缩包属性对话框：该信息与文件管理器的“文件属性”弹窗重复，故工具栏“属性”按钮与右键菜单“属性”项均已移除。
 - 双击文件：预览。图片会静默预解压同目录图片，交给系统查看器连续浏览。
-- 现代网格的图片缩略图由 `ThumbnailManager` 按需提取：独立读取后端在小型线程池中解压单张图片，裁剪为 128px PNG 写入持久缓存；模型收到完成信号后只刷新对应图标。
-- 网格模式双击目录：进入目录；双击 `..`：返回上一级。网格使用
+- 图片缩略图由 `ThumbnailManager` 按需提取：独立读取后端在小型线程池中解压单张图片，缩放到 128px 内并写入持久缓存；模型收到完成信号后只刷新对应图标。现代布局各视图都启用缩略图，列表视图按行高（约 22px）等比例缩放、宽度上限 96px；经典布局只在网格视图启用，列表/树保持普通图片图标。
+- 网格模式双击目录：进入目录；不显示 `..`，通过“上一级”按钮返回。网格使用
   `ArchiveGridView`（`QListView::IconMode`）和自定义 delegate，支持多选、
   右键菜单、拖出与详细信息联动。delegate 的 `sizeHint()` 返回完整网格单元，
   图标在单元内居中；文件名用 `QTextLayout` 按任意字符换行并逐行居中，
@@ -902,6 +911,10 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - 列表模式双击目录：进入目录；双击 `..`：返回上一级。
 - 现代导航栏在内容列表上方提供网格/列表/树形切换，主页与归档页均可用；
   偏好设置中也可切换。设置持久化为 `ui/contentViewMode`，默认 `grid`。
+- 经典布局在筛选框左侧提供导航按钮，按“前进、后退、上一级”排列
+  （快捷键 `Alt+Right` / `Alt+Left` / `Alt+Up`），复用与现代导航栏相同的
+  历史和目录状态。经典列表/树使用 16px 图标与 24px 行高，避免图标重叠；
+  现代视图尺寸不受影响。
 - 右键菜单：解压选中、添加文件、删除选中、测试、排序方式（本地浏览时还提供
   打开、添加到同名 ZIP、压缩到 7z/ZIP/tar 等、打开所在文件夹与刷新）。
 - 拖入文件：打开压缩包，或向当前可写归档追加文件。
@@ -924,6 +937,7 @@ Name, Size, Packed, Modified, Encrypted
 | `PathRole` | 压缩包内部原始路径 |
 | `IsDirRole` | 是否目录 |
 | `IsParentRole` | 列表模式的合成 `..` 行 |
+| `IsThumbnailRole` | 当前图标是否为图片缩略图（现代布局或经典网格） |
 
 树状模式：
 
@@ -934,7 +948,8 @@ Name, Size, Packed, Modified, Encrypted
 列表模式：
 
 - 只显示当前目录的直接子项。
-- 非根目录时第 0 行为 `..`，不参与排序；根目录不显示 `..`。
+- 列表模式非根目录时第 0 行为 `..`，不参与排序；根目录不显示 `..`。
+- 网格模式不显示 `..`，通过“上一级”动作返回；树模式本身不使用该行。
 - 显示名称为 basename，完整路径放在 tooltip/角色中。
 - `enterDirectory()` / `goUp()` 维护当前目录。
 - 排序由 `FileListModel::sortFlat()` 完成，代理不参与 `..` 排序。
@@ -965,8 +980,8 @@ Name, Size, Packed, Modified, Encrypted
 - 固实压缩：7z 或系统已安装 `rar` 时的 RAR 可用。
 - 压缩级别：普通 `.tar` 禁用；tar.gz/tar.bz2/gz/bz2/xz 范围 1–9。
 - 纯压缩流（`.gz/.bz2/.xz`）只允许一个普通文件，`StreamBackend::compress()`
-  调用 `7z a -tgzip|-tbzip2|-txz` 创建；创建对话框负责校验并禁用加密/分卷/
-  排除等不适用选项。
+  调用 `7z a -tgzip|-tbzip2|-txz` 创建；`.zst` 只读，不显示创建入口。
+  创建对话框负责校验并禁用加密/分卷/排除等不适用选项。
 - 其余格式按能力禁用不适用选项。
 
 ### 10.4 图标、工具栏与主题
@@ -978,7 +993,8 @@ Name, Size, Packed, Modified, Encrypted
 |---|---|
 | `:/icons/classic/` | 经典主题工具栏/文件图标 |
 | `:/icons/modern/` | 现代主题工具栏与导航图标 |
-| `:/icons/file-types/` | 文件类型图标 |
+| `:/icons/file-types/classic/` | 经典布局文件类型图标 |
+| `:/icons/file-types/modern/` | 现代布局文件类型图标 |
 | `:/themes/aero/` | `aero.qss` 与 `light/`、`dark/` 字形 |
 | `:/themes/modern/` | `modern.qss` 与 `light/`、`dark/` 字形 |
 
@@ -1049,8 +1065,9 @@ Name, Size, Packed, Modified, Encrypted
 ### 10.6 工具栏与图标
 
 - 现代布局图标位于 `resources/icons/modern/`（工具栏/导航 64px，导航小图标 32px，
-  深色变体 `*-light.png`）；文件类型图标位于 `resources/icons/file-types/`，
-  统一 64px，网格以 56px 显示仍清晰。
+  深色变体 `*-light.png`）；文件类型图标按布局分为
+  `resources/icons/file-types/modern/` 与 `resources/icons/file-types/classic/`，
+  两套使用相同文件名，`Icons::fileType()` 按当前布局选择目录。
 - 生成脚本 `tools/gen_modern_icons.py`：SVG 源同时落到 `resources/svg/modern/`，
   应用图标写 `resources/app-icons/qarchiver-<size>.png` 与 `qarchiver.ico`。
 - 文件类型覆盖图片、音视频、PDF、Office（文档/表格/演示）、代码、字体、
@@ -1074,16 +1091,15 @@ Name, Size, Packed, Modified, Encrypted
 | 设置 | 现代布局 | 经典布局 | 说明 |
 |---|---|---|---|
 | 界面布局 / 主题 | ✔ | ✔ | 两种布局都有效 |
-| 归档内容视图（网格/列表/树） | ✔ | ✘（隐藏） | 切换入口只在现代导航栏；经典布局固定树视图 |
+| 归档内容视图（网格/列表/树） | ✔ | ✔ | 两种布局都生效；经典布局通过偏好设置切换 |
 | 工具栏样式 | ✘（隐藏） | ✔ | 只作用于经典工具栏（`m_mainToolBar`） |
 | 显示最近文件侧边栏 | ✘（隐藏） | ✔ | 侧边栏只在经典布局中创建 |
 | 最近文件上限 | ✔ | ✔ | 现代欢迎页与经典侧边栏都受它限制 |
 | 背景图片 | ✔ | ✔ | 绘制在列表/树视图之后；网格视图不显示（界面页有说明） |
 
-经典布局没有视图模式切换入口（工具栏无视图按钮、也没有视图菜单），因此
-`MainWindow::contentViewMode()` 在经典布局下固定返回 `tree`，避免用户在现代布局
-选过网格后切到经典时被困在无法切换的视图里；`ui/contentViewMode` 的存储值不变，
-切回现代布局后继续生效。
+两种布局共用 `ui/contentViewMode`。经典布局没有工具栏/菜单切换入口，用户可在
+偏好设置的“界面”页选择网格、列表或树；`MainWindow::contentViewMode()` 不再因
+布局模式固定返回 `tree`，切换布局后仍使用同一个内容视图设置。
 
 | Key | 含义 |
 |---|---|
@@ -1105,7 +1121,8 @@ Name, Size, Packed, Modified, Encrypted
 | `extract/oneClickCloseAfter` | 一键解压成功后关闭程序 |
 | `extract/oneClickCloseAsked` | 是否已显示过首次提示 |
 | `ui/theme` | `system` / `light` / `dark` |
-| `ui/contentViewMode` | `tree` / `list` |
+| `ui/contentViewMode` | `grid`（默认）/ `tree` / `list` |
+| `ui/itemSize` | 图标大小，默认 96，范围 48–128；经典列表/树固定 16px，不受该值影响 |
 | `ui/toolButtonStyle` | 工具栏按钮样式 |
 | `ui/showRecentFiles` | 是否显示最近文件侧边栏（默认关闭） |
 | `ui/backgroundImage` | 背景图片路径；为空表示不显示 |
@@ -1164,6 +1181,8 @@ resources/
 │   ├── classic/               经典主题 48px 字形 + 64px 文件/文件夹图标
 │   ├── modern/                工具栏与导航图标、app.png、app-icon.png
 │   └── file-types/            文件类型图标
+│       ├── classic/           经典布局图标
+│       └── modern/            现代布局图标
 ├── themes/
 │   ├── aero/    aero.qss + 深浅共用位图 + light/ + dark/
 │   └── modern/  modern.qss + 深浅共用字形 + light/ + dark/
@@ -1174,8 +1193,8 @@ resources/
 ```
 
 - 三个清单由 `tools/update_qrc.py` 生成；**资源路径恒等于文件在 `resources/`
-  下的目录路径**（例如 `resources/icons/file-types/file.pdf` →
-  `:/icons/file-types/file.pdf`），不额外维护别名映射。
+  下的目录路径**（例如 `resources/icons/file-types/modern/file-pdf.png` →
+  `:/icons/file-types/modern/file-pdf.png`），不额外维护别名映射。
 - 清单在 `resources/CMakeLists.txt` 中通过 `target_sources(QArchiver ...)`
   挂到可执行文件并设置 `AUTORCC ON`，因此**图标与样式表全部内置进可执行文件**，
   运行期不需要资源目录。可用 `nm build/src/QArchiver | grep qInitResources` 确认
@@ -1206,11 +1225,11 @@ resources/
 | `tst_utils` | 路径规范化、Zip Slip 判断、7-Zip `-slt` 流式解析、成员名空格、大小溢出检查、符号链接目标与解压树复查 |
 | `tst_toolchain` | 7-Zip `--help` 校验、系统 PATH 回退、RAR Codecs 解析、`QARCHIVER_7Z_PATH` 覆盖 |
 | `tst_background` | 背景图片九种对齐的字符串往返、尺寸缩放规则、目标矩形、透明度绘制、路径+mtime+大小缓存（offscreen 平台运行） |
-| `tst_backends` | tar/tar.gz/tar.xz/tar.bz2/zip/7z/gzip 往返、纯 gz/bz2/xz 创建往返、tar 追加删除、纯 `.gz` 的 tar 探测、`.` 前缀与非 ASCII 文件名、RAR 读取/分卷/创建能力、危险符号链接失败后的临时目录清理 |
+| `tst_backends` | tar/tar.gz/tar.xz/tar.bz2/tar.zst/zip/7z/gzip 往返、纯 gz/bz2/xz 创建往返、tar.zst/zst 读取、tar 追加删除、纯 `.gz` 的 tar 探测、`.` 前缀与非 ASCII 文件名、RAR 读取/分卷/创建能力、危险符号链接失败后的临时目录清理 |
 | `tst_preview` | 连续看图的后缀筛选、同目录选取、大小写不敏感、跳过符号链接/子目录、准备对话框阈值、批量解压样例 |
 | `tst_manager` | 打开/列表/解压流程、打开失败保留当前包、危险符号链接跳过/中止、覆盖已有目标压缩、RAR 分卷替换、加密 7z 回退命令行、图片同目录连续预览、后端选择开关、只读 libarchive 后端的添加/删除写回退 |
 | `tst_libarchive` | zip / tar.gz / tar.xz / gz 往返、AES-256 zip 密码、加密 7z 报不支持、损坏包检测、选择性解压、目录选中、硬链接重建 |
-| `tst_preferences` | 偏好设置中 libarchive 开关与 `AppSettings` 的双向联动、连续看图阈值与最近文件上限裁剪、布局/一键解压设置往返、性能测试对话框构建、列表模式目录索引/重复项（offscreen 平台运行） |
+| `tst_preferences` | 偏好设置中 libarchive 开关与 `AppSettings` 的双向联动、连续看图阈值与最近文件上限裁剪、布局/一键解压设置往返、性能测试对话框构建、列表模式目录索引/重复项、网格模式隐藏 `..`、缩略图开关与等比缩放、分卷图标（offscreen 平台运行） |
 | `tst_dragout` | 拖出 staging：路径剪枝、体积统计（含负值/溢出拒绝）、staging 映射、单文件/目录/嵌套选择、恶意路径/危险符号链接拦截、纯 gz 流、加密 7z 回退命令行、`QARCHIVER_NO_LIBARCHIVE` 下同样通过、准备结果缓存复用与失效 |
 
 测试目标统一由 `tests/CMakeLists.txt` 的 `qarchiver_add_test(<name>

@@ -8,8 +8,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
-#include <QSettings>
 #include <QStandardPaths>
+
+#ifdef Q_OS_LINUX
+#include "utils/MimeAppsList.h"
+#endif
 
 #include <string>
 
@@ -78,6 +81,7 @@ QString description(const QString &extension)
     return extension;
 }
 
+#ifdef Q_OS_WIN
 QString progIdFor(const QString &extension)
 {
     return QStringLiteral("QArchiver") + extension;
@@ -89,6 +93,7 @@ QString applicationCommand()
         QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
     return QStringLiteral("\"%1\" \"%2\"").arg(exe, QStringLiteral("%1"));
 }
+#endif
 
 #ifdef Q_OS_WIN
 // ---------------------------------------------------------------------------
@@ -271,41 +276,20 @@ bool queryXdgMime(const QString &mimeType)
 
 bool mimeAppsHasDefault(const QString &mimeType)
 {
-    QSettings settings(mimeAppsPath(), QSettings::IniFormat);
-    settings.beginGroup(QStringLiteral("Default Applications"));
-    const QString values = settings.value(mimeType).toString();
-    settings.endGroup();
-    return values.split(QLatin1Char(';'), Qt::SkipEmptyParts)
-        .contains(QStringLiteral("qarchiver.desktop"));
+    return MimeAppsList::hasDesktopId(
+        mimeAppsPath(), QStringLiteral("Default Applications"), mimeType,
+        QStringLiteral("qarchiver.desktop"));
 }
 
 void editMimeAppsList(const QString &mimeType, bool add)
 {
-    const QString path = mimeAppsPath();
-    QDir().mkpath(QFileInfo(path).absolutePath());
-    QSettings settings(path, QSettings::IniFormat);
-    for (const QString &group :
-         {QStringLiteral("Default Applications"),
-          QStringLiteral("Added Associations")}) {
-        settings.beginGroup(group);
-        const QVariant raw = settings.value(mimeType);
-        QStringList values = raw.toString().split(QLatin1Char(';'),
-                                                  Qt::SkipEmptyParts);
-        if (raw.typeId() == QMetaType::QStringList) {
-            values = raw.toStringList();
-        }
-        values.removeAll(QStringLiteral("qarchiver.desktop"));
-        if (add) {
-            values.prepend(QStringLiteral("qarchiver.desktop"));
-        }
-        if (values.isEmpty()) {
-            settings.remove(mimeType);
-        } else {
-            settings.setValue(mimeType, values.join(QLatin1Char(';')));
-        }
-        settings.endGroup();
-    }
-    settings.sync();
+    // Do not use QSettings here: its INI backend writes group names as
+    // "[Default%20Applications]" and escapes '/' in keys, which the desktop
+    // environment cannot parse.  MimeAppsList keeps the standard syntax.
+    // 不能使用 QSettings：它的 INI 后端会把组名写成 "[Default%20Applications]"
+    // 并转义键中的 '/'，桌面环境无法解析；MimeAppsList 保留标准语法。
+    MimeAppsList::setAssociation(mimeAppsPath(), mimeType,
+                                 QStringLiteral("qarchiver.desktop"), add);
 }
 #endif // Q_OS_LINUX
 

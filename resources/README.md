@@ -20,6 +20,8 @@ resources/
 │   │   ├── app.png             in-app logo (small)
 │   │   └── app-icon.png        in-app logo (window icon)
 │   └── file-types/             file-type icons for the list/grid views
+│       ├── classic/            classic (Aero) set
+│       └── modern/             modern set
 ├── themes/
 │   ├── aero/
 │   │   ├── aero.qss
@@ -32,7 +34,7 @@ resources/
 │       ├── light/
 │       └── dark/
 ├── svg/modern/                 committed SVG sources for the modern set
-├── icons.qrc                   -> /icons/classic, /icons/modern, /icons/file-types
+├── icons.qrc                   -> /icons/classic, /icons/modern, /icons/file-types/{classic,modern}
 ├── themes-aero.qrc             -> /themes/aero
 └── themes-modern.qrc           -> /themes/modern
 ```
@@ -44,16 +46,22 @@ in both themes live at the theme root instead of in `light/`/`dark/`.
 these paths, and `tools/check_resources.py` verifies that `light/` and `dark/`
 hold the same file names.
 
+The two file-type sets use the same file names and only differ by directory, so
+`Icons::fileType()` can switch sets without any name mapping.
+
 两套主题在 `light/` 与 `dark/` 下使用**相同的字形名称**，因此切换浅色/深色
 主题不需要重命名资源。路径拼接只发生在 `src/ui/icons/IconUtils.h` 的
 `Icons::themed()` 中。
+
+两套文件类型图标使用相同文件名，仅目录不同，因此 `Icons::fileType()`
+切换布局时不需要维护额外的文件名映射。
 
 ## Generated assets / 生成资源
 
 | Directory | Generator | Notes |
 |---|---|---|
 | `themes/aero/light`, `themes/aero/dark` | `tools/gen_aero_assets.py` | PyQt6 painter script; `dark/` is recolored from `light/` |
-| `icons/modern`, `icons/file-types`, `themes/modern/light`, `themes/modern/dark`, `app-icons/*.png|*.ico` | `tools/gen_modern_icons.py` | needs `rsvg-convert`; also writes `svg/modern/` |
+| `icons/modern`, `icons/file-types/modern`, `themes/modern/light`, `themes/modern/dark`, `app-icons/*.png|*.ico` | `tools/gen_modern_icons.py` | needs `rsvg-convert`; also writes `svg/modern/` |
 | `*.qrc` | `tools/update_qrc.py` | run after adding, renaming or deleting assets |
 
 The generated PNGs are committed, so no generator has to run for a normal

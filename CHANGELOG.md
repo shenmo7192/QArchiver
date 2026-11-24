@@ -9,22 +9,32 @@ All notable changes to QArchiver (小Q解压) are documented here.
 
 ### Added / 新增
 
-- 沉浸式无边框标题栏：应用图标、菜单、最小化/最大化/关闭按钮与拖动、双击最大化、
-  Windows/Linux 原生移动与右下角尺寸调整。
-- 起始页新增“文件管理”按钮；启动默认停留在欢迎页，只有点击后才进入本地文件管理。
-- 欢迎页仍保留打开压缩包、一键解压和最近打开入口。
+- 沉浸式无边框标题栏：应用图标、菜单、最小化/最大化/关闭按钮、拖动、
+  双击最大化与右下角尺寸调整；现代/经典布局共用。
+- 欢迎页新增“文件管理”按钮，启动默认停留在欢迎页；保留左侧文件夹侧栏，
+  内容按正常内容区居中。
+- 合并上游 yincolor/QArchiver 的 2.3.1 修复、经典样式路径框、文件类型图标
+  目录整理、MIME 关联和预览逻辑修复。
 
 ### Changed / 变更
 
-- 现代与经典布局共用同一套沉浸式标题栏，经典布局的菜单也集成到标题栏中。
 - 默认启动行为从“直接进入本地文件浏览”改为“欢迎页”。
+- 经典布局菜单集成到沉浸式标题栏中。
 
-## [2.3.1] - 2026-11-23
+## [2.3.1] - 2026-11-24
 
 作者：shenmo <shenmo@spark-app.store>
 
+### Added / 新增
+
+- 支持读取 `.tar.zst` / `.tzst` / `.zst` 归档（内置 7-Zip，只读）。
+
 ### Fixed / 修复
 
+- 修复条目大小设置的延迟持久化：拖动滑块/Ctrl+滚轮停止 400ms 后再写入设置，关闭窗口时强制落盘。
+- 修复连续预览解压进行中再次点击“Open With...”时，打开模式被先启动的请求覆盖的问题。
+- “Open With...”仅在 Windows 显示；Windows 下打开方式启动失败会提示，Linux 不再显示行为不符的菜单项。
+- 恢复 `ui/itemSize` 默认值为 96，与现有文档和经典布局紧凑尺寸保持一致。
 - 排序按钮改为标准双向排序图标（不再显示单个向上箭头），图标正确居中。
 - 条目大小滑块移动到窗口右下角状态栏；Ctrl + 滚轮缩放保留。
 - 文件夹图标改为更大、近方形的 256px PNG，并提供 SVG 源文件；图片缩略图
@@ -33,6 +43,7 @@ All notable changes to QArchiver (小Q解压) are documented here.
   文字占单元格约 80%；左侧栏改为更深的灰蓝色，与工具栏/内容区区分。
 - Windows 安装器语言检测使用系统区域设置，中文系统默认选中简体中文。
 - 安装版与便携版继续放在同一个 Release 中（不再拆分发布）。
+- 更新 `WINDOWS_ISSUES.md` 的当前状态：Windows 注册表、安装器与便携脚本问题仍未修复，待 Windows 实机验证。
 
 ## [2.3.0] - 2026-11-23
 
@@ -209,6 +220,7 @@ All notable changes to QArchiver (小Q解压) are documented here.
 - 修正后台取色/透明度测试在不同渲染后端上的舍入误差。
 - 清理 mk-build-deps 遗留文件与 Qt 5 时代文档描述。
 
+[0.1.3]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.3
 [0.1.2]: https://github.com/shenmo7192/QArchiver/releases/tag/v0.1.2
 [2.1.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.1.1
 [2.2.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.2.0

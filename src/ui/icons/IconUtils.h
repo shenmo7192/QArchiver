@@ -20,7 +20,12 @@ namespace Icons {
 // 内嵌图标集与主题字形的资源根目录。
 inline const char *aeroRoot() { return ":/icons/classic/"; }
 inline const char *modernRoot() { return ":/icons/modern/"; }
-inline const char *fileTypeRoot() { return ":/icons/file-types/"; }
+inline const char *classicFileTypeRoot() { return ":/icons/file-types/classic/"; }
+inline const char *modernFileTypeRoot() { return ":/icons/file-types/modern/"; }
+inline const char *fileTypeRoot(bool modern)
+{
+    return modern ? modernFileTypeRoot() : classicFileTypeRoot();
+}
 inline const char *aeroGlyphRoot() { return ":/themes/aero/"; }
 inline const char *modernGlyphRoot() { return ":/themes/modern/"; }
 
@@ -32,8 +37,9 @@ QIcon aero(const QString &fileName);
 // 按文件名取现代主题图标，例如 Icons::modern("extract.png")。
 QIcon modern(const QString &fileName);
 
-// File-type icon by file name, e.g. Icons::fileType("file-pdf.png").
-// 按文件名取文件类型图标，例如 Icons::fileType("file-pdf.png")。
+// File-type icon by file name from the active layout's set,
+// e.g. Icons::fileType("file-pdf.png").
+// 按文件名取当前布局对应的文件类型图标，例如 Icons::fileType("file-pdf.png")。
 QIcon fileType(const QString &fileName);
 
 // Glyph from the active theme's light/ or dark/ directory.  Both themes ship

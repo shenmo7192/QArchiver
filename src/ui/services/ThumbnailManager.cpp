@@ -21,7 +21,6 @@
 #include <QPixmap>
 #include <QStandardPaths>
 #include <QTemporaryDir>
-#include <QtConcurrent>
 
 #include <memory>
 
@@ -122,8 +121,13 @@ void ThumbnailManager::requestThumbnail(const QString &key,
         return;
     }
 
-    QtConcurrent::run(&m_pool, [this, key, cacheFile, archivePath, entryPath,
-                                normalized, format, password]() {
+    // QThreadPool::start() is the right API here: the task has no result and
+    // QtConcurrent::run() would return a nodiscard QFuture.  Using the same
+    // pool keeps the existing two-thread limit.
+    // 任务没有返回值；这里用 QThreadPool::start()，避免忽略
+    // QtConcurrent::run() 的 nodiscard QFuture，并保留原有两线程上限。
+    m_pool.start([this, key, cacheFile, archivePath, entryPath,
+                  normalized, format, password]() {
         bool success = false;
         bool backendSuccess = false;
         QString errorMessage;

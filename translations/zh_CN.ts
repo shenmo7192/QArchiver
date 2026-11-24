@@ -763,7 +763,7 @@ Overwrite it?</source>
     <context>
         <name>FileAssociations</name>
         <message>
-            <location filename="../src/utils/FileAssociations.cpp" line="+358" />
+            <location filename="../src/utils/FileAssociations.cpp" line="+342" />
             <source>Could not write the association for %1.</source>
             <translation>无法写入 %1 的关联。</translation>
         </message>
@@ -787,12 +787,12 @@ Overwrite it?</source>
     <context>
         <name>FileListModel</name>
         <message>
-            <location filename="../src/ui/models/FileListModel.cpp" line="+155" />
+            <location filename="../src/ui/models/FileListModel.cpp" line="+157" />
             <source>Parent directory</source>
             <translation>上一级目录</translation>
         </message>
         <message>
-            <location line="+59" />
+            <location line="+56" />
             <source>Yes</source>
             <translation>是</translation>
         </message>
@@ -830,7 +830,7 @@ Overwrite it?</source>
     <context>
         <name>FileTypeHelper</name>
         <message>
-            <location filename="../src/ui/icons/FileTypeHelper.cpp" line="+232" />
+            <location filename="../src/ui/icons/FileTypeHelper.cpp" line="+236" />
             <source>Folder</source>
             <translation>文件夹</translation>
         </message>
@@ -940,7 +940,7 @@ Overwrite it?</source>
             <translation>文件</translation>
         </message>
         <message>
-            <location line="+76" />
+            <location line="+79" />
             <source>Unknown</source>
             <translation>未知</translation>
         </message>
@@ -972,7 +972,7 @@ Overwrite it?</source>
     <context>
         <name>LibArchiveBackend</name>
         <message>
-            <location filename="../src/backends/libarchive/LibArchiveBackend.cpp" line="+228" />
+            <location filename="../src/backends/libarchive/LibArchiveBackend.cpp" line="+230" />
             <source>File not found: %1</source>
             <translation>文件未找到：%1</translation>
         </message>
@@ -1129,13 +1129,13 @@ Overwrite it?</source>
     <context>
         <name>MainWindow</name>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="+107" />
-            <location line="+296" />
+            <location filename="../src/ui/MainWindow.cpp" line="+102" />
+            <location line="+311" />
             <source>QArchiver</source>
             <translation>QArchiver</translation>
         </message>
         <message>
-            <location line="-226" />
+            <location line="-225" />
             <source>Unsafe Symbolic Link</source>
             <translation>不安全的符号链接</translation>
         </message>
@@ -1176,14 +1176,14 @@ Skipping the link prevents it and its contents from being extracted. Aborting re
             <translation>中止解压</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowActions.cpp" line="+201" />
-            <location filename="../src/ui/MainWindowNavigation.cpp" line="+605" />
-            <location line="+75" />
+            <location filename="../src/ui/MainWindowActions.cpp" line="+212" />
+            <location filename="../src/ui/MainWindowNavigation.cpp" line="+614" />
+            <location line="+79" />
             <source>Open</source>
             <translation>打开</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowNavigation.cpp" line="+33" />
+            <location filename="../src/ui/MainWindowNavigation.cpp" line="+35" />
             <source>Add Files...</source>
             <translation>添加文件...</translation>
         </message>
@@ -1198,18 +1198,18 @@ Skipping the link prevents it and its contents from being extracted. Aborting re
             <translation>关闭</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowLayout.cpp" line="+223" />
+            <location filename="../src/ui/MainWindowLayout.cpp" line="+220" />
             <source>Main</source>
             <translation>主工具栏</translation>
         </message>
         <message>
             <location filename="../src/ui/MainWindowActions.cpp" line="+5" />
-            <location line="+275" />
+            <location line="+282" />
             <source>Preferences</source>
             <translation>偏好设置</translation>
         </message>
         <message>
-            <location line="-272" />
+            <location line="-279" />
             <source>About</source>
             <translation>关于</translation>
         </message>
@@ -1219,7 +1219,7 @@ Skipping the link prevents it and its contents from being extracted. Aborting re
             <translation>退出</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="+205" />
+            <location filename="../src/ui/MainWindow.cpp" line="+204" />
             <location filename="../src/ui/MainWindowLayout.cpp" line="+53" />
             <source>No archive open.
 Use the Open button or drag a file here.</source>
@@ -1232,12 +1232,12 @@ Use the Open button or drag a file here.</source>
             <translation>选择压缩包...</translation>
         </message>
         <message>
-            <location line="+18" />
+            <location line="+47" />
             <source>Filter by name or path (wildcards allowed)...</source>
             <translation>按名称或路径筛选（支持通配符）...</translation>
         </message>
         <message>
-            <location line="+164" />
+            <location line="+166" />
             <source>Ready</source>
             <translation>就绪</translation>
         </message>
@@ -1247,7 +1247,7 @@ Use the Open button or drag a file here.</source>
             <translation>最近文件</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowExtraction.cpp" line="+173" />
+            <location filename="../src/ui/MainWindowExtraction.cpp" line="+168" />
             <source>Overwrite Files</source>
             <translation>覆盖文件</translation>
         </message>
@@ -1277,12 +1277,12 @@ Use the Open button or drag a file here.</source>
             <translation>正在添加文件...</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowActions.cpp" line="+184" />
+            <location filename="../src/ui/MainWindowActions.cpp" line="+191" />
             <source>Open Archive</source>
             <translation>打开压缩包</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+423" />
+            <location filename="../src/ui/MainWindowLocalBrowser.cpp" line="+418" />
             <source>Select Files to Compress</source>
             <translation>选择要压缩的文件</translation>
         </message>
@@ -1342,7 +1342,7 @@ This cannot be undone.</source>
             <translation>关于 QArchiver</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="+332" />
+            <location filename="../src/ui/MainWindow.cpp" line="+330" />
             <source>Extracted to %1</source>
             <translation>已解压到 %1</translation>
         </message>
@@ -1374,7 +1374,7 @@ This cannot be undone.</source>
             <translation>压缩包 (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.001);;所有文件 (*)</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowActions.cpp" line="-414" />
+            <location filename="../src/ui/MainWindowActions.cpp" line="-437" />
             <source>Download the official 7-Zip command-line tool from https://www.7-zip.org/download.html and place 7z.exe together with the matching 7z.dll in:
 %1
 
@@ -1426,26 +1426,40 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
         </message>
         <message>
             <location line="+14" />
+            <source>Back</source>
+            <translation>后退</translation>
+        </message>
+        <message>
+            <location line="+4" />
+            <source>Forward</source>
+            <translation>前进</translation>
+        </message>
+        <message>
+            <location line="+4" />
+            <source>Up</source>
+            <translation>上一级</translation>
+        </message>
+        <message>
+            <location line="+8" />
             <source>Compress</source>
             <translation>压缩</translation>
         </message>
         <message>
             <location line="+2" />
-            <location line="+211" />
+            <location line="+218" />
             <source>Create a new archive (Ctrl+N)</source>
             <translation>新建压缩包 (Ctrl+N)</translation>
         </message>
         <message>
-            <location line="-208" />
+            <location line="-215" />
             <source>Extract To...</source>
             <translation>解压到...</translation>
         </message>
         <message>
             <location line="+4" />
             <location filename="../src/ui/MainWindowExtraction.cpp" line="-4" />
-            <location line="+46" />
-            <location line="+6" />
-            <location line="+63" />
+            <location line="+53" />
+            <location line="+76" />
             <location filename="../src/ui/MainWindowNavigation.cpp" line="+5" />
             <source>One-click Extract</source>
             <translation>一键解压</translation>
@@ -1476,7 +1490,7 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>关闭当前压缩包</translation>
         </message>
         <message>
-            <location line="+74" />
+            <location line="+81" />
             <source>&amp;File</source>
             <translation>文件(&amp;F)</translation>
         </message>
@@ -1506,14 +1520,14 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>帮助(&amp;H)</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="-109" />
-            <location filename="../src/ui/MainWindowNavigation.cpp" line="-489" />
-            <location line="+64" />
+            <location filename="../src/ui/MainWindow.cpp" line="-106" />
+            <location filename="../src/ui/MainWindowNavigation.cpp" line="-514" />
+            <location line="+71" />
             <source>No archive open</source>
             <translation>未打开压缩包</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowNavigation.cpp" line="-34" />
+            <location filename="../src/ui/MainWindowNavigation.cpp" line="-41" />
             <source>%1 · Reading archive...</source>
             <translation>%1 · 正在读取压缩包...</translation>
         </message>
@@ -1534,7 +1548,7 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>%1 个文件，%2 个文件夹（%3）</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowExtraction.cpp" line="-282" />
+            <location filename="../src/ui/MainWindowExtraction.cpp" line="-296" />
             <source>What would you like to select?</source>
             <translation>要选择什么？</translation>
         </message>
@@ -1574,20 +1588,20 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>保持窗口打开</translation>
         </message>
         <message>
-            <location line="+28" />
-            <location line="+73" />
+            <location line="+37" />
+            <location line="+78" />
             <source>Reading archive contents...</source>
             <translation>正在读取压缩包内容...</translation>
         </message>
         <message>
-            <location line="-62" />
+            <location line="-61" />
             <source>Cannot create the destination directory:
 %1</source>
             <translation>无法创建目标目录：
 %1</translation>
         </message>
         <message>
-            <location line="+6" />
+            <location line="+5" />
             <source>The destination directory is not writable:
 %1</source>
             <translation>目标目录不可写：
@@ -1619,12 +1633,12 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>&lt;h3&gt;QArchiver（小Q解压）&lt;/h3&gt;&lt;p&gt;轻量的 Qt 压缩包管理器，支持 Linux 与 Windows。&lt;/p&gt;&lt;p&gt;现代界面参考好压：扁平工具栏、文件夹与详细信息面板、一键解压，并可在偏好设置中切换回经典布局。没有广告，也不捆绑安全扫描器。&lt;/p&gt;&lt;p&gt;支持：tar、tar.gz、tar.xz、tar.bz2、zip、7z、rar、gz、bz2、xz&lt;/p&gt;&lt;p&gt;版本：%1&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindow.cpp" line="+89" />
+            <location filename="../src/ui/MainWindow.cpp" line="+87" />
             <source>Opening %1...</source>
             <translation>正在打开 %1...</translation>
         </message>
         <message>
-            <location line="+30" />
+            <location line="+29" />
             <source>Opened: %1</source>
             <translation>已打开：%1</translation>
         </message>
@@ -1732,7 +1746,7 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>已取消</translation>
         </message>
         <message>
-            <location line="-141" />
+            <location line="-139" />
             <source>Detecting format: %1</source>
             <translation>正在检测格式：%1</translation>
         </message>
@@ -1742,7 +1756,7 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>正在检测压缩包格式...</translation>
         </message>
         <message>
-            <location line="+194" />
+            <location line="+192" />
             <source>Unable to open archive.
 %1</source>
             <translation>无法打开压缩包。
@@ -1754,7 +1768,7 @@ QArchiver 使用 7-Zip 作为内置后端无法处理的格式与操作的兜底
             <translation>操作失败</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowDragOut.cpp" line="+243" />
+            <location filename="../src/ui/MainWindowDragOut.cpp" line="+238" />
             <location line="+76" />
             <source>Drag Out</source>
             <translation>拖拽</translation>
@@ -1793,7 +1807,7 @@ Please drop them onto a file manager, the desktop, or another application.</sour
             <translation>文件已准备就绪，请再次拖动选中的项目即可复制出去。</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowActions.cpp" line="-434" />
+            <location filename="../src/ui/MainWindowActions.cpp" line="-457" />
             <source>System 7-Zip Fallback</source>
             <translation>系统 7-Zip 回退</translation>
         </message>
@@ -1834,7 +1848,7 @@ For a self-contained installation, download the official 7-Zip command-line tool
             <translation>未找到 7-Zip 兜底工具</translation>
         </message>
         <message>
-            <location line="+123" />
+            <location line="+146" />
             <source>Start Page</source>
             <translation>起始页</translation>
         </message>
@@ -1854,7 +1868,7 @@ For a self-contained installation, download the official 7-Zip command-line tool
             <translation>本地文件夹 · %1</translation>
         </message>
         <message>
-            <location line="+423" />
+            <location line="+444" />
             <source>Add to "%1"</source>
             <translation>添加到 "%1"</translation>
         </message>
@@ -1938,8 +1952,8 @@ For a self-contained installation, download the official 7-Zip command-line tool
         </message>
         <message>
             <location line="+9" />
-            <source>A .gz / .bz2 / .xz stream can contain exactly one regular file.</source>
-            <translation>.gz / .bz2 / .xz 压缩流只能包含一个普通文件。</translation>
+            <source>A single-file compression stream can contain exactly one regular file.</source>
+            <translation>单文件压缩流只能包含一个普通文件。</translation>
         </message>
         <message>
             <location line="+26" />
@@ -1973,42 +1987,42 @@ Overwrite it?</source>
             <translation>已创建 %1</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowLayout.cpp" line="+213" />
-            <location line="+41" />
+            <location filename="../src/ui/MainWindowLayout.cpp" line="+236" />
+            <location line="+61" />
             <source>Name</source>
             <translation>名称</translation>
         </message>
         <message>
-            <location line="-47" />
-            <location line="+48" />
+            <location line="-67" />
+            <location line="+68" />
             <source>Size</source>
             <translation>大小</translation>
         </message>
         <message>
-            <location line="-203" />
+            <location line="-246" />
             <source>Icon size (Ctrl + wheel)</source>
             <translation>图标大小（Ctrl + 滚轮）</translation>
         </message>
         <message>
-            <location line="+156" />
-            <location line="+49" />
+            <location line="+179" />
+            <location line="+69" />
             <source>Packed size</source>
             <translation>压缩后大小</translation>
         </message>
         <message>
-            <location line="-48" />
-            <location line="+50" />
+            <location line="-68" />
+            <location line="+70" />
             <source>Type</source>
             <translation>类型</translation>
         </message>
         <message>
-            <location line="-49" />
-            <location line="+50" />
+            <location line="-69" />
+            <location line="+70" />
             <source>Modified</source>
             <translation>修改时间</translation>
         </message>
         <message>
-            <location line="-49" />
+            <location line="-69" />
             <source>Encrypted</source>
             <translation>加密</translation>
         </message>
@@ -2028,7 +2042,7 @@ Overwrite it?</source>
             <translation>排序：%1（%2）</translation>
         </message>
         <message>
-            <location line="+29" />
+            <location line="+49" />
             <source>Sort by</source>
             <translation>排序方式</translation>
         </message>
@@ -2048,8 +2062,8 @@ Overwrite it?</source>
             <translation>文件关联...</translation>
         </message>
         <message>
-            <location filename="../src/ui/MainWindowNavigation.cpp" line="-46" />
-            <location line="+75" />
+            <location filename="../src/ui/MainWindowNavigation.cpp" line="-47" />
+            <location line="+79" />
             <source>Open With...</source>
             <translation>打开方式...</translation>
         </message>
@@ -2057,7 +2071,7 @@ Overwrite it?</source>
     <context>
         <name>ModernNavBar</name>
         <message>
-            <location filename="../src/ui/widgets/ModernNavBar.cpp" line="+82" />
+            <location filename="../src/ui/widgets/ModernNavBar.cpp" line="+43" />
             <source>Back</source>
             <translation>后退</translation>
         </message>
@@ -2656,18 +2670,18 @@ Overwrite it?</source>
     <context>
         <name>PreviewManager</name>
         <message>
-            <location filename="../src/ui/services/PreviewManager.cpp" line="+107" />
-            <location line="+287" />
+            <location filename="../src/ui/services/PreviewManager.cpp" line="+113" />
+            <location line="+293" />
             <source>Preview</source>
             <translation>预览</translation>
         </message>
         <message>
-            <location line="-286" />
+            <location line="-292" />
             <source>This file is too large to preview (%1).</source>
             <translation>此文件过大，无法预览（%1）。</translation>
         </message>
         <message>
-            <location line="+98" />
+            <location line="+104" />
             <source>Preparing Continuous Preview...</source>
             <translation>正在准备连续看图...</translation>
         </message>
@@ -2677,7 +2691,7 @@ Overwrite it?</source>
             <translation>正在准备连续看图...</translation>
         </message>
         <message>
-            <location line="+121" />
+            <location line="+120" />
             <source>Preparing images... %1 / %2</source>
             <translation>正在准备图片... %1 / %2</translation>
         </message>
@@ -2687,7 +2701,7 @@ Overwrite it?</source>
             <translation>正在取消...</translation>
         </message>
         <message>
-            <location line="+52" />
+            <location line="+53" />
             <source>Unable to extract this file for preview.</source>
             <translation>无法解压此文件以供预览。</translation>
         </message>
@@ -3031,7 +3045,7 @@ The file may be missing, or there may be no associated application, insufficient
     <context>
         <name>StreamBackend</name>
         <message>
-            <location filename="../src/backends/stream/StreamBackend.cpp" line="+92" />
+            <location filename="../src/backends/stream/StreamBackend.cpp" line="+94" />
             <source>File not found: %1</source>
             <translation>文件未找到：%1</translation>
         </message>
@@ -3098,8 +3112,8 @@ The file may be missing, or there may be no associated application, insufficient
         </message>
         <message>
             <location line="+7" />
-            <source>Select exactly one regular file for .gz / .bz2 / .xz streams.</source>
-            <translation>请为 .gz / .bz2 / .xz 流选择一个普通文件。</translation>
+            <source>Select exactly one regular file for a single-file compression stream.</source>
+            <translation>请选择一个普通文件作为单文件压缩流。</translation>
         </message>
         <message>
             <location line="+5" />
@@ -3158,7 +3172,7 @@ The file may be missing, or there may be no associated application, insufficient
             <location line="+35" />
             <location line="+111" />
             <location line="+138" />
-            <location line="+152" />
+            <location line="+160" />
             <location line="+40" />
             <location line="+44" />
             <location line="+69" />
@@ -3168,7 +3182,7 @@ The file may be missing, or there may be no associated application, insufficient
             <translation>无法启动 7z</translation>
         </message>
         <message>
-            <location line="-674" />
+            <location line="-682" />
             <source>The compressed stream does not contain a tar archive</source>
             <translation>压缩流中不包含 tar 压缩包</translation>
         </message>
@@ -3188,7 +3202,7 @@ The file may be missing, or there may be no associated application, insufficient
             <location line="+36" />
             <location line="+62" />
             <location line="+75" />
-            <location line="+153" />
+            <location line="+161" />
             <location line="+42" />
             <location line="+41" />
             <location line="+70" />
@@ -3199,9 +3213,9 @@ The file may be missing, or there may be no associated application, insufficient
             <translation>操作已取消</translation>
         </message>
         <message>
-            <location line="-629" />
+            <location line="-637" />
             <location line="+85" />
-            <location line="+154" />
+            <location line="+162" />
             <location line="+219" />
             <location line="+65" />
             <location line="+65" />
@@ -3209,15 +3223,15 @@ The file may be missing, or there may be no associated application, insufficient
             <translation>未找到 7z 工具</translation>
         </message>
         <message>
-            <location line="-577" />
+            <location line="-585" />
             <location line="+97" />
-            <location line="+203" />
+            <location line="+211" />
             <location line="+288" />
             <source>Cannot create a temporary directory</source>
             <translation>无法创建临时目录</translation>
         </message>
         <message>
-            <location line="-572" />
+            <location line="-580" />
             <location line="+99" />
             <source>Failed to open the compressed tar stream</source>
             <translation>无法打开压缩 tar 流</translation>
@@ -3229,12 +3243,12 @@ The file may be missing, or there may be no associated application, insufficient
         </message>
         <message>
             <location line="+25" />
-            <location line="+445" />
+            <location line="+453" />
             <source>Blocked unsafe path: %1</source>
             <translation>已阻止不安全的路径：%1</translation>
         </message>
         <message>
-            <location line="-390" />
+            <location line="-398" />
             <source>Could not prepare the selected files for extraction</source>
             <translation>无法准备要解压的选中文件</translation>
         </message>
@@ -3262,6 +3276,11 @@ The file may be missing, or there may be no associated application, insufficient
             <location line="+8" />
             <source>Extraction completed</source>
             <translation>解压完成</translation>
+        </message>
+        <message>
+            <location line="+8" />
+            <source>The bundled 7-Zip can read .tar.zst but cannot create it. Use tar.gz/tar.xz/tar.bz2 for creation.</source>
+            <translation>内置 7-Zip 可以读取 .tar.zst，但不能创建它。请使用 tar.gz/tar.xz/tar.bz2 创建。</translation>
         </message>
         <message>
             <location line="+13" />

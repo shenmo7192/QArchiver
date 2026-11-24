@@ -39,6 +39,12 @@ bool supportsLibArchiveRead(ArchiveFormat fmt)
     case ArchiveFormat::Bzip2:
     case ArchiveFormat::Xz:
         return true;
+    case ArchiveFormat::TarZst:
+    case ArchiveFormat::Zstd:
+        // Keep zstd on the bundled 7-Zip backend; libarchive builds are not
+        // guaranteed to include the zstd filter.
+        // zstd 继续使用内置 7-Zip；不能假定 libarchive 编译时包含 zstd 过滤器。
+        return false;
     case ArchiveFormat::Rar4:
     case ArchiveFormat::Rar5:
     case ArchiveFormat::Unknown:
@@ -57,6 +63,7 @@ ArchiveBackend *ArchiveBackendFactory::create(ArchiveFormat fmt)
     case ArchiveFormat::TarGz:
     case ArchiveFormat::TarXz:
     case ArchiveFormat::TarBz2:
+    case ArchiveFormat::TarZst:
         return new TarBackend(fmt);
     case ArchiveFormat::Zip:
         return new ZipBackend();
@@ -69,6 +76,7 @@ ArchiveBackend *ArchiveBackendFactory::create(ArchiveFormat fmt)
     case ArchiveFormat::Gzip:
     case ArchiveFormat::Bzip2:
     case ArchiveFormat::Xz:
+    case ArchiveFormat::Zstd:
         return new StreamBackend(fmt);
     case ArchiveFormat::Unknown:
         return nullptr;

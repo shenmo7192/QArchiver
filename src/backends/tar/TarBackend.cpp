@@ -497,6 +497,14 @@ void TarBackend::extract(const ExtractOptions &options)
 
 void TarBackend::compress(const CompressOptions &options)
 {
+    if (m_format == ArchiveFormat::TarZst) {
+        emit errorOccurred(
+            ArchiveErrorCode::OperationNotSupported,
+            tr("The bundled 7-Zip can read .tar.zst but cannot create it. "
+               "Use tar.gz/tar.xz/tar.bz2 for creation."));
+        return;
+    }
+
     const QString sevenZip = SevenZipUtils::resolveSevenZip();
     if (sevenZip.isEmpty()) {
         emit errorOccurred(ArchiveErrorCode::ToolNotFound, tr("7z tool not found"));

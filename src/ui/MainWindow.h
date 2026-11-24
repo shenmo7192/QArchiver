@@ -22,6 +22,7 @@ class BackgroundWidget;
 class ModernToolBar;
 class ModernNavBar;
 class ArchiveFolderPane;
+class PathLabel;
 class WelcomePage;
 class ImmersiveTitleBar;
 class ProgressDialog;
@@ -38,6 +39,7 @@ class QLabel;
 class QLineEdit;
 class QMenu;
 class QProgressBar;
+class QTimer;
 class QAbstractItemView;
 class QSlider;
 
@@ -158,6 +160,7 @@ private:
 
     // View state / 视图状态
     void applyContentViewMode();
+    void applyItemSizeInternal(int size, bool persist);
     void applyToolButtonStyle();
     void applySidebarVisibility();
     void applyHeaderColumns();
@@ -167,6 +170,8 @@ private:
     void updateSelectionDetails();
     void updateStatusSummary();
     void updateNavigationState();
+    void setNavLocationText(const QString &archiveName,
+                            const QString &internalDir = QString());
     void updateNavLocation();
     void updateFolderPaneState();
     void showPlaceholder(const QString &message);
@@ -237,6 +242,7 @@ private:
 
     // Classic layout / 经典布局
     QLineEdit *m_searchEdit = nullptr;
+    PathLabel *m_classicPathLabel = nullptr;
     QLabel *m_placeholderLabel = nullptr;
     QAction *m_searchAction = nullptr;
     BackgroundWidget *m_backgroundWidget = nullptr;
@@ -251,6 +257,9 @@ private:
     QSplitter *m_bodySplitter = nullptr;
 
     // Actions / 动作
+    QAction *m_backAct = nullptr;
+    QAction *m_forwardAct = nullptr;
+    QAction *m_upAct = nullptr;
     QAction *m_openAct = nullptr;
     QAction *m_newAct = nullptr;
     QAction *m_extractAct = nullptr;
@@ -287,8 +296,10 @@ private:
     int m_sortColumn = 0;
     Qt::SortOrder m_sortOrder = Qt::AscendingOrder;
     int m_itemSize = 96;
+    QTimer *m_itemSizeSaveTimer = nullptr;
 
-    // Navigation history for the modern layout / 现代布局导航历史
+    // Navigation history shared by the modern nav bar and classic filter row.
+    // 现代导航栏与经典筛选行共用的导航历史。
     QStringList m_navHistory;
     int m_navIndex = -1;
     QString m_navCurrentDir;

@@ -5,7 +5,8 @@ The script renders SVG sources with rsvg-convert and writes the PNGs into the
 folders used by the resource bundle:
 
     resources/icons/modern/              toolbar and navigation icons, app logo
-    resources/icons/file-types/          file-type icons
+    resources/icons/file-types/modern/   modern file-type icons
+    resources/icons/file-types/classic/  classic file-type icons
     resources/themes/modern/light/       glyphs for light backgrounds
     resources/themes/modern/dark/        glyphs for dark backgrounds
     resources/svg/modern/                committed SVG sources
@@ -31,7 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / "resources"
 ICONS = RES / "icons" / "modern"
-FILE_TYPES = RES / "icons" / "file-types"
+FILE_TYPES = RES / "icons" / "file-types" / "modern"
 GLYPHS_ROOT = RES / "themes" / "modern"
 GLYPHS_LIGHT = GLYPHS_ROOT / "light"
 GLYPHS_DARK = RES / "themes" / "modern" / "dark"
@@ -54,7 +55,7 @@ NEUTRAL_GLYPHS = {"check", "minus", "radio-dot"}
 
 # Icons that are also used as themed glyphs (written to both places).
 # 同时作为主题字形使用的图标（两处都写）。
-DUAL_ICONS = {"search.png"}
+DUAL_ICONS = {"search.png", "close.png"}
 
 
 def output_path(name: str) -> Path:
@@ -66,6 +67,11 @@ def output_path(name: str) -> Path:
         return GLYPHS_DARK / (stem[: -len("-light")] + ".png")
     if stem in NEUTRAL_GLYPHS:
         return GLYPHS_ROOT / name
+    if name in DUAL_ICONS:
+        # These are toolbar icons and themed glyphs at the same time.  Write
+        # the toolbar copy first, then duplicate it into light/ below.
+        # 这些图标既用于工具栏又作为主题字形；先写工具栏副本，再复制到 light/。
+        return ICONS / name
     if stem in GLYPH_NAMES:
         return GLYPHS_LIGHT / name
     if stem.startswith("file-") or stem in ("file", "folder"):
@@ -276,14 +282,22 @@ def toolbar_icons() -> dict[str, str]:
         + '<path d="M10 38h44" stroke="#ffffff" stroke-width="2" opacity=".35"/>'
     )
 
-    # Settings gear.
+    # Settings gear: a round cog body with evenly spaced teeth, so the outer
+    # silhouette reads as a circle rather than an eight-point star.
+    # 设置齿轮：圆形齿轮主体 + 均匀分布的齿，外轮廓保持圆形而不是八角星。
+    gear_teeth = "".join(
+        f'<rect x="28.5" y="8" width="7" height="9" rx="2.2" '
+        f'transform="rotate({angle} 32 32)"/>'
+        for angle in range(0, 360, 45)
+    )
     icons["settings.png"] = svg(
         DEFS
         + '<circle cx="32" cy="32" r="24" fill="url(#blue)"/>'
-        + '<path d="M32 17l3.2 5.6 6.3-1.4 1.4 6.3L48.5 31l-4.3 4.7 1.4 6.3-6.3 1.4L36 49l-4-3.8L28 49l-3.3-5.6-6.3-1.4 1.4-6.3L15.5 31l4.3-4.7-1.4-6.3 6.3 1.4z" '
-          'fill="#ffffff" opacity=".95"/>'
-        + '<circle cx="32" cy="32" r="7.5" fill="url(#blue)"/>'
-        + '<circle cx="32" cy="32" r="7.5" fill="none" stroke="#ffffff" stroke-width="2"/>'
+        + '<g fill="#ffffff">'
+        + gear_teeth
+        + '<circle cx="32" cy="32" r="17"/>'
+        + '<circle cx="32" cy="32" r="7.2" fill="url(#blue)"/>'
+        + '</g>'
     )
 
     # Help.

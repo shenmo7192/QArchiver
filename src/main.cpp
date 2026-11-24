@@ -17,7 +17,7 @@
 #include "utils/Logger.h"
 
 #ifndef QARCHIVER_VERSION
-#define QARCHIVER_VERSION "0.0.1"
+#define QARCHIVER_VERSION "2.3.1"
 #endif
 
 int main(int argc, char *argv[])

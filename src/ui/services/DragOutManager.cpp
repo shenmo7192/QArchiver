@@ -619,7 +619,7 @@ DragOutPayload DragOutManager::extractForDrag(const QString &archivePath,
     payload.localPaths = mapStagedPaths(stagingRoot, paths);
     if (payload.localPaths.isEmpty()
         && (format == ArchiveFormat::Gzip || format == ArchiveFormat::Bzip2
-            || format == ArchiveFormat::Xz)) {
+            || format == ArchiveFormat::Xz || format == ArchiveFormat::Zstd)) {
         // Plain streams have no entry names: the backend writes a single file
         // with its own naming, so use whatever landed in the staging root.
         payload.localPaths = topLevelStagedPaths(stagingRoot);

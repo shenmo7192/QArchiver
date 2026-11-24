@@ -134,6 +134,7 @@ private slots:
 #endif
     void gzipStream();
     void streamCompressRoundTrip();
+    void zstdStreams();
 
 private:
     struct OperationResult {
@@ -1193,6 +1194,93 @@ void TestBackends::streamCompressRoundTrip()
         QCOMPARE(files.size(), 1);
         QCOMPARE(readFile(QDir(dest).filePath(files.first())), QString::fromUtf8(payload));
     }
+}
+
+// Read tar.zst and pure .zst streams through the bundled 7-Zip backend.
+// The test skips when the system zstd CLI is unavailable (test fixture only).
+// 通过内置 7-Zip 读取 tar.zst 与纯 .zst；系统没有 zstd 命令时跳过
+// （仅用于生成测试输入）。
+void TestBackends::zstdStreams()
+{
+    const QString zstd = QStandardPaths::findExecutable(QStringLiteral("zstd"));
+    if (zstd.isEmpty()) {
+        QSKIP("system zstd is not available for the compatibility fixture");
+    }
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString source = temp.filePath(QStringLiteral("zstd-source.txt"));
+    const QByteArray payload = QByteArrayLiteral("zstd backend payload");
+    QVERIFY(writeFile(source, payload));
+
+    auto compressWithZstd = [&zstd](const QString &input,
+                                    const QString &output) {
+        QProcess process;
+        process.start(zstd, {QStringLiteral("-q"), QStringLiteral("-f"),
+                             input, QStringLiteral("-o"), output});
+        if (!process.waitForFinished(10000)) {
+            return false;
+        }
+        return process.exitStatus() == QProcess::NormalExit
+            && process.exitCode() == 0;
+    };
+
+    // Pure .zst stream: one member, named after the source file.
+    const QString pureZst = temp.filePath(QStringLiteral("zstd-source.txt.zst"));
+    QVERIFY(compressWithZstd(source, pureZst));
+    QCOMPARE(MimeTypeHelper::detect(pureZst), ArchiveFormat::Zstd);
+
+    StreamBackend streamReader(ArchiveFormat::Zstd);
+    streamReader.openArchive(pureZst);
+    bool listed = false;
+    const QList<ArchiveEntry> streamEntries = list(streamReader, &listed);
+    QVERIFY2(listed, "zstd stream list failed");
+    QCOMPARE(streamEntries.size(), 1);
+
+    const QString streamDest = temp.filePath(QStringLiteral("zstd-out"));
+    ExtractOptions streamOptions;
+    streamOptions.destDir = streamDest;
+    streamOptions.overwrite = OverwritePolicy::Always;
+    const OperationResult streamExtracted = extract(streamReader, streamOptions);
+    QVERIFY2(streamExtracted.finished && streamExtracted.success,
+             qPrintable(streamExtracted.message));
+    QCOMPARE(streamEntries.first().path, QStringLiteral("zstd-source.txt"));
+    QCOMPARE(readFile(QDir(streamDest).filePath("zstd-source.txt")),
+             QString::fromUtf8(payload));
+
+    // Compressed tar: detect the compound suffix without probing, then list
+    // and extract the inner tar through TarBackend.
+    const QString innerTar = temp.filePath(QStringLiteral("zstd.tar"));
+    TarBackend tarWriter(ArchiveFormat::Tar);
+    CompressOptions tarOptions;
+    tarOptions.archivePath = innerTar;
+    tarOptions.sourceFiles = {source};
+    const OperationResult tarCreated = compress(tarWriter, tarOptions);
+    QVERIFY2(tarCreated.finished && tarCreated.success,
+             qPrintable(tarCreated.message));
+
+    const QString tarZst = temp.filePath(QStringLiteral("zstd.tar.zst"));
+    QVERIFY(compressWithZstd(innerTar, tarZst));
+    QCOMPARE(MimeTypeHelper::detect(tarZst), ArchiveFormat::TarZst);
+
+    TarBackend tarReader(ArchiveFormat::TarZst);
+    QVERIFY(tarReader.isReadOnly());
+    tarReader.openArchive(tarZst);
+    listed = false;
+    const QList<ArchiveEntry> tarEntries = list(tarReader, &listed);
+    QVERIFY2(listed, "tar.zst list failed");
+    QCOMPARE(tarEntries.size(), 1);
+    QCOMPARE(tarEntries.first().path, QStringLiteral("zstd-source.txt"));
+
+    const QString tarDest = temp.filePath(QStringLiteral("tar-zstd-out"));
+    ExtractOptions tarExtractOptions;
+    tarExtractOptions.destDir = tarDest;
+    tarExtractOptions.overwrite = OverwritePolicy::Always;
+    const OperationResult tarExtracted = extract(tarReader, tarExtractOptions);
+    QVERIFY2(tarExtracted.finished && tarExtracted.success,
+             qPrintable(tarExtracted.message));
+    QCOMPARE(readFile(QDir(tarDest).filePath("zstd-source.txt")),
+             QString::fromUtf8(payload));
 }
 
 // Read a pure gzip stream as a single entry.

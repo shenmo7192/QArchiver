@@ -51,7 +51,7 @@ public:
     // 界面布局："modern"（好压风格，默认）或 "classic"（原有的工具栏与最近文件
     // 停靠面板布局）。
     QString uiLayoutMode() const;
-    QString contentViewMode() const;   // "tree" or "list"
+    QString contentViewMode() const;   // "grid", "tree" or "list"
     QString toolButtonStyle() const;  // textUnderIcon/textBesideIcon/textOnly/iconOnly
     bool showRecentFiles() const;      // Show the recent-files sidebar
 

@@ -20,6 +20,8 @@
 #include "core/AppSettings.h"
 #include "core/ArchiveManager.h"
 #include "core/RecentFilesManager.h"
+#include "ui/icons/FileTypeHelper.h"
+#include "ui/models/FileListViewDelegate.h"
 #include "ui/models/FileListModel.h"
 #include "ui/dialogs/PasswordDialog.h"
 #include "ui/dialogs/PreferencesDialog.h"
@@ -44,6 +46,11 @@ private slots:
     void layoutSpecificRowsFollowLayoutMode();
     void benchmarkDialogBuilds();
     void listModeDirectoryIndexPreservesEntries();
+    void gridModeHidesParentEntry();
+    void thumbnailsEnabledRole();
+    void thumbnailDisplaySize();
+    void splitVolumeIcons();
+    void fileTypeKindPriority();
 
 private:
     static QCheckBox *passwordRememberCheck(PasswordDialog &dialog)
@@ -345,7 +352,10 @@ void TestPreferences::layoutSpecificRowsFollowLayoutMode()
         QVERIFY(layoutCombo);
         layoutCombo->setCurrentIndex(
             layoutCombo->findData(QStringLiteral("classic")));
-        QVERIFY(viewMode->isHidden());
+        // The content-view choice applies to both layouts; classic only adds
+        // the toolbar-style and recent-files rows.
+        // 内容视图对两种布局都生效；经典布局额外显示工具栏样式与最近文件行。
+        QVERIFY(!viewMode->isHidden());
         QVERIFY(!toolbarStyle->isHidden());
         QVERIFY(!recentCheck->isHidden());
     }
@@ -396,6 +406,165 @@ void TestPreferences::listModeDirectoryIndexPreservesEntries()
     QVERIFY(model.goUp());
     QVERIFY(model.goUp());
     QCOMPARE(model.rowCount(), 2);
+}
+
+// Grid mode uses the same flat model but must not show the synthetic ".."
+// row; the Up action performs that navigation instead.
+// 网格模式复用扁平模型，但不应显示合成的 ".." 行；返回上一级由 Up 动作完成。
+void TestPreferences::gridModeHidesParentEntry()
+{
+    FileListModel model;
+    QList<ArchiveEntry> entries;
+    auto add = [&entries](const QString &path) {
+        ArchiveEntry entry;
+        entry.path = path;
+        entries.append(entry);
+    };
+    add(QStringLiteral("dir/a.txt"));
+    add(QStringLiteral("dir/sub/b.txt"));
+
+    model.setEntries(entries);
+    model.setFlatMode(true);
+    QVERIFY(model.enterDirectory(QStringLiteral("dir")));
+    QCOMPARE(model.rowCount(), 3); // ".." + a.txt + sub
+    QVERIFY(model.index(0, FileListModel::NameColumn)
+                .data(FileListModel::IsParentRole).toBool());
+
+    model.setShowParentEntry(false);
+    QCOMPARE(model.rowCount(), 2); // a.txt + sub
+    for (int row = 0; row < model.rowCount(); ++row) {
+        QVERIFY(!model.index(row, FileListModel::NameColumn)
+                     .data(FileListModel::IsParentRole).toBool());
+    }
+
+    QVERIFY(model.enterDirectory(QStringLiteral("sub")));
+    QCOMPARE(model.rowCount(), 1);
+    QCOMPARE(model.index(0, FileListModel::NameColumn)
+                 .data(FileListModel::PathRole).toString(),
+             QStringLiteral("dir/sub/b.txt"));
+    QVERIFY(model.goUp());
+    QCOMPARE(model.rowCount(), 2);
+
+    model.setShowParentEntry(true);
+    QCOMPARE(model.rowCount(), 3); // ".." restored for list mode
+    QVERIFY(model.index(0, FileListModel::NameColumn)
+                .data(FileListModel::IsParentRole).toBool());
+}
+
+// The model only exposes thumbnail requests when the active view enables
+// them; classic list/tree leave the flag off, classic grid turns it on.
+// 只有当前视图启用时模型才请求缩略图；经典列表/树关闭，经典网格开启。
+void TestPreferences::thumbnailsEnabledRole()
+{
+    FileListModel model;
+    ArchiveEntry entry;
+    entry.path = QStringLiteral("photos/a.png");
+    entry.size = 42;
+    QList<ArchiveEntry> entries;
+    entries.append(entry);
+    model.setEntries(entries);
+    model.setArchiveContext(QStringLiteral("archive.zip"),
+                            ArchiveFormat::Zip, QString());
+
+    const QModelIndex index = model.indexForPath(entry.path);
+    QVERIFY(index.isValid());
+    QVERIFY(!index.data(FileListModel::IsThumbnailRole).toBool());
+
+    model.setThumbnailsEnabled(true);
+    QVERIFY(index.data(FileListModel::IsThumbnailRole).toBool());
+
+    model.setThumbnailsEnabled(false);
+    QVERIFY(!index.data(FileListModel::IsThumbnailRole).toBool());
+}
+
+// Thumbnails in the modern list are fitted to the row height; width follows
+// the source aspect ratio but is capped so it cannot squeeze the file name.
+// 现代列表缩略图适配行高；宽度按源比例计算，并设上限避免挤压文件名。
+void TestPreferences::thumbnailDisplaySize()
+{
+    const QSize limit(96, 22);
+
+    const QSize landscape = FileListViewDelegate::thumbnailDisplaySize(
+        QSize(128, 85), limit);
+    QCOMPARE(landscape.height(), 22);
+    QVERIFY(landscape.width() <= 96);
+    QVERIFY(qAbs(landscape.width() / double(landscape.height())
+                 - 128.0 / 85.0) < 0.1);
+
+    const QSize portrait = FileListViewDelegate::thumbnailDisplaySize(
+        QSize(85, 128), limit);
+    QCOMPARE(portrait.height(), 22);
+    QVERIFY(portrait.width() < portrait.height());
+
+    const QSize panorama = FileListViewDelegate::thumbnailDisplaySize(
+        QSize(1000, 100), limit);
+    QCOMPARE(panorama.width(), 96);
+    QVERIFY(panorama.height() <= 22);
+
+    // A very thin panorama must not collapse to zero height.
+    // 极扁的全景图不能被缩放成 0 高。
+    const QSize thinPanorama = FileListViewDelegate::thumbnailDisplaySize(
+        QSize(1000, 1), limit);
+    QCOMPARE(thinPanorama.width(), 96);
+    QCOMPARE(thinPanorama.height(), 1);
+
+    QVERIFY(FileListViewDelegate::thumbnailDisplaySize(QSize(), limit).isEmpty());
+    QVERIFY(FileListViewDelegate::thumbnailDisplaySize(QSize(10, 10), QSize())
+                .isEmpty());
+}
+
+// Split-volume suffixes must map to the archive icons, while ordinary .r??
+// files such as .rtf must not be treated as archives.
+// 分卷后缀必须映射到对应压缩包图标；.rtf 等普通 .r?? 文件不能当成压缩包。
+void TestPreferences::fileTypeKindPriority()
+{
+    // E-books must win over the generic document set. / 电子书优先于通用文档类型。
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("book.epub"), false),
+             FileTypeHelper::Kind::Ebook);
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("book.mobi"), false),
+             FileTypeHelper::Kind::Ebook);
+
+    // Batch files are source code, not executables. / 批处理文件归类为源码。
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("build.bat"), false),
+             FileTypeHelper::Kind::Code);
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("build.cmd"), false),
+             FileTypeHelper::Kind::Executable);
+}
+
+void TestPreferences::splitVolumeIcons()
+{
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.part1.rar"), false, true),
+             QStringLiteral(":/icons/file-types/modern/file-rar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.r00"), false, true),
+             QStringLiteral(":/icons/file-types/modern/file-rar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.zip.001"), false, true),
+             QStringLiteral(":/icons/file-types/modern/file-zip.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.7z.001"), false, true),
+             QStringLiteral(":/icons/file-types/modern/file-7z.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.tar.zst"), false, true),
+             QStringLiteral(":/icons/file-types/modern/file-tar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("notes.rtf"), false, true),
+             QStringLiteral(":/icons/file-types/modern/file-text.png"));
+
+    // Classic layout uses its own complete file-type set instead of falling
+    // back to the generic classic file/folder icons.
+    // 经典布局使用自己完整的文件类型图标集，而不是退回通用文件/文件夹图标。
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.part1.rar"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-rar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.r00"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-rar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.zip.001"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-zip.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.7z.001"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-7z.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("data.tar.zst"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-tar.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("notes.rtf"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file-text.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("folder"), true, false),
+             QStringLiteral(":/icons/file-types/classic/folder.png"));
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("unknown.xyz"), false, false),
+             QStringLiteral(":/icons/file-types/classic/file.png"));
 }
 
 QTEST_MAIN(TestPreferences)

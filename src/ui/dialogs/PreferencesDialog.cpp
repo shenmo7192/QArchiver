@@ -547,11 +547,11 @@ void PreferencesDialog::updateLayoutVisibility()
     const bool classic = m_layoutModeCombo
         && m_layoutModeCombo->currentData().toString() == QStringLiteral("classic");
     if (m_layoutForm) {
-        // Classic has no view-mode switcher (the toolbar has no view buttons and
-        // there is no view menu), so the setting would be uncontrollable there.
-        // 经典布局没有视图模式切换入口（工具栏没有视图按钮，也没有视图菜单），
-        // 该设置在经典布局下无法更改，因此隐藏。
-        m_layoutForm->setRowVisible(m_viewModeCombo, !classic);
+        // The content-view choice applies to both layouts. Classic has no
+        // toolbar switcher, but this row is the supported entry point there.
+        // 内容视图对两种布局都生效。经典布局没有工具栏切换按钮，
+        // 偏好设置中的这一行就是它的切换入口。
+        m_layoutForm->setRowVisible(m_viewModeCombo, true);
         m_layoutForm->setRowVisible(m_toolbarStyleCombo, classic);
     }
     if (m_recentForm) {
