@@ -10,6 +10,8 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QCloseEvent>
+#include <QComboBox>
+#include <QFileInfo>
 #include <QFontDatabase>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -18,7 +20,6 @@
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QPushButton>
-#include <QSpinBox>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -39,13 +40,15 @@ BenchmarkDialog::BenchmarkDialog(QWidget *parent)
     intro->setWordWrap(true);
     intro->setObjectName(QStringLiteral("WelcomeSubtitle"));
 
-    m_threads = new QSpinBox(this);
-    m_threads->setRange(0, 64);
-    m_threads->setValue(0);
-    m_threads->setSpecialValueText(tr("Automatic"));
-    m_threads->setSuffix(tr(" threads"));
+    m_threads = new QComboBox(this);
+    m_threads->addItem(tr("Automatic"), 0);
+    for (const int count : {1, 2, 4, 8, 12, 16, 32, 64}) {
+        m_threads->addItem(tr("%1 threads").arg(count), count);
+    }
+    m_threads->setCurrentIndex(0);
+    m_threads->setMinimumWidth(150);
     m_threads->setToolTip(
-        tr("Number of threads used by the benchmark (0 = automatic)."));
+        tr("Number of threads used by the benchmark (Automatic = let 7-Zip choose)."));
 
     auto *options = new QHBoxLayout;
     options->setSpacing(8);
@@ -104,7 +107,7 @@ BenchmarkDialog::BenchmarkDialog(QWidget *parent)
     layout->addLayout(buttonRow);
 
     m_process = new QProcess(this);
-    m_process->setProcessChannelMode(QProcess::MergedChannels);
+    m_process->setProcessChannelMode(QProcess::SeparateChannels);
     m_elapsedTimer = new QTimer(this);
     m_elapsedTimer->setInterval(1000);
 
@@ -120,7 +123,10 @@ BenchmarkDialog::BenchmarkDialog(QWidget *parent)
     connect(m_copyButton, &QPushButton::clicked, this, [this]() {
         QApplication::clipboard()->setText(m_output->toPlainText());
     });
-    connect(m_process, &QProcess::readyRead, this, &BenchmarkDialog::readOutput);
+    connect(m_process, &QProcess::readyReadStandardOutput,
+            this, &BenchmarkDialog::readOutput);
+    connect(m_process, &QProcess::readyReadStandardError,
+            this, &BenchmarkDialog::readOutput);
     connect(m_process, &QProcess::finished,
             this, &BenchmarkDialog::processFinished);
     connect(m_process, &QProcess::errorOccurred,
@@ -167,13 +173,24 @@ void BenchmarkDialog::startBenchmark()
 
     QStringList args;
     args << QStringLiteral("b");
-    if (m_threads->value() > 0) {
-        args << QStringLiteral("-mmt=%1").arg(m_threads->value());
+    const int threadCount = m_threads->currentData().toInt();
+    if (threadCount > 0) {
+        args << QStringLiteral("-mmt=%1").arg(threadCount);
     }
     args << QStringLiteral("-sccUTF-8");
 
     m_output->clear();
+    m_output->appendPlainText(
+        tr("Running: %1 %2").arg(QFileInfo(tool).fileName(), args.join(QLatin1Char(' '))));
+    m_output->appendPlainText(
+        threadCount > 0
+            ? tr("Threads: %1").arg(threadCount)
+            : tr("Threads: Automatic"));
+    m_output->appendPlainText(
+        tr("7-Zip prints its result table when the benchmark finishes; "
+           "this normally takes about a minute."));
     m_buffer.clear();
+    m_lastLogSecond = -1;
     m_summaryLabel->clear();
     m_summaryLabel->setVisible(false);
     m_copyButton->setEnabled(false);
@@ -204,7 +221,8 @@ void BenchmarkDialog::stopBenchmark()
 
 void BenchmarkDialog::readOutput()
 {
-    appendChunk(m_process->readAll());
+    appendChunk(m_process->readAllStandardOutput());
+    appendChunk(m_process->readAllStandardError());
 }
 
 void BenchmarkDialog::appendChunk(const QByteArray &chunk)
@@ -249,13 +267,19 @@ void BenchmarkDialog::processFinished(int exitCode, QProcess::ExitStatus status)
     const qint64 millis = m_elapsed.elapsed();
     const QString elapsed = tr("%1 s").arg(millis / 1000.0, 0, 'f', 1);
     if (m_stopping) {
-        m_statusLabel->setText(tr("Benchmark stopped after %1.").arg(elapsed));
+        const QString stopped = tr("Benchmark stopped after %1.").arg(elapsed);
+        m_statusLabel->setText(stopped);
+        m_output->appendPlainText(stopped);
     } else if (status == QProcess::NormalExit && exitCode == 0) {
-        m_statusLabel->setText(tr("Benchmark finished in %1.").arg(elapsed));
+        const QString finished = tr("Benchmark finished in %1.").arg(elapsed);
+        m_statusLabel->setText(finished);
+        m_output->appendPlainText(finished);
     } else {
-        m_statusLabel->setText(
+        const QString failed =
             tr("Benchmark failed (exit code %1) after %2.")
-                .arg(exitCode).arg(elapsed));
+                .arg(exitCode).arg(elapsed);
+        m_statusLabel->setText(failed);
+        m_output->appendPlainText(failed);
     }
     m_stopping = false;
     m_copyButton->setEnabled(!m_output->toPlainText().isEmpty());
@@ -280,9 +304,18 @@ void BenchmarkDialog::updateElapsed()
     if (!m_running) {
         return;
     }
+    const qint64 seconds = m_elapsed.elapsed() / 1000;
     m_statusLabel->setText(
-        tr("Benchmark running... %1 s")
-            .arg(m_elapsed.elapsed() / 1000.0, 0, 'f', 1));
+        tr("Benchmark running... %1 s").arg(seconds));
+    // 7-Zip buffers benchmark stdout when it is redirected, so add a small
+    // heartbeat to the log instead of leaving it blank until the process exits.
+    // 7-Zip 在输出被重定向时会缓冲基准测试的 stdout，因此定期写入心跳，
+    // 避免进程结束前日志一直是空的。
+    if (seconds > 0 && seconds % 5 == 0 && seconds != m_lastLogSecond) {
+        m_lastLogSecond = static_cast<int>(seconds);
+        m_output->appendPlainText(
+            tr("Benchmark running... %1 s").arg(seconds));
+    }
 }
 
 void BenchmarkDialog::setRunning(bool running)

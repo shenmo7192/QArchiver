@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 
     MainWindow window;
     window.setDialogOnly(dialogOnly);
+    window.setOpenAfterCompress(options.openAfterCompress);
     if (!dialogOnly) {
         window.show();
     }

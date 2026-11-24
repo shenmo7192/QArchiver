@@ -1,13 +1,13 @@
-# Test suite: unit and integration tests for the core, backends and UI wiring.
-# 测试套件：覆盖核心层、后端与 UI 连接方式的单元及集成测试。
+﻿# Test suite: unit and integration tests for the core, backends and UI wiring.
+# 娴嬭瘯濂椾欢锛氳鐩栨牳蹇冨眰銆佸悗绔笌 UI 杩炴帴鏂瑰紡鐨勫崟鍏冨強闆嗘垚娴嬭瘯銆?
 #
 # Every test links one of the layer libraries built by src/ instead of listing
 # source files, so adding a source file never requires touching this file.
-# 每个测试都链接 src/ 构建的分层静态库，而不再罗列源文件，
-# 因此新增源文件无需修改本文件。
+# 姣忎釜娴嬭瘯閮介摼鎺?src/ 鏋勫缓鐨勫垎灞傞潤鎬佸簱锛岃€屼笉鍐嶇綏鍒楁簮鏂囦欢锛?
+# 鍥犳鏂板婧愭枃浠舵棤闇€淇敼鏈枃浠躲€?
 
 # Qt Test is optional; the application itself does not require it.
-# Qt Test 是可选依赖；应用本身不需要它。
+# Qt Test 鏄彲閫変緷璧栵紱搴旂敤鏈韩涓嶉渶瑕佸畠銆?
 find_package(Qt6 ${QARCHIVER_MIN_QT_VERSION} QUIET COMPONENTS Core Gui Widgets Concurrent Test)
 if(NOT TARGET Qt6::Test)
     message(STATUS "Qt6::Test not found: skipping QArchiver tests")
@@ -15,11 +15,11 @@ if(NOT TARGET Qt6::Test)
 endif()
 
 # Enable moc/automoc for the standalone test executables.
-# 为独立测试可执行文件启用 moc/automoc。
+# 涓虹嫭绔嬫祴璇曞彲鎵ц鏂囦欢鍚敤 moc/automoc銆?
 set(CMAKE_AUTOMOC ON)
 
 # Helper: declare a Qt test executable and register it with CTest.
-# 辅助函数：声明 Qt 测试可执行文件并注册到 CTest。
+# 杈呭姪鍑芥暟锛氬０鏄?Qt 娴嬭瘯鍙墽琛屾枃浠跺苟娉ㄥ唽鍒?CTest銆?
 #
 #   qarchiver_add_test(tst_name
 #       SOURCES  tst_name.cpp
@@ -41,21 +41,21 @@ function(qarchiver_add_test name)
 endfunction()
 
 # Utility tests: path normalization, traversal checks and -slt parsing.
-# 工具测试：路径规范化、路径穿越检查与 -slt 解析。
+# 宸ュ叿娴嬭瘯锛氳矾寰勮鑼冨寲銆佽矾寰勭┛瓒婃鏌ヤ笌 -slt 瑙ｆ瀽銆?
 qarchiver_add_test(tst_utils
     SOURCES tst_utils.cpp
     LIBS qarchiver_core
 )
 
 # Toolchain discovery: --help validation, system fallback and RAR codec probe.
-# 工具链发现：--help 校验、系统回退与 RAR 编解码器探测。
+# 宸ュ叿閾惧彂鐜帮細--help 鏍￠獙銆佺郴缁熷洖閫€涓?RAR 缂栬В鐮佸櫒鎺㈡祴銆?
 qarchiver_add_test(tst_toolchain
     SOURCES tst_toolchain.cpp
     LIBS qarchiver_utils
 )
 
 # Background image helpers: alignment, scaling, target rectangles and painting.
-# 背景图片辅助函数：对齐、缩放、目标矩形与绘制。
+# 鑳屾櫙鍥剧墖杈呭姪鍑芥暟锛氬榻愩€佺缉鏀俱€佺洰鏍囩煩褰笌缁樺埗銆?
 qarchiver_add_test(tst_background
     SOURCES tst_background.cpp
     LIBS qarchiver_ui
@@ -64,7 +64,7 @@ set_tests_properties(tst_background PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # Backend tests: tar/zip/7z/RAR/stream round-trips and special names.
-# 后端测试：tar/zip/7z/RAR/流往返及特殊文件名。
+# 鍚庣娴嬭瘯锛歵ar/zip/7z/RAR/娴佸線杩斿強鐗规畩鏂囦欢鍚嶃€?
 qarchiver_add_test(tst_backends
     SOURCES tst_backends.cpp
     LIBS qarchiver_core
@@ -72,7 +72,7 @@ qarchiver_add_test(tst_backends
 )
 
 # Continuous image preview: same-directory image selection and batch extraction.
-# 连续看图：同目录图片选取与批量解压。
+# 杩炵画鐪嬪浘锛氬悓鐩綍鍥剧墖閫夊彇涓庢壒閲忚В鍘嬨€?
 qarchiver_add_test(tst_preview
     SOURCES tst_preview.cpp
     LIBS qarchiver_ui
@@ -80,7 +80,7 @@ qarchiver_add_test(tst_preview
 )
 
 # ArchiveManager tests: async open/list/extract, fallback and preferences.
-# ArchiveManager 测试：异步打开/列表/解压、回退与偏好设置。
+# ArchiveManager 娴嬭瘯锛氬紓姝ユ墦寮€/鍒楄〃/瑙ｅ帇銆佸洖閫€涓庡亸濂借缃€?
 qarchiver_add_test(tst_manager
     SOURCES tst_manager.cpp
     LIBS qarchiver_ui
@@ -88,7 +88,7 @@ qarchiver_add_test(tst_manager
 )
 
 # libarchive backend: only built when the system library was found.
-# libarchive 后端：仅当找到系统库时构建。
+# libarchive 鍚庣锛氫粎褰撴壘鍒扮郴缁熷簱鏃舵瀯寤恒€?
 if(QARCHIVER_HAS_LIBARCHIVE)
     qarchiver_add_test(tst_libarchive
         SOURCES tst_libarchive.cpp
@@ -98,15 +98,15 @@ endif()
 
 # Drag-out staging (DragOutManager): needs the manager, AppSettings and the
 # backends, but no widgets - it runs headless.
-# 拖出暂存（DragOutManager）：需要管理器、AppSettings 和后端，
-# 但不依赖控件，可无界面运行。
+# 鎷栧嚭鏆傚瓨锛圖ragOutManager锛夛細闇€瑕佺鐞嗗櫒銆丄ppSettings 鍜屽悗绔紝
+# 浣嗕笉渚濊禆鎺т欢锛屽彲鏃犵晫闈㈣繍琛屻€?
 qarchiver_add_test(tst_dragout
     SOURCES tst_dragout.cpp
     LIBS qarchiver_ui
 )
 
 # Preferences and password dialog tests (offscreen QPA).
-# 偏好设置与密码对话框测试（离屏 QPA）。
+# 鍋忓ソ璁剧疆涓庡瘑鐮佸璇濇娴嬭瘯锛堢灞?QPA锛夈€?
 qarchiver_add_test(tst_preferences
     SOURCES tst_preferences.cpp
     LIBS qarchiver_ui
@@ -114,13 +114,14 @@ qarchiver_add_test(tst_preferences
 set_tests_properties(tst_preferences PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+
 # Make the bundled 7-Zip helper visible to every test that spawns a CLI
 # backend.  QARCHIVER_7Z_PATH is the first entry in
 # ProcessRunner::resolveToolPath(), so tests use exactly the binary that ships
 # with QArchiver even when no system 7z is installed.
-# 让每个会启动 CLI 后端的测试都能找到随程序分发的 7-Zip 辅助程序。
-# QARCHIVER_7Z_PATH 是 ProcessRunner::resolveToolPath() 的第一优先级，
-# 因此即使系统未安装 7z，测试也会使用 QArchiver 自带的二进制。
+# 璁╂瘡涓細鍚姩 CLI 鍚庣鐨勬祴璇曢兘鑳芥壘鍒伴殢绋嬪簭鍒嗗彂鐨?7-Zip 杈呭姪绋嬪簭銆?
+# QARCHIVER_7Z_PATH 鏄?ProcessRunner::resolveToolPath() 鐨勭涓€浼樺厛绾э紝
+# 鍥犳鍗充娇绯荤粺鏈畨瑁?7z锛屾祴璇曚篃浼氫娇鐢?QArchiver 鑷甫鐨勪簩杩涘埗銆?
 if(QARCHIVER_BUNDLE_7ZIP)
     set(_qarchiver_test_7z_env "QARCHIVER_7Z_PATH=${QARCHIVER_7ZIP_EXE}")
     foreach(_qarchiver_test IN ITEMS

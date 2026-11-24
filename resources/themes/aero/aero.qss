@@ -149,6 +149,7 @@ QLabel#ClassicPathLabel {
 }
 
 QPlainTextEdit#ProgressOutput {
+    color: @text@;
     border: 1px solid @inputBorder@;
     background-color: @base@;
 }

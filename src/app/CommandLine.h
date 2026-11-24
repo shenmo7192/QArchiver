@@ -29,6 +29,10 @@ struct Options {
     // --compress-dialog: open the compress dialog for the given paths.
     // --compress-dialog：为指定路径打开压缩对话框。
     bool compressDialog = false;
+    // --open-after: after --compress / --compress-dialog succeeds, open the
+    // created archive in the main window (Explorer context menu).
+    // --open-after：压缩成功后用主窗口打开生成的压缩包（资源管理器右键菜单）。
+    bool openAfterCompress = false;
     // --register-associations / --unregister-associations: update the current
     // user's archive associations and exit (installer/uninstaller helper).
     // --register-associations / --unregister-associations：更新当前用户的

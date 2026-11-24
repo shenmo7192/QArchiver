@@ -12,7 +12,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QPushButton>
-#include <QSpinBox>
 #include <QPlainTextEdit>
 #include <QSettings>
 
@@ -370,7 +369,10 @@ void TestPreferences::layoutSpecificRowsFollowLayoutMode()
 void TestPreferences::benchmarkDialogBuilds()
 {
     BenchmarkDialog dialog;
-    QVERIFY(dialog.findChild<QSpinBox *>() != nullptr);
+    auto *threads = dialog.findChild<QComboBox *>();
+    QVERIFY(threads != nullptr);
+    QVERIFY(threads->count() > 1);
+    QVERIFY(threads->isEnabled());
     QVERIFY(dialog.findChild<QPlainTextEdit *>() != nullptr);
 }
 

@@ -73,6 +73,10 @@ public:
     // operation dialogs; quit when the operation finishes.
     // 外壳集成模式：不显示主窗口，只显示操作对话框，操作结束后退出。
     void setDialogOnly(bool enabled) { m_dialogOnly = enabled; }
+    // After an Explorer-menu compression succeeds, show the main window and
+    // open the newly created archive.
+    // 资源管理器菜单压缩成功后显示主窗口并打开新建压缩包。
+    void setOpenAfterCompress(bool enabled) { m_openAfterCompress = enabled; }
 
     // Browse a local directory while no archive is open.  The same view,
     // search and navigation machinery is reused for local folders.
@@ -320,6 +324,7 @@ private:
 
     // Shell-integration dialog-only mode / 外壳集成“仅对话框”模式
     bool m_dialogOnly = false;
+    bool m_openAfterCompress = false;
 
     enum class UiOp { None, Open, List, Extract, Compress, Add, Delete, Test };
     UiOp m_currentOp = UiOp::None;

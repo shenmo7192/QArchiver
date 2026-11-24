@@ -11,7 +11,7 @@
 
 class QProcess;
 class QPlainTextEdit;
-class QSpinBox;
+class QComboBox;
 class QPushButton;
 class QLabel;
 class QTimer;
@@ -45,7 +45,7 @@ private:
 
     QProcess *m_process = nullptr;
     QPlainTextEdit *m_output = nullptr;
-    QSpinBox *m_threads = nullptr;
+    QComboBox *m_threads = nullptr;
     QPushButton *m_startButton = nullptr;
     QPushButton *m_stopButton = nullptr;
     QPushButton *m_copyButton = nullptr;
@@ -55,6 +55,7 @@ private:
     QTimer *m_elapsedTimer = nullptr;
     QElapsedTimer m_elapsed;
     QByteArray m_buffer;
+    int m_lastLogSecond = -1;
     bool m_running = false;
     bool m_stopping = false;
 };

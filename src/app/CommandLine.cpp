@@ -71,6 +71,11 @@ Options parse(QCoreApplication &app)
         QStringLiteral("Open the compress dialog for the given files."));
     parser.addOption(compressDialogOption);
 
+    const QCommandLineOption openAfterOption(
+        QStringLiteral("open-after"),
+        QStringLiteral("Open the created archive after compression succeeds."));
+    parser.addOption(openAfterOption);
+
     // Association helpers used by the Windows installer/uninstaller.
     // Windows 安装器/卸载器使用的文件关联辅助选项。
     const QCommandLineOption registerAssocOption(
@@ -106,6 +111,7 @@ Options parse(QCoreApplication &app)
         options.compressOutput = parser.value(outputOption);
     }
     options.compressDialog = parser.isSet(compressDialogOption);
+    options.openAfterCompress = parser.isSet(openAfterOption);
     options.registerAssociations = parser.isSet(registerAssocOption);
     options.unregisterAssociations = parser.isSet(unregisterAssocOption);
     return options;

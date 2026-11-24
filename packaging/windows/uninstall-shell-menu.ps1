@@ -55,8 +55,14 @@ foreach ($base in @(
 
 # Remove the in-process context-menu extension (dynamic labels).
 # 移除提供动态文案的进程内右键菜单扩展。
-$shellDll = Join-Path $PSScriptRoot 'QArchiverShell.dll'
-if (Test-Path -LiteralPath $shellDll) {
+$shellDlls = @()
+$baseShellDll = Join-Path $PSScriptRoot 'QArchiverShell.dll'
+if (Test-Path -LiteralPath $baseShellDll) {
+    $shellDlls += $baseShellDll
+}
+$shellDlls += Get-ChildItem -LiteralPath $PSScriptRoot `
+    -Filter 'QArchiverShell-*.dll' -File | Select-Object -ExpandProperty FullName
+foreach ($shellDll in ($shellDlls | Select-Object -Unique)) {
     $regsvr = if ([Environment]::Is64BitProcess) {
         Join-Path $env:SystemRoot 'System32\regsvr32.exe'
     } else {

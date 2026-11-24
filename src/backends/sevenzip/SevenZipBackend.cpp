@@ -497,8 +497,11 @@ void SevenZipBackend::compress(const CompressOptions &options)
     LOG_DEBUG("SevenZipBackend", "Compress: %s",
               ProcessRunner::maskedCommand(sevenZip, args).toUtf8().constData());
 
+    emit outputReady(tr("Creating %1").arg(options.archivePath));
+
     const int total = FileUtils::countFiles(options.sourceFiles);
     int processed = 0;
+    int lastLoggedPercent = -1;
 
     ProcessOutputOptions outputOptions;
     outputOptions.maxStdOutBytes = 1024 * 1024;
@@ -507,7 +510,8 @@ void SevenZipBackend::compress(const CompressOptions &options)
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
         QString(), 0, &m_cancelRequested,
-        [this, total, &processed](const QString &line, bool isError) {
+        [this, total, &processed, &lastLoggedPercent](
+            const QString &line, bool isError) {
             if (isError || line.isEmpty()) {
                 return;
             }
@@ -516,6 +520,10 @@ void SevenZipBackend::compress(const CompressOptions &options)
                 const int current =
                     total > 0 ? qBound(0, total * percent / 100, total) : 0;
                 emit progressChanged(percent, total, current, -1);
+                if (percent == 100 || percent >= lastLoggedPercent + 10) {
+                    emit outputReady(tr("Compressing... %1%").arg(percent));
+                    lastLoggedPercent = percent;
+                }
                 return;
             }
             emit outputReady(line);
