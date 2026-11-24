@@ -737,6 +737,19 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
                 tr("Created %1").arg(QDir::toNativeSeparators(m_lastCompressTarget)),
                 8000);
         }
+        if (m_openAfterCompress && !m_lastCompressTarget.isEmpty()) {
+            // Explorer "add to ZIP"/"compress to" should reveal the result in
+            // QArchiver after the operation succeeds.
+            // 资源管理器“添加到 ZIP/压缩到”成功后在 QArchiver 中打开结果。
+            const QString target = m_lastCompressTarget;
+            m_openAfterCompress = false;
+            m_compressCloseAfter = false;
+            m_dialogOnly = false;
+            show();
+            openArchivePath(target);
+            updateActionsState();
+            return;
+        }
         if (m_compressCloseAfter) {
             m_compressCloseAfter = false;
             // Explorer menu / command-line compression is a one-shot task.
