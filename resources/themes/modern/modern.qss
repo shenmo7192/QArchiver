@@ -943,3 +943,55 @@ QLabel#ModernViewLabel {
     color: @mutedText@;
     padding: 0 2px 0 10px;
 }
+
+/* -------------------------------------------------------------------------
+ * Immersive title bar
+ * ---------------------------------------------------------------------- */
+
+QWidget#ImmersiveTitleBar {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #182838,
+                                stop:1 #243d55);
+    border-bottom: 1px solid #0f1b28;
+}
+
+QLabel#TitleBarTitle {
+    color: #f4f8ff;
+    font-weight: 600;
+    padding-left: 2px;
+}
+
+QMenuBar#TitleBarMenuBar {
+    background: transparent;
+    color: #eaf3ff;
+    border: none;
+    padding: 0;
+}
+
+QMenuBar#TitleBarMenuBar::item {
+    background: transparent;
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+
+QMenuBar#TitleBarMenuBar::item:selected {
+    background: rgba(255, 255, 255, 40);
+}
+
+QToolButton#TitleBarButton,
+QToolButton#TitleBarCloseButton {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #eaf3ff;
+    font-size: 15px;
+}
+
+QToolButton#TitleBarButton:hover {
+    background: rgba(255, 255, 255, 40);
+}
+
+QToolButton#TitleBarCloseButton:hover {
+    background: #e81123;
+    color: #ffffff;
+}

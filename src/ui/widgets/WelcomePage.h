@@ -24,6 +24,7 @@ public slots:
 signals:
     void openRequested();
     void oneClickExtractRequested();
+    void fileManagerRequested();
     void recentFileActivated(const QString &path);
 
 private:

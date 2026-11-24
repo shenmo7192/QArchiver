@@ -1,3 +1,11 @@
+qarchiver (2.4.0) unstable; urgency=medium
+
+  * Add an immersive frameless title bar shared by both layouts.
+  * Start on the welcome page and add an explicit File Manager entry.
+  * Keep file-manager browsing available from the start page.
+
+ -- shenmo <shenmo@spark-app.store>  Tue, 24 Nov 2026 18:40:00 +0800
+
 qarchiver (2.3.1) unstable; urgency=medium
 
   * Sort button uses the standard two-arrow icon (centred), the item-size
