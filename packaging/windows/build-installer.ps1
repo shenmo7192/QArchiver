@@ -50,6 +50,19 @@ $stage = Join-Path $dist "installer-stage-$Arch"
 Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -LiteralPath $zip -DestinationPath $stage -Force
 
+# Install a versioned copy of the shell extension. On upgrade Explorer may
+# still have the previous DLL mapped, so replacing the unversioned file can
+# fail; a new filename is always writable.
+# 安装带版本号的扩展副本。覆盖升级时 Explorer 可能仍映射旧 DLL，
+# 直接替换无版本文件会失败；新文件名始终可写。
+$shellDll = Join-Path $stage 'QArchiverShell.dll'
+if (-not (Test-Path -LiteralPath $shellDll)) {
+    throw "QArchiverShell.dll not found in portable package: $shellDll"
+}
+$versionedShellDll = Join-Path $stage ("QArchiverShell-{0}.dll" -f $Version)
+Copy-Item -LiteralPath $shellDll -Destination $versionedShellDll -Force
+Remove-Item -LiteralPath $shellDll -Force
+
 $candidates = @($env:INNO_SETUP_ISCC)
 $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
 if ($programFilesX86) {

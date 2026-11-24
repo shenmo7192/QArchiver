@@ -3,6 +3,22 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [2.4.1] - 2026-11-24
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Fixed / 修复
+
+- 修复资源管理器右键菜单中“添加到 xx.zip / 压缩到...”所有格式都生成 ZIP
+  的问题：命令 ID 改为从 `lpVerb` 读取，不再误用 `lpVerbW`。
+- 右键菜单恢复文件类型图标；压缩完成后自动在 QArchiver 主窗口打开生成的
+  压缩包。
+- 安装器改用带版本号的 `QArchiverShell-<version>.dll`，覆盖升级不再因
+  Explorer 占用旧 DLL 而失效；升级时尽量清理旧副本，卸载时清理全部副本。
+- 压缩日志过滤空白进度行，并立即显示创建目标和进度，避免日志滚动但内容为空。
+- 性能测试线程数改为下拉框；修复日志读取通道；增加运行心跳、完整结果输出
+  和结束提示。
+
 ## [2.4.0-2] - 2026-11-24
 
 作者：shenmo <shenmo@spark-app.store>
@@ -261,3 +277,4 @@ All notable changes to QArchiver (小Q解压) are documented here.
 [2.3.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.3.1
 [2.4.0-2]: https://github.com/shenmo7192/QArchiver/releases/tag/2.4.0-2
 [2.4.0]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.4.0
+[2.4.1]: https://github.com/shenmo7192/QArchiver/releases/tag/v2.4.1

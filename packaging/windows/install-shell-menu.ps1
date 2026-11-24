@@ -91,7 +91,29 @@ foreach ($ext in $Extensions) {
 # ---------------------------------------------------------------------------
 $shellDll = Join-Path (Split-Path -Parent $ExePath) 'QArchiverShell.dll'
 if (-not (Test-Path -LiteralPath $shellDll)) {
+    # Installer payloads use a versioned filename so an in-place upgrade is not
+    # blocked by Explorer still mapping the previous DLL.
+    # 安装器使用带版本号的文件名，避免 Explorer 占用旧 DLL 导致升级失败。
+    $versioned = Get-ChildItem -LiteralPath (Split-Path -Parent $ExePath) `
+        -Filter 'QArchiverShell-*.dll' -File |
+        Sort-Object Name -Descending | Select-Object -First 1
+    if ($versioned) {
+        $shellDll = $versioned.FullName
+    }
+}
+if (-not (Test-Path -LiteralPath $shellDll)) {
     throw "QArchiverShell.dll not found next to QArchiver.exe: $shellDll"
+}
+
+# A machine-wide install must not be shadowed by an older per-user
+# registration of the same CLSID.
+# 机器级安装前清理旧的用户级 CLSID 注册，避免加载旧 DLL。
+if ($Scope -eq 'Machine') {
+    $clsid = '{5F3B9C2A-7E4D-4A1B-9C6D-2B8E1F4A7C30}'
+    Remove-RegistryKey "HKCU:\Software\Classes\CLSID\$clsid"
+    Remove-RegistryKey 'HKCU:\Software\Classes\*\shellex\ContextMenuHandlers\QArchiver'
+    Remove-RegistryKey 'HKCU:\Software\Classes\Directory\shellex\ContextMenuHandlers\QArchiver'
+    Remove-RegistryKey 'HKCU:\Software\Classes\Directory\Background\shellex\ContextMenuHandlers\QArchiver'
 }
 
 # Remove static compress verbs installed by QArchiver <= 2.2.0; the shell

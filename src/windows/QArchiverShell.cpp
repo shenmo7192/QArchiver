@@ -12,8 +12,10 @@
 #endif
 #include <windows.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #include <shlwapi.h>
 
+#include <initializer_list>
 #include <new>
 #include <string>
 #include <vector>
@@ -39,6 +41,26 @@ std::wstring modulePath()
     return std::wstring(buffer, length);
 }
 
+std::wstring registryAppPath(HKEY root)
+{
+    HKEY key = nullptr;
+    const wchar_t *subkey =
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\QArchiver.exe";
+    if (RegOpenKeyExW(root, subkey, 0, KEY_READ, &key) != ERROR_SUCCESS) {
+        return std::wstring();
+    }
+    wchar_t value[MAX_PATH * 4] = {};
+    DWORD size = sizeof(value);
+    DWORD type = 0;
+    const LONG status = RegQueryValueExW(key, nullptr, nullptr, &type,
+                                         reinterpret_cast<LPBYTE>(value), &size);
+    RegCloseKey(key);
+    if (status != ERROR_SUCCESS || type != REG_SZ) {
+        return std::wstring();
+    }
+    return std::wstring(value);
+}
+
 std::wstring executablePath()
 {
     std::wstring path = modulePath();
@@ -47,6 +69,30 @@ std::wstring executablePath()
         path.erase(slash + 1);
     }
     path += L"QArchiver.exe";
+    if (PathFileExistsW(path.c_str())) {
+        return path;
+    }
+
+    // A stale per-user registration may point at an old build directory. Fall
+    // back to the installed App Paths entry / Program Files so the context
+    // menu keeps working after an in-place upgrade.
+    // 旧的用户级注册可能仍指向旧构建目录；回退到安装版 App Paths /
+    // Program Files，保证覆盖升级后右键菜单仍可用。
+    for (HKEY root : {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE}) {
+        const std::wstring registered = registryAppPath(root);
+        if (!registered.empty() && PathFileExistsW(registered.c_str())) {
+            return registered;
+        }
+    }
+    wchar_t programFiles[MAX_PATH * 4] = {};
+    if (GetEnvironmentVariableW(L"ProgramFiles", programFiles,
+                                _countof(programFiles)) > 0) {
+        std::wstring installed = programFiles;
+        installed += L"\\QArchiver\\QArchiver.exe";
+        if (PathFileExistsW(installed.c_str())) {
+            return installed;
+        }
+    }
     return path;
 }
 
@@ -78,6 +124,105 @@ std::wstring fileName(const std::wstring &path)
 {
     const size_t slash = path.find_last_of(L"\\/");
     return slash == std::wstring::npos ? path : path.substr(slash + 1);
+}
+
+// Build a small menu bitmap with a real transparent mask. The shell does not
+// provide icons for dynamically inserted context-menu items, so load the
+// registered file-type icon and attach it explicitly.
+// 为动态插入的右键菜单项构造带透明掩码的小图标；资源管理器不会自动提供图标。
+struct MenuBitmap {
+    HBITMAP color = nullptr;
+    HBITMAP mask = nullptr;
+};
+
+HICON loadFileTypeIcon(const wchar_t *name, DWORD attributes, bool appIcon)
+{
+    if (appIcon) {
+        HICON small = nullptr;
+        const std::wstring exe = executablePath();
+        if (!exe.empty()
+            && ExtractIconExW(exe.c_str(), 0, nullptr, &small, 1) > 0) {
+            return small;
+        }
+    }
+
+    SHFILEINFOW info = {};
+    const UINT flags = SHGFI_ICON | SHGFI_SMALLICON
+        | (appIcon ? 0 : SHGFI_USEFILEATTRIBUTES);
+    if (SHGetFileInfoW(name, attributes, &info, sizeof(info), flags)) {
+        return info.hIcon;
+    }
+    return nullptr;
+}
+
+MenuBitmap makeMenuBitmap(const wchar_t *name, DWORD attributes, bool appIcon)
+{
+    MenuBitmap result;
+    HICON icon = loadFileTypeIcon(name, attributes, appIcon);
+    if (!icon) {
+        return result;
+    }
+
+    const int size = GetSystemMetrics(SM_CXSMICON);
+    HDC screen = GetDC(nullptr);
+    HDC dc = CreateCompatibleDC(screen);
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = size;
+    bmi.bmiHeader.biHeight = -size;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    void *pixels = nullptr;
+    result.color = CreateDIBSection(screen, &bmi, DIB_RGB_COLORS, &pixels,
+                                    nullptr, 0);
+    if (result.color && pixels) {
+        auto *bytes = static_cast<BYTE *>(pixels);
+        const COLORREF menuColor = GetSysColor(COLOR_MENU);
+        for (int i = 0; i < size * size; ++i) {
+            bytes[i * 4 + 0] = GetBValue(menuColor);
+            bytes[i * 4 + 1] = GetGValue(menuColor);
+            bytes[i * 4 + 2] = GetRValue(menuColor);
+            bytes[i * 4 + 3] = 255;
+        }
+        HGDIOBJ old = SelectObject(dc, result.color);
+        DrawIconEx(dc, 0, 0, icon, size, size, 0, nullptr, DI_NORMAL);
+        SelectObject(dc, old);
+
+        bool hasAlpha = false;
+        for (int i = 0; i < size * size; ++i) {
+            if (bytes[i * 4 + 3] != 255) {
+                hasAlpha = true;
+                break;
+            }
+        }
+        const int maskStride = ((size + 15) / 16) * 2;
+        std::vector<BYTE> maskBits(static_cast<size_t>(maskStride) * size, 0);
+        for (int y = 0; y < size; ++y) {
+            for (int x = 0; x < size; ++x) {
+                const int i = y * size + x;
+                const BYTE a = bytes[i * 4 + 3];
+                const bool transparent = hasAlpha
+                    ? a == 0
+                    : bytes[i * 4 + 0] == GetBValue(menuColor)
+                        && bytes[i * 4 + 1] == GetGValue(menuColor)
+                        && bytes[i * 4 + 2] == GetRValue(menuColor);
+                if (transparent) {
+                    maskBits[static_cast<size_t>(y) * maskStride + x / 8]
+                        |= static_cast<BYTE>(0x80 >> (x % 8));
+                }
+            }
+        }
+        result.mask = CreateBitmap(size, size, 1, 1, maskBits.data());
+    }
+    DestroyIcon(icon);
+    DeleteDC(dc);
+    ReleaseDC(nullptr, screen);
+    if (!result.mask) {
+        DeleteObject(result.color);
+        result.color = nullptr;
+    }
+    return result;
 }
 
 std::wstring baseName(const std::wstring &path, bool isDirectory)
@@ -116,13 +261,17 @@ bool launch(const std::wstring &arguments)
     std::wstring commandLine = quote(exe) + L" " + arguments;
     std::vector<wchar_t> buffer(commandLine.begin(), commandLine.end());
     buffer.push_back(L'\0');
+    const size_t slash = exe.find_last_of(L"\\/");
+    const std::wstring workingDir =
+        slash == std::wstring::npos ? std::wstring() : exe.substr(0, slash);
 
     STARTUPINFOW startup = {};
     startup.cb = sizeof(startup);
     PROCESS_INFORMATION process = {};
     const BOOL ok = CreateProcessW(
         nullptr, buffer.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
-        nullptr, nullptr, &startup, &process);
+        nullptr, workingDir.empty() ? nullptr : workingDir.c_str(),
+        &startup, &process);
     if (ok) {
         CloseHandle(process.hThread);
         CloseHandle(process.hProcess);
@@ -137,7 +286,7 @@ void runCompression(const std::vector<std::wstring> &paths,
         return;
     }
     if (customDialog) {
-        std::wstring arguments = L"--compress-dialog";
+        std::wstring arguments = L"--compress-dialog --open-after";
         for (const std::wstring &path : paths) {
             arguments += L" " + quote(path);
         }
@@ -145,17 +294,30 @@ void runCompression(const std::vector<std::wstring> &paths,
         return;
     }
     // One process per item keeps the "name.zip next to each file" semantics
-    // for multi-selection.
-    // 多选时每项单独启动一个进程，保持“每个文件旁生成同名 zip”的语义。
+    // for multi-selection. Open the finished archive in QArchiver.
+    // 多选时每项单独启动一个进程，保持“每个文件旁生成同名 zip”的语义，
+    // 完成后在 QArchiver 中打开。
     for (const std::wstring &path : paths) {
-        launch(std::wstring(L"--compress ") + format + L" " + quote(path));
+        launch(std::wstring(L"--compress ") + format + L" --open-after "
+               + quote(path));
     }
 }
 
 class ContextMenu final : public IShellExtInit, public IContextMenu {
 public:
     ContextMenu() { InterlockedIncrement(&g_objectCount); }
-    ~ContextMenu() { InterlockedDecrement(&g_objectCount); }
+    ~ContextMenu()
+    {
+        for (const MenuBitmap &bitmap : m_bitmaps) {
+            if (bitmap.color) {
+                DeleteObject(bitmap.color);
+            }
+            if (bitmap.mask) {
+                DeleteObject(bitmap.mask);
+            }
+        }
+        InterlockedDecrement(&g_objectCount);
+    }
 
     // IUnknown / IUnknown
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **object) override
@@ -263,6 +425,7 @@ public:
         const std::wstring label = L"添加到 " + quote(zipName);
         InsertMenuW(menu, index, MF_BYPOSITION | MF_STRING, firstCommand,
                     label.c_str());
+        attachBitmap(menu, index, L"file.zip", FILE_ATTRIBUTE_NORMAL);
 
         HMENU submenu = CreatePopupMenu();
         AppendMenuW(submenu, MF_STRING, firstCommand + 1, L"7z 压缩包 (.7z)");
@@ -275,15 +438,42 @@ public:
         AppendMenuW(submenu, MF_SEPARATOR, 0, nullptr);
         AppendMenuW(submenu, MF_STRING, firstCommand + 7,
                     L"自定义压缩选项...");
+        attachBitmap(submenu, 0, L"file.7z", FILE_ATTRIBUTE_NORMAL);
+        attachBitmap(submenu, 1, L"file.zip", FILE_ATTRIBUTE_NORMAL);
+        attachBitmap(submenu, 2, L"file.tar.gz", FILE_ATTRIBUTE_NORMAL);
+        attachBitmap(submenu, 3, L"file.tar.xz", FILE_ATTRIBUTE_NORMAL);
+        attachBitmap(submenu, 4, L"file.tar.bz2", FILE_ATTRIBUTE_NORMAL);
+        attachBitmap(submenu, 5, L"file.tar", FILE_ATTRIBUTE_NORMAL);
+        attachBitmap(submenu, 7, L"", FILE_ATTRIBUTE_NORMAL, true);
         InsertMenuW(menu, index + 1, MF_BYPOSITION | MF_POPUP,
                     reinterpret_cast<UINT_PTR>(submenu), L"压缩到...");
+        attachBitmap(menu, index + 1, L"", FILE_ATTRIBUTE_NORMAL, true);
 
+        m_firstCommand = firstCommand;
         return MAKE_HRESULT(SEVERITY_SUCCESS, FACILITY_NULL, 8);
     }
 
     HRESULT STDMETHODCALLTYPE InvokeCommand(LPCMINVOKECOMMANDINFO info) override
     {
-        if (!info || HIWORD(info->lpVerb) != 0) {
+        if (!info) {
+            return E_INVALIDARG;
+        }
+        UINT command = LOWORD(info->lpVerb);
+        // Command ids are carried in lpVerb's low word. CMINVOKECOMMANDINFOEX's
+        // lpVerbW is a Unicode *verb string* (often null for menu ids); using
+        // it here makes every submenu item look like command 0, i.e. "zip".
+        // 命令 ID 在 lpVerb 低 16 位；CMINVOKECOMMANDINFOEX 的 lpVerbW 是
+        // Unicode 字符串 verb（菜单 ID 时通常为空），误用会让所有子菜单
+        // 都变成命令 0（zip）。
+        // Explorer normally passes the idCmdFirst-relative offset. Some
+        // callers pass the absolute command id; accept that too when the
+        // offset is unambiguous.
+        // 资源管理器通常传相对 idCmdFirst 的偏移；部分调用方传绝对命令 ID，
+        // 在不会产生歧义时一并兼容。
+        if (m_firstCommand > 7 && command >= m_firstCommand) {
+            command -= m_firstCommand;
+        }
+        if (command > 7) {
             return E_INVALIDARG;
         }
         std::vector<std::wstring> targets = m_paths;
@@ -294,7 +484,7 @@ public:
             return E_INVALIDARG;
         }
 
-        switch (LOWORD(info->lpVerb)) {
+        switch (command) {
         case 0: runCompression(targets, L"zip", false); break;
         case 1: runCompression(targets, L"7z", false); break;
         case 2: runCompression(targets, L"zip", false); break;
@@ -315,10 +505,23 @@ public:
     }
 
 private:
+    void attachBitmap(HMENU menu, UINT position, const wchar_t *name,
+                      DWORD attributes, bool appIcon = false)
+    {
+        MenuBitmap bitmap = makeMenuBitmap(name, attributes, appIcon);
+        if (bitmap.color && bitmap.mask) {
+            SetMenuItemBitmaps(menu, position, MF_BYPOSITION, bitmap.color,
+                               bitmap.mask);
+            m_bitmaps.push_back(bitmap);
+        }
+    }
+
     LONG m_reference = 1;
     std::vector<std::wstring> m_paths;
     std::wstring m_folder;
     bool m_background = false;
+    UINT m_firstCommand = 0;
+    std::vector<MenuBitmap> m_bitmaps;
 };
 
 class ClassFactory final : public IClassFactory {

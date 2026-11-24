@@ -358,7 +358,31 @@
             <source>Benchmark running... %1 s</source>
             <translation>性能测试运行中…… %1 秒</translation>
         </message>
-    </context>
+        <message>
+        <source>Running: %1 %2</source>
+        <translation>正在运行：%1 %2</translation>
+    </message>
+    <message>
+        <source>Threads: %1</source>
+        <translation>线程数：%1</translation>
+    </message>
+    <message>
+        <source>Threads: Automatic</source>
+        <translation>线程数：自动</translation>
+    </message>
+    <message>
+        <source>%1 threads</source>
+        <translation>%1 线程</translation>
+    </message>
+    <message>
+        <source>Number of threads used by the benchmark (Automatic = let 7-Zip choose).</source>
+        <translation>性能测试使用的线程数（自动 = 由 7-Zip 决定）。</translation>
+    </message>
+    <message>
+        <source>7-Zip prints its result table when the benchmark finishes; this normally takes about a minute.</source>
+        <translation>7-Zip 会在性能测试完成时输出结果表；通常需要约一分钟。</translation>
+    </message>
+</context>
     <context>
         <name>CompressDialog</name>
         <message>
@@ -3064,7 +3088,15 @@ The file may be missing, or there may be no associated application, insufficient
             <source>Archive integrity verified</source>
             <translation>压缩包完整性校验通过</translation>
         </message>
-    </context>
+        <message>
+        <source>Creating %1</source>
+        <translation>正在创建 %1</translation>
+    </message>
+    <message>
+        <source>Compressing... %1%</source>
+        <translation>正在压缩... %1%</translation>
+    </message>
+</context>
     <context>
         <name>SidebarWidget</name>
         <message>

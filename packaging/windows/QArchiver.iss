@@ -4,7 +4,7 @@
 ; Build from the staged portable package:
 ; 从已部署好的便携包目录构建：
 ;
-;   ISCC.exe QArchiver.iss /DAppVersion=2.4.0-2 ^
+;   ISCC.exe QArchiver.iss /DAppVersion=2.4.1 ^
 ;       /DSourceDir=C:\path\to\staged ^
 ;       /DOutputDir=C:\path\to\dist /DArch=x64
 ;
@@ -17,11 +17,16 @@
 ; 新增格式时请同步修改两处。
 
 #ifndef AppVersion
-  #define AppVersion "2.4.0-2"
+  #define AppVersion "2.4.1"
 #endif
 #ifndef AppVersionNumeric
-  #define AppVersionNumeric "2.4.0.2"
+  #define AppVersionNumeric "2.4.1.0"
 #endif
+
+; Versioned shell-extension filename lets an in-place upgrade install a new
+; DLL while Explorer still has the old one loaded.
+; 带版本号的扩展文件名使覆盖升级可写入新 DLL，不受 Explorer 旧模块占用影响。
+#define ShellDll "QArchiverShell-" + AppVersion + ".dll"
 #ifndef SourceDir
   #define SourceDir "..\..\build-windows\package"
 #endif
@@ -95,13 +100,22 @@ Name: "{autodesktop}\QArchiver"; Filename: "{app}\{#AppExeName}"; Tasks: desktop
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,QArchiver}"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\{#AppExeName}"; Parameters: "--register-associations"; Flags: runhidden waituntilterminated runasoriginaluser; Tasks: associate; StatusMsg: "正在注册文件关联..."
-Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\QArchiverShell.dll"""; Flags: runhidden waituntilterminated; Tasks: shellmenu; StatusMsg: "正在注册资源管理器右键菜单..."
+Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\{#ShellDll}"""; Flags: runhidden waituntilterminated; Tasks: shellmenu; StatusMsg: "正在注册资源管理器右键菜单..."
 
 [UninstallRun]
 Filename: "{app}\{#AppExeName}"; Parameters: "--unregister-associations"; Flags: runhidden waituntilterminated; RunOnceId: "QArchiverUnregisterAssociations"
-Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\QArchiverShell.dll"""; Flags: runhidden waituntilterminated; RunOnceId: "QArchiverUnregisterShell"
+Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\{#ShellDll}"""; Flags: runhidden waituntilterminated; RunOnceId: "QArchiverUnregisterShell"
+
+[UninstallDelete]
+; Remove all shell-extension copies, including older versioned DLLs that were
+; left behind because Explorer had them mapped during an upgrade.
+; 删除全部右键扩展副本，包括升级时因 Explorer 占用而遗留的旧版本 DLL。
+Type: files; Name: "{app}\QArchiverShell*.dll"
 
 [Code]
+const
+  ShellClsid = '{5F3B9C2A-7E4D-4A1B-9C6D-2B8E1F4A7C30}';
+
 function ArchiveExtensions: TArrayOfString;
 begin
   SetArrayLength(Result, 13);
@@ -118,6 +132,44 @@ begin
   Result[10] := '.tar.gz';
   Result[11] := '.tar.xz';
   Result[12] := '.tar.bz2';
+end;
+
+procedure RemoveStaleShellExtension(Root: Integer);
+begin
+  // A previous portable/per-user registration can shadow the machine-wide
+  // DLL and keep an old, icon-less build loaded. Remove it before registering
+  // the installer copy.
+  // 旧的便携版/用户级注册会遮蔽新安装的 DLL，导致仍加载旧版本；注册前清理。
+  RegDeleteKeyIncludingSubkeys(Root,
+    'Software\Classes\CLSID\' + ShellClsid);
+  RegDeleteKeyIncludingSubkeys(Root,
+    'Software\Classes\*\shellex\ContextMenuHandlers\QArchiver');
+  RegDeleteKeyIncludingSubkeys(Root,
+    'Software\Classes\Directory\shellex\ContextMenuHandlers\QArchiver');
+  RegDeleteKeyIncludingSubkeys(Root,
+    'Software\Classes\Directory\Background\shellex\ContextMenuHandlers\QArchiver');
+end;
+
+procedure RemoveOldShellDlls;
+var
+  FindRec: TFindRec;
+  Current, Candidate: String;
+begin
+  // Try to remove older QArchiverShell*.dll copies. A DLL still mapped by
+  // Explorer cannot be deleted; that is safe because the new version is loaded
+  // from its own versioned filename.
+  // 尝试删除旧的 QArchiverShell*.dll；被 Explorer 占用的 DLL 无法删除，
+  // 但新版本使用独立文件名，不受影响。
+  Current := ExpandConstant('{app}\{#ShellDll}');
+  if FindFirst(ExpandConstant('{app}\QArchiverShell*.dll'), FindRec) then
+  begin
+    repeat
+      Candidate := ExpandConstant('{app}\') + FindRec.Name;
+      if CompareText(Candidate, Current) <> 0 then
+        DeleteFile(Candidate);
+    until not FindNext(FindRec);
+    FindClose(FindRec);
+  end;
 end;
 
 procedure RegisterExtractVerb(BaseKey, Verb, Caption, Command: String);
@@ -210,13 +262,18 @@ begin
       'Software\Classes\Directory\Background\shell\QArchiver.AddToZip');
     RegDeleteKeyIncludingSubkeys(HKCU,
       'Software\Classes\Directory\Background\shell\QArchiver.CompressTo');
+    RemoveStaleShellExtension(HKCU);
     if WizardIsTaskSelected('shellmenu') then
       RegisterShellMenu;
+    RemoveOldShellDlls;
   end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  if CurUninstallStep = usUninstall then
+  if CurUninstallStep = usUninstall then begin
+    RemoveStaleShellExtension(HKLM);
+    RemoveStaleShellExtension(HKCU);
     UnregisterShellMenu;
+  end;
 end;

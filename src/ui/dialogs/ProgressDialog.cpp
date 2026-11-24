@@ -105,6 +105,12 @@ void ProgressDialog::updateProgress(int percent, int total, int current, int eta
 // 追加一行后端输出，并同步显示在状态标签中。
 void ProgressDialog::appendOutput(const QString &line)
 {
+    // 7-Zip can emit whitespace-only carriage-return updates; appending those
+    // makes the log scroll while showing nothing.
+    // 7-Zip 可能输出仅含空白的回车刷新；直接追加会让日志滚动但看起来是空的。
+    if (line.trimmed().isEmpty()) {
+        return;
+    }
     m_output->appendPlainText(line);
     m_fileLabel->setText(line);
 }
