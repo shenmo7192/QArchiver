@@ -21,6 +21,7 @@
 #include "ui/widgets/SidebarWidget.h"
 #include "ui/widgets/ModernToolBar.h"
 #include "ui/widgets/ModernNavBar.h"
+#include "ui/widgets/PathLabel.h"
 #include "ui/widgets/ArchiveFolderPane.h"
 #include "ui/widgets/WelcomePage.h"
 #include "ui/dialogs/ExtractDialog.h"
@@ -311,10 +312,19 @@ void MainWindow::setupClassicCentralWidget()
     addNavButton(m_backAct);
     addNavButton(m_upAct);
 
+    // Path display shares the elision behaviour with the modern nav bar but
+    // keeps the Aero look through its own object name.
+    // 路径框与现代导航栏共用省略逻辑，但通过独立对象名保持 Aero 外观。
+    m_classicPathLabel = new PathLabel(searchRow);
+    m_classicPathLabel->setObjectName(QStringLiteral("ClassicPathLabel"));
+    m_classicPathLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    searchRowLayout->addWidget(m_classicPathLabel, 1);
+
     m_searchEdit = new QLineEdit(searchRow);
     m_searchEdit->setObjectName(QStringLiteral("SearchEdit"));
     m_searchEdit->setPlaceholderText(tr("Filter by name or path (wildcards allowed)..."));
     m_searchEdit->setClearButtonEnabled(true);
+    m_searchEdit->setMinimumWidth(220);
     m_searchAction = new QAction(QString(), m_searchEdit);
     m_searchAction->setEnabled(false);
     m_searchEdit->addAction(m_searchAction, QLineEdit::LeadingPosition);

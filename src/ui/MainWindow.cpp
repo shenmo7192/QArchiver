@@ -319,6 +319,7 @@ void MainWindow::teardownUi()
     m_viewStack = nullptr;
     m_centralStack = nullptr;
     m_searchEdit = nullptr;
+    m_classicPathLabel = nullptr;
     m_placeholderLabel = nullptr;
     m_searchAction = nullptr;
     m_backgroundWidget = nullptr;
@@ -368,9 +369,7 @@ void MainWindow::showWelcomePage()
     if (m_welcomePage) {
         m_welcomePage->refreshRecent();
     }
-    if (m_modernNavBar) {
-        m_modernNavBar->setLocation(tr("No archive open"), QString());
-    }
+    setNavLocationText(tr("No archive open"), QString());
     updateNavigationState();
 }
 
@@ -456,10 +455,8 @@ void MainWindow::onArchiveOpening(const QString &filePath)
     setBusyIndicatorVisible(true,
         tr("Detecting format: %1").arg(QFileInfo(filePath).fileName()));
     statusBar()->showMessage(tr("Detecting archive format..."));
-    if (m_modernNavBar) {
-        m_modernNavBar->setLocation(
-            tr("Opening %1...").arg(QFileInfo(filePath).fileName()), QString());
-    }
+    setNavLocationText(
+        tr("Opening %1...").arg(QFileInfo(filePath).fileName()), QString());
     updateActionsState();
 }
 

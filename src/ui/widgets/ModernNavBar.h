@@ -10,7 +10,7 @@
 
 class QLineEdit;
 class QToolButton;
-class QLabel;
+class PathLabel;
 class QButtonGroup;
 
 // Back / forward / up buttons, an elided location label and the archive search
@@ -48,7 +48,7 @@ private:
     QToolButton *m_forwardButton = nullptr;
     QToolButton *m_upButton = nullptr;
     QToolButton *m_sortButton = nullptr;
-    QLabel *m_locationLabel = nullptr;
+    PathLabel *m_locationLabel = nullptr;
     QLineEdit *m_searchEdit = nullptr;
     QButtonGroup *m_viewGroup = nullptr;
 };

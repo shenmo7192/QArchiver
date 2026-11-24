@@ -139,6 +139,15 @@ QLineEdit#SearchEdit {
     padding-left: 4px;
 }
 
+QLabel#ClassicPathLabel {
+    background-color: @base@;
+    border: 1px solid @inputBorder@;
+    border-radius: 3px;
+    padding: 3px 6px;
+    min-height: 16px;
+    color: @text@;
+}
+
 QPlainTextEdit#ProgressOutput {
     border: 1px solid @inputBorder@;
     background-color: @base@;

@@ -4,58 +4,19 @@
 
 #include "ui/icons/IconUtils.h"
 #include "ui/widgets/ModernNavBar.h"
+#include "ui/widgets/PathLabel.h"
 
 #include <QAction>
 #include <QButtonGroup>
-#include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
 #include <QPoint>
 #include <QSize>
 #include <QLineEdit>
-#include <QResizeEvent>
 #include <QToolButton>
 
 namespace {
-
-class ElidedLabel : public QLabel {
-public:
-    explicit ElidedLabel(QWidget *parent = nullptr)
-        : QLabel(parent)
-    {
-        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-        setMinimumWidth(80);
-    }
-
-    void setFullText(const QString &text)
-    {
-        m_fullText = text;
-        setToolTip(text);
-        updateElision();
-    }
-
-protected:
-    void resizeEvent(QResizeEvent *event) override
-    {
-        QLabel::resizeEvent(event);
-        updateElision();
-    }
-
-private:
-    void updateElision()
-    {
-        if (m_fullText.isEmpty()) {
-            QLabel::setText(QString());
-            return;
-        }
-        const QFontMetrics metrics(font());
-        QLabel::setText(metrics.elidedText(m_fullText, Qt::ElideMiddle,
-                                           qMax(40, width() - 4)));
-    }
-
-    QString m_fullText;
-};
 
 QToolButton *makeNavButton(const QString &iconName, const QString &tooltip,
                            QWidget *parent)
@@ -87,7 +48,7 @@ ModernNavBar::ModernNavBar(QWidget *parent)
     layout->addWidget(m_forwardButton);
     layout->addWidget(m_upButton);
 
-    m_locationLabel = new ElidedLabel(this);
+    m_locationLabel = new PathLabel(this);
     m_locationLabel->setObjectName(QStringLiteral("ModernPathLabel"));
     m_locationLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     layout->addWidget(m_locationLabel, 1);
@@ -173,11 +134,7 @@ ModernNavBar::ModernNavBar(QWidget *parent)
 void ModernNavBar::setLocation(const QString &archiveName,
                                const QString &internalDir)
 {
-    QString text = archiveName;
-    if (!internalDir.isEmpty()) {
-        text += QStringLiteral("  /  ") + internalDir;
-    }
-    static_cast<ElidedLabel *>(m_locationLabel)->setFullText(text);
+    m_locationLabel->setLocation(archiveName, internalDir);
 }
 
 void ModernNavBar::setViewMode(const QString &mode)
