@@ -3514,4 +3514,15 @@ The file may be missing, or there may be no associated application, insufficient
             <translation>从列表中移除</translation>
         </message>
     </context>
+    <context>
+        <name>BreadcrumbPathBar</name>
+        <message>
+            <source>Archive</source>
+            <translation>压缩包</translation>
+        </message>
+        <message>
+            <source>Show hidden levels</source>
+            <translation>显示隐藏的层级</translation>
+        </message>
+    </context>
 </TS>

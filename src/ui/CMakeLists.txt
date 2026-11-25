@@ -78,8 +78,8 @@ add_library(qarchiver_ui STATIC
     widgets/ModernToolBar.h
     widgets/ModernNavBar.cpp
     widgets/ModernNavBar.h
-    widgets/PathLabel.cpp
-    widgets/PathLabel.h
+    widgets/BreadcrumbPathBar.cpp
+    widgets/BreadcrumbPathBar.h
     widgets/ArchiveFolderPane.cpp
     widgets/ArchiveFolderPane.h
     widgets/ArchiveGridView.cpp

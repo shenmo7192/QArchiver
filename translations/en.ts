@@ -3486,4 +3486,15 @@ The file may be missing, or there may be no associated application, insufficient
         <translation>Remove from list</translation>
     </message>
 </context>
+    <context>
+        <name>BreadcrumbPathBar</name>
+        <message>
+            <source>Archive</source>
+            <translation>Archive</translation>
+        </message>
+        <message>
+            <source>Show hidden levels</source>
+            <translation>Show hidden levels</translation>
+        </message>
+    </context>
 </TS>

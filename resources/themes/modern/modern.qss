@@ -153,13 +153,50 @@ QToolButton#ModernNavButton:disabled {
     opacity: 0.4;
 }
 
-QLabel#ModernPathLabel {
+#BreadcrumbBar {
     color: @text@;
     background: @base@;
     border: 1px solid @inputBorder@;
     border-radius: 6px;
-    padding: 4px 10px;
-    min-height: 18px;
+    min-height: 20px;
+}
+
+QToolButton#BreadcrumbButton,
+QToolButton#BreadcrumbOverflowButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 3px 7px;
+    color: @text@;
+}
+
+QToolButton#BreadcrumbButton:hover,
+QToolButton#BreadcrumbOverflowButton:hover {
+    background: @hover@;
+    border-color: @borderLight@;
+}
+
+QToolButton#BreadcrumbButton:pressed,
+QToolButton#BreadcrumbOverflowButton:pressed {
+    background: @pressed@;
+}
+
+QToolButton#BreadcrumbButton[currentSegment="true"] {
+    font-weight: 600;
+}
+
+QLineEdit#BreadcrumbEdit {
+    background: transparent;
+    border: none;
+    padding: 0px 2px;
+    color: @text@;
+    selection-background-color: @selection@;
+    selection-color: @selectionText@;
+}
+
+QLabel#BreadcrumbPlaceholder {
+    color: @mutedText@;
+    padding: 2px 4px;
 }
 
 QLineEdit#ModernSearchEdit {

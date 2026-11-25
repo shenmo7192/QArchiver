@@ -127,6 +127,17 @@ target_compile_definitions(tst_titlebar PRIVATE
 set_tests_properties(tst_titlebar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Breadcrumb location bar: archive/local segment splitting, middle-level
+# hiding via the overflow menu, elision order and the selectable text mode.
+# 面包屑路径框：压缩包/本地路径拆分、用 "..." 收纳中间层级、省略顺序以及
+# 可选中复制的文本模式。
+qarchiver_add_test(tst_breadcrumb
+    SOURCES tst_breadcrumb.cpp
+    LIBS qarchiver_ui
+)
+set_tests_properties(tst_breadcrumb PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # System-places sidebar: no duplicate paths, ancestor highlighting for
 # subdirectories, and the file-system fallback outside Home.
 # 系统位置侧栏：路径不重复、子目录高亮所属位置、Home 之外回退到文件系统。

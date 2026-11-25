@@ -22,7 +22,7 @@ class BackgroundWidget;
 class ModernToolBar;
 class ModernNavBar;
 class ArchiveFolderPane;
-class PathLabel;
+class BreadcrumbPathBar;
 class WelcomePage;
 class ImmersiveTitleBar;
 class ProgressDialog;
@@ -185,6 +185,8 @@ private:
     void updateNavigationState();
     void setNavLocationText(const QString &archiveName,
                             const QString &internalDir = QString());
+    void setNavLocalLocation(const QString &directory);
+    void setNavPlaceholder(const QString &text);
     void updateNavLocation();
     void updateFolderPaneState();
     void showPlaceholder(const QString &message);
@@ -255,7 +257,7 @@ private:
 
     // Classic layout / 经典布局
     QLineEdit *m_searchEdit = nullptr;
-    PathLabel *m_classicPathLabel = nullptr;
+    BreadcrumbPathBar *m_classicBreadcrumb = nullptr;
     QLabel *m_placeholderLabel = nullptr;
     QAction *m_searchAction = nullptr;
     BackgroundWidget *m_backgroundWidget = nullptr;

@@ -21,7 +21,7 @@
 #include "ui/widgets/SidebarWidget.h"
 #include "ui/widgets/ModernToolBar.h"
 #include "ui/widgets/ModernNavBar.h"
-#include "ui/widgets/PathLabel.h"
+#include "ui/widgets/BreadcrumbPathBar.h"
 #include "ui/widgets/ArchiveFolderPane.h"
 #include "ui/widgets/WelcomePage.h"
 #include "ui/dialogs/ExtractDialog.h"
@@ -179,6 +179,10 @@ void MainWindow::setupModernUi()
             this, &MainWindow::onNavForward);
     connect(m_modernNavBar, &ModernNavBar::upRequested,
             this, &MainWindow::onNavUp);
+    connect(m_modernNavBar, &ModernNavBar::archiveSegmentActivated,
+            this, &MainWindow::onFolderDirectoryActivated);
+    connect(m_modernNavBar, &ModernNavBar::localSegmentActivated,
+            this, &MainWindow::onFolderDirectoryActivated);
     connect(m_modernNavBar, &ModernNavBar::searchChanged,
             this, &MainWindow::onSearchChanged);
     connect(m_modernNavBar, &ModernNavBar::viewModeChanged,
@@ -313,26 +317,29 @@ void MainWindow::setupClassicCentralWidget()
     addNavButton(m_backAct);
     addNavButton(m_upAct);
 
-    // Path display shares the elision behaviour with the modern nav bar but
-    // keeps the Aero look through its own object name.
-    // 路径框与现代导航栏共用省略逻辑，但通过独立对象名保持 Aero 外观。
-    m_classicPathLabel = new PathLabel(searchRow);
-    m_classicPathLabel->setObjectName(QStringLiteral("ClassicPathLabel"));
-    m_classicPathLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    searchRowLayout->addWidget(m_classicPathLabel, 1);
+    // Breadcrumb location bar in the Windows 7 / Aero style.
+    // Windows 7 / Aero 风格的面包屑路径框。
+    m_classicBreadcrumb = new BreadcrumbPathBar(searchRow);
+    searchRowLayout->addWidget(m_classicBreadcrumb, 1);
+    connect(m_classicBreadcrumb,
+            &BreadcrumbPathBar::archiveSegmentActivated, this,
+            &MainWindow::onFolderDirectoryActivated);
+    connect(m_classicBreadcrumb,
+            &BreadcrumbPathBar::localSegmentActivated, this,
+            &MainWindow::onFolderDirectoryActivated);
 
     m_searchEdit = new QLineEdit(searchRow);
     m_searchEdit->setObjectName(QStringLiteral("SearchEdit"));
     m_searchEdit->setPlaceholderText(tr("Filter by name or path (wildcards allowed)..."));
     m_searchEdit->setClearButtonEnabled(true);
-    m_searchEdit->setMinimumWidth(220);
+    m_searchEdit->setFixedWidth(280);
     m_searchAction = new QAction(QString(), m_searchEdit);
     m_searchAction->setEnabled(false);
     m_searchEdit->addAction(m_searchAction, QLineEdit::LeadingPosition);
     updateSearchIcon();
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &MainWindow::onSearchChanged);
-    searchRowLayout->addWidget(m_searchEdit, 1);
+    searchRowLayout->addWidget(m_searchEdit);
     archiveLayout->addWidget(searchRow);
 
     m_viewStack = new QStackedWidget(archivePage);

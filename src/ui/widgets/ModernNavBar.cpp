@@ -3,8 +3,8 @@
 // 现代导航栏实现。
 
 #include "ui/icons/IconUtils.h"
+#include "ui/widgets/BreadcrumbPathBar.h"
 #include "ui/widgets/ModernNavBar.h"
-#include "ui/widgets/PathLabel.h"
 
 #include <QAction>
 #include <QButtonGroup>
@@ -48,10 +48,8 @@ ModernNavBar::ModernNavBar(QWidget *parent)
     layout->addWidget(m_forwardButton);
     layout->addWidget(m_upButton);
 
-    m_locationLabel = new PathLabel(this);
-    m_locationLabel->setObjectName(QStringLiteral("ModernPathLabel"));
-    m_locationLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    layout->addWidget(m_locationLabel, 1);
+    m_locationBar = new BreadcrumbPathBar(this);
+    layout->addWidget(m_locationBar, 1);
 
     // Segmented view switch, directly above the archive contents.
     // 分段式视图切换，位于压缩包内容列表正上方。
@@ -127,14 +125,28 @@ ModernNavBar::ModernNavBar(QWidget *parent)
             this, &ModernNavBar::upRequested);
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &ModernNavBar::searchChanged);
+    connect(m_locationBar, &BreadcrumbPathBar::archiveSegmentActivated,
+            this, &ModernNavBar::archiveSegmentActivated);
+    connect(m_locationBar, &BreadcrumbPathBar::localSegmentActivated,
+            this, &ModernNavBar::localSegmentActivated);
 
     setNavigationState(false, false, false);
 }
 
-void ModernNavBar::setLocation(const QString &archiveName,
-                               const QString &internalDir)
+void ModernNavBar::setArchiveLocation(const QString &archiveName,
+                                      const QString &internalDir)
 {
-    m_locationLabel->setLocation(archiveName, internalDir);
+    m_locationBar->setArchiveLocation(archiveName, internalDir);
+}
+
+void ModernNavBar::setLocalLocation(const QString &directory)
+{
+    m_locationBar->setLocalLocation(directory);
+}
+
+void ModernNavBar::setPlaceholder(const QString &text)
+{
+    m_locationBar->setPlaceholder(text);
 }
 
 void ModernNavBar::setViewMode(const QString &mode)

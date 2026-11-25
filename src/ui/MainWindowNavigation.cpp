@@ -20,7 +20,7 @@
 #include "ui/widgets/SidebarWidget.h"
 #include "ui/widgets/ModernToolBar.h"
 #include "ui/widgets/ModernNavBar.h"
-#include "ui/widgets/PathLabel.h"
+#include "ui/widgets/BreadcrumbPathBar.h"
 #include "ui/widgets/ArchiveFolderPane.h"
 #include "ui/widgets/WelcomePage.h"
 #include "ui/dialogs/ExtractDialog.h"
@@ -262,22 +262,42 @@ void MainWindow::setNavLocationText(const QString &archiveName,
                                     const QString &internalDir)
 {
     if (m_modernNavBar) {
-        m_modernNavBar->setLocation(archiveName, internalDir);
+        m_modernNavBar->setArchiveLocation(archiveName, internalDir);
     }
-    if (m_classicPathLabel) {
-        m_classicPathLabel->setLocation(archiveName, internalDir);
+    if (m_classicBreadcrumb) {
+        m_classicBreadcrumb->setArchiveLocation(archiveName, internalDir);
+    }
+}
+
+void MainWindow::setNavLocalLocation(const QString &directory)
+{
+    if (m_modernNavBar) {
+        m_modernNavBar->setLocalLocation(directory);
+    }
+    if (m_classicBreadcrumb) {
+        m_classicBreadcrumb->setLocalLocation(directory);
+    }
+}
+
+void MainWindow::setNavPlaceholder(const QString &text)
+{
+    if (m_modernNavBar) {
+        m_modernNavBar->setPlaceholder(text);
+    }
+    if (m_classicBreadcrumb) {
+        m_classicBreadcrumb->setPlaceholder(text);
     }
 }
 
 void MainWindow::updateNavLocation()
 {
     if (m_localBrowse) {
-        setNavLocationText(QDir::toNativeSeparators(m_localBrowseDir), QString());
+        setNavLocalLocation(m_localBrowseDir);
         return;
     }
     const QString archivePath = ArchiveManager::instance().currentPath();
     if (archivePath.isEmpty()) {
-        setNavLocationText(tr("No archive open"), QString());
+        setNavPlaceholder(tr("No archive open"));
         return;
     }
     setNavLocationText(QFileInfo(archivePath).fileName(), m_navCurrentDir);
