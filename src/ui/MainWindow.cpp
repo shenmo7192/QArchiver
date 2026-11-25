@@ -25,6 +25,7 @@
 #include "ui/widgets/SidebarWidget.h"
 #include "ui/widgets/ModernToolBar.h"
 #include "ui/widgets/ImmersiveTitleBar.h"
+#include "ui/widgets/WindowResizeBorders.h"
 #include "ui/widgets/ModernNavBar.h"
 #include "ui/widgets/ArchiveFolderPane.h"
 #include "ui/widgets/WelcomePage.h"
@@ -82,10 +83,12 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QProgressBar>
+#include <QScreen>
 #include <QPushButton>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
+#include <QShowEvent>
 #include <QStatusBar>
 #include <QTimer>
 #include <QToolBar>
@@ -149,6 +152,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_sortOrder = AppSettings::instance().sortOrder();
     m_itemSize = AppSettings::instance().itemSize();
     buildUi();
+    m_resizeBorders = new WindowResizeBorders(this);
 
     // The background image is a presentation option, independent of the
     // archive data.  It is only used by the classic layout.
@@ -285,6 +289,9 @@ void MainWindow::buildUi()
     updateActionsState();
     if (!m_searchText.isEmpty()) {
         setSearchText(m_searchText);
+    }
+    if (m_resizeBorders) {
+        m_resizeBorders->raiseBorders();
     }
     QTimer::singleShot(0, this, &MainWindow::updateSearchIcon);
 }
@@ -895,6 +902,37 @@ void MainWindow::dropEvent(QDropEvent *event)
         compressPathsWithDialog(localFiles);
     }
     event->acceptProposedAction();
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    if (!m_initialPlacementDone) {
+        m_initialPlacementDone = true;
+        // Frameless windows carry no position of their own, so some window
+        // managers (and Windows' default placement) drop them at an arbitrary
+        // edge, often bottom-right.  Center the first show explicitly on the
+        // primary screen's available area.  Later shows (restore, layout
+        // switch) keep whatever position the user chose.
+        // 无边框窗口自身没有位置，部分窗口管理器（以及 Windows 的默认放置）
+        // 会把它丢到任意边缘，常见是右下角。首次显示时显式居中到主屏可用
+        // 区域；之后的恢复/切换布局不再覆盖用户手动调整的位置。
+        if (!isMaximized() && !isFullScreen()) {
+            if (QScreen *screen = QGuiApplication::primaryScreen()) {
+                const QRect available = screen->availableGeometry();
+                const QSize windowSize = size();
+                const int x = windowSize.width() >= available.width()
+                    ? available.left()
+                    : available.left()
+                          + (available.width() - windowSize.width()) / 2;
+                const int y = windowSize.height() >= available.height()
+                    ? available.top()
+                    : available.top()
+                          + (available.height() - windowSize.height()) / 2;
+                move(x, y);
+            }
+        }
+    }
+    QMainWindow::showEvent(event);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

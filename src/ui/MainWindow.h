@@ -25,6 +25,7 @@ class ArchiveFolderPane;
 class BreadcrumbPathBar;
 class WelcomePage;
 class ImmersiveTitleBar;
+class WindowResizeBorders;
 class ProgressDialog;
 class ArchiveBackend;
 class QStackedWidget;
@@ -108,6 +109,7 @@ public:
                                  const QString &targetPath);
 
 protected:
+    void showEvent(QShowEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void dropEvent(QDropEvent *event) override;
@@ -254,6 +256,12 @@ private:
 
     // Immersive title bar / 沉浸式标题栏
     ImmersiveTitleBar *m_titleBar = nullptr;
+
+    // Frameless edge/corner resize zones / 无边框边缘与角落缩放区
+    WindowResizeBorders *m_resizeBorders = nullptr;
+    // Initial window placement is done once; user moves are never overridden.
+    // 仅在首次显示时确定窗口位置，绝不覆盖用户之后手动移动的位置。
+    bool m_initialPlacementDone = false;
 
     // Classic layout / 经典布局
     QLineEdit *m_searchEdit = nullptr;

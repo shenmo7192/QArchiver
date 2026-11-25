@@ -127,6 +127,16 @@ target_compile_definitions(tst_titlebar PRIVATE
 set_tests_properties(tst_titlebar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Frameless window resize: eight edge/corner hit zones, z-order above newly
+# built UI children, and disabling while maximized.
+# 无边框窗口缩放：八个边缘/角落命中区、新界面控件之上保持置顶、最大化时禁用。
+qarchiver_add_test(tst_windowresize
+    SOURCES tst_windowresize.cpp
+    LIBS qarchiver_ui
+)
+set_tests_properties(tst_windowresize PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Breadcrumb location bar: archive/local segment splitting, middle-level
 # hiding via the overflow menu, elision order and the selectable text mode.
 # 面包屑路径框：压缩包/本地路径拆分、用 "..." 收纳中间层级、省略顺序以及
