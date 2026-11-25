@@ -43,9 +43,9 @@ git push origin 2.4.1
 
 ## Features
 
-- Immersive frameless title bar with integrated menus, minimize/maximize/close, drag and double-click maximize
+- Immersive frameless title bar with integrated menus, minimize/maximize/close, drag, double-click maximize and edge/corner resizing; the window starts centred
 - Modern HaoZip-style interface: flat gradient header, large colorful toolbar, folder and details panes,
-  path navigation, in-archive search, and an archive status summary
+  Windows 7 style breadcrumb navigation, in-archive search, and an archive status summary
 - Welcome page: drop area, recent files list, Open / One-click Extract entries and a File Manager button; starts on the welcome page
 - Local file manager (opened from the welcome page's File Manager button): navigation, search,
   grid/list/tree views, double-click to enter a folder or open a file, and right-click compression;
@@ -67,7 +67,9 @@ git push origin 2.4.1
 - 7-Zip benchmark (`7z b`): live output, thread count selection, stop, and copy results
 - Modern and classic layouts can be switched instantly in Preferences; the classic layout keeps the
   original toolbar, recent-files sidebar, background image, and toolbar style options. Its filter row
-  also hosts Forward, Back and Up buttons to the left of the search field
+  hosts Forward, Back and Up buttons plus a breadcrumb bar, with a fixed 280px search field
+- Breadcrumb levels are clickable; long paths collapse middle levels behind a "..." menu, and
+  clicking the empty area on the right shows the read-only full path ready to select and copy
 - Browse archive contents in a grid by default, switchable between grid, list, and tree views; filtering and sorting supported;
   grid icons are centred and long filenames wrap across multiple lines, with the cell height following the longest name in the current folder
 - Extraction: all or selected entries, overwrite strategies (ask/overwrite/skip/rename), password;
@@ -103,7 +105,7 @@ git push origin 2.4.1
 ## Interface
 
 The default layout is modeled on HaoZip: a large colorful toolbar at the top, a folder pane, a details pane,
-path navigation and in-archive search, and an archive status summary. The modern layout uses a completely
+breadcrumb path navigation and in-archive search, and an archive status summary. The modern layout uses a completely
 new flat theme and colorful file-type icons.
 
 | Modern layout (default) | Classic layout |

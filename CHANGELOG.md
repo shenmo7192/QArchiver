@@ -3,6 +3,29 @@
 All notable changes to QArchiver (小Q解压) are documented here.
 格式参考 Keep a Changelog；版本号遵循 Semantic Versioning。
 
+## [Unreleased]
+
+作者：shenmo <shenmo@spark-app.store>
+
+### Added / 新增
+
+- 经典与现代布局共用 Windows 7 风格面包屑路径框：压缩包根名与内部每一级目录、
+  本地盘符/根与每一级文件夹均可点击跳转；层级之间显示跟随主题的箭头分隔符。
+- 路径过长时用“...”按钮收纳中间层级，并可在弹出菜单中直接跳转；继续缩小时
+  先省略首级、最后省略末级。单击路径框右侧空白区切换为只读完整路径，可选中复制。
+- 无边框窗口四边与四角均可拖拽缩放（`WindowResizeBorders`），保留右下角
+  `QSizeGrip`。
+
+### Changed / 变更
+
+- 经典布局搜索框固定为 280px，与现代布局一致。
+- 路径显示由静态省略标签改为可点击的面包屑层级。
+
+### Fixed / 修复
+
+- 修复无边框主窗口启动时被窗口管理器放到屏幕右下角等任意位置的问题：首次显示
+  时在主屏可用区域内居中，之后保留用户手动移动的位置。
+
 ## [2.4.1] - 2026-11-24
 
 作者：shenmo <shenmo@spark-app.store>

@@ -878,7 +878,7 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - 解压移动阶段失败时，已经移动到目标的文件不会回滚，只会明确提示。
 - Windows 上由 libarchive 解压符号链接需要开发者模式或管理员权限；命令行 7-Zip 后端通常直接跟随/跳过链接。
 - 一键解压默认不弹目录选择框；需要每次选择目录时使用“解压到...”。
-- 使用沉浸式无边框标题栏 `ImmersiveTitleBar`，集成菜单、窗口按钮、拖动和双击最大化；欢迎页与归档页共用。
+- 使用沉浸式无边框标题栏 `ImmersiveTitleBar`，集成菜单、窗口按钮、拖动、双击最大化与四边四角缩放；欢迎页与归档页共用。
 
 ## 10. UI 设计
 
@@ -888,7 +888,7 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 ┌──────────────────────────────────────────────┐
 │ 工具栏：打开/新建/解压/添加/删除/关闭…       │
 ├──────────────────────────────────────────────┤
-│ 搜索框（按名称或路径过滤，支持通配符）       │
+│ 导航按钮 + 面包屑路径栏 + 搜索框（280px）   │
 ├──────────────────────────────────────────────┤
 │ 内容视图（网格 / 列表 / 树形）               │
 │ 网格默认；列表/树形显示 Name/Size/... 表头   │
@@ -923,10 +923,15 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - 列表模式双击目录：进入目录；双击 `..`：返回上一级。
 - 现代导航栏在内容列表上方提供网格/列表/树形切换，主页与归档页均可用；
   偏好设置中也可切换。设置持久化为 `ui/contentViewMode`，默认 `grid`。
-- 经典布局在筛选框左侧提供导航按钮，按“前进、后退、上一级”排列
-  （快捷键 `Alt+Right` / `Alt+Left` / `Alt+Up`），复用与现代导航栏相同的
-  历史和目录状态。经典列表/树使用 16px 图标与 24px 行高，避免图标重叠；
-  现代视图尺寸不受影响。
+- 经典布局在筛选框左侧提供面包屑路径框和导航按钮，按“前进、后退、上一级”
+  排列（快捷键 `Alt+Right` / `Alt+Left` / `Alt+Up`），复用与现代导航栏相同的
+  历史和目录状态。搜索框固定宽度 280px，与现代导航栏一致。经典列表/树使用
+  16px 图标与 24px 行高，避免图标重叠；现代视图尺寸不受影响。
+- 路径导航使用 Windows 7 风格面包屑 `BreadcrumbPathBar`，现代/经典布局共用：
+  压缩包根名与内部每一级目录、或本地盘符/根与每一级文件夹都是可点击按钮；
+  宽度不足时中间层级收进“...”按钮的菜单，继续缩小时先省略首级、最后省略末级；
+  层级之间显示跟随主题的箭头分隔符。路径框右侧保留空白区，单击切换为只读单行
+  完整路径（自动全选，可复制），`Esc`/回车/失焦后恢复面包屑。
 - 右键菜单：解压选中、添加文件、删除选中、测试、排序方式（本地浏览时还提供
   打开、添加到同名 ZIP、压缩到 7z/ZIP/tar 等、打开所在文件夹与刷新）。
 - 拖入文件：打开压缩包，或向当前可写归档追加文件。
@@ -1047,10 +1052,14 @@ Name, Size, Packed, Modified, Encrypted
   经典 delegate 与 `ArchiveTreeView::drawBranches()` 共同绘制 Aero 渐变整行高亮。
 - 现代进度条为蓝色渐变；经典进度条为 Windows 7 绿色渐变。
 - 窗口使用沉浸式无边框标题栏 `ImmersiveTitleBar`，放在 `QMainWindow::setMenuWidget()`
-  槽位：集成应用图标、菜单、最小化/最大化/关闭、拖动与双击最大化及尺寸调整，
+  槽位：集成应用图标、菜单、最小化/最大化/关闭、拖动与双击最大化及尺寸调整
+  （`WindowResizeBorders` 提供四边/四角命中区，右下角保留 `QSizeGrip`），
   现代/经典布局共用，菜单集中到标题栏。菜单栏只占菜单项自身宽度，右侧空白归
   标题栏以支持拖动；标题栏背景/文字使用独立的 `titleBarTop`/`titleBarMid`/
   `titleBarBottom`/`titleBarText` 主题 token，随布局与浅深主题切换。
+- 无边框窗口首次显示时在主屏可用区域内居中；窗口大于可用区域时贴左上角，
+  避免标题栏落到屏幕外。之后的显示与布局切换保留用户手动移动的位置。
+  Wayland 下顶层位置由合成器决定，客户端无法强制居中。
 - `MessageBoxUtils::showWarning()` 使用 `:/icons/classic/warning.ico`；连续看图的准备进度
   对话框不使用该警告图标。
 
@@ -1247,6 +1256,8 @@ resources/
 | `tst_libarchive` | zip / tar.gz / tar.xz / gz 往返、AES-256 zip 密码、加密 7z 报不支持、损坏包检测、选择性解压、目录选中、硬链接重建、不带 UTF-8 标志的 GB18030 与 Big5 名称自动解码（含落盘文件名）、显式 `encodingHint` 覆盖检测 |
 | `tst_preferences` | 偏好设置中 libarchive 开关与 `AppSettings` 的双向联动、连续看图阈值与最近文件上限裁剪、布局/一键解压设置往返、性能测试对话框构建、列表模式目录索引/重复项、网格模式隐藏 `..`、缩略图开关与等比缩放、分卷图标（offscreen 平台运行） |
 | `tst_titlebar` | 沉浸式标题栏与布局切换：菜单栏不拉伸（空白区可拖拽）、空白处拖拽/双击最大化、`teardownUi()`/`buildUi()` 后标题栏仍挂在 menuWidget 槽位、误调 `menuBar()` 后可自愈、标题栏颜色使用主题 token（offscreen 平台运行） |
+| `tst_windowresize` | 无边框窗口缩放：八个边缘/角落命中区、窗口重建后保持置顶、最大化时禁用（offscreen 平台运行） |
+| `tst_breadcrumb` | 面包屑路径框：压缩包/本地路径拆分、用“...”收纳中间层级、省略顺序、只读完整路径文本、主题化箭头分隔符（offscreen 平台运行） |
 | `tst_folderpane` | 系统位置侧栏：位置路径不重复、进入子目录后仍高亮所属位置、Home 之外的目录回退到“文件系统”（offscreen 平台运行） |
 | `tst_dragout` | 拖出 staging：路径剪枝、体积统计（含负值/溢出拒绝）、staging 映射、单文件/目录/嵌套选择、恶意路径/危险符号链接拦截、纯 gz 流、加密 7z 回退命令行、`QARCHIVER_NO_LIBARCHIVE` 下同样通过、准备结果缓存复用与失效 |
 
@@ -1261,10 +1272,10 @@ SOURCES ... LIBS ... DATA_DIR ...)` 注册：链接分层静态库而不是复�
 |---|---|
 | `tst_toolchain` | `qarchiver_utils` |
 | `tst_utils`、`tst_backends`、`tst_libarchive` | `qarchiver_core` |
-| `tst_background`、`tst_preview`、`tst_manager`、`tst_dragout`、`tst_preferences`、`tst_titlebar`、`tst_folderpane` | `qarchiver_ui` |
+| `tst_background`、`tst_preview`、`tst_manager`、`tst_dragout`、`tst_preferences`、`tst_titlebar`、`tst_windowresize`、`tst_breadcrumb`、`tst_folderpane` | `qarchiver_ui` |
 
 `tst_libarchive` 只在找到 libarchive 时构建，因此 `-DQARCHIVER_USE_LIBARCHIVE=OFF`
-的构建会运行 10 个测试而不是 11 个；其余测试在两种配置下都必须通过。
+的构建会运行 12 个测试而不是 13 个；其余测试在两种配置下都必须通过。
 
 运行：
 
