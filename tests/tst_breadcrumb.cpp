@@ -22,6 +22,7 @@ private slots:
     void localSegmentsStartAtFilesystemRoot();
     void wideBarShowsEveryLevel();
     void narrowBarHidesMiddleLevelsBehindOverflow();
+    void separatorsMatchVisibleLevels();
     void firstLevelElidesBeforeLast();
     void childWidgetClickOpensSelectableText();
     void overflowMenuListsHiddenLevels();
@@ -127,6 +128,37 @@ void TestBreadcrumb::narrowBarHidesMiddleLevelsBehindOverflow()
     QVERIFY(overflowButton(bar));
     QVERIFY2(!overflowButton(bar)->isHidden(),
              "hidden levels are represented by the overflow button");
+}
+
+void TestBreadcrumb::separatorsMatchVisibleLevels()
+{
+    BreadcrumbPathBar bar;
+    bar.setArchiveLocation(QStringLiteral("archive.zip"),
+                           QStringLiteral("one/two/three/four"));
+
+    showAndResize(bar, 1400);
+    const auto separators = bar.findChildren<QWidget *>(
+        QStringLiteral("BreadcrumbSeparator"));
+    QCOMPARE(separators.size(), levelButtons(bar).size() - 1);
+    for (QWidget *separator : separators) {
+        QVERIFY(!separator->isHidden());
+    }
+
+    showAndResize(bar, 190);
+    int visibleButtons = 0;
+    for (QToolButton *button : levelButtons(bar)) {
+        if (!button->isHidden()) {
+            ++visibleButtons;
+        }
+    }
+    int visibleSeparators = 0;
+    for (QWidget *separator : separators) {
+        if (!separator->isHidden()) {
+            ++visibleSeparators;
+        }
+    }
+    QVERIFY(visibleButtons < levelButtons(bar).size());
+    QCOMPARE(visibleSeparators, visibleButtons - 1);
 }
 
 void TestBreadcrumb::firstLevelElidesBeforeLast()

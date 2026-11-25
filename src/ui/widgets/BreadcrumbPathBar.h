@@ -90,6 +90,7 @@ private:
     QToolButton *m_overflowButton = nullptr;
     QMenu *m_overflowMenu = nullptr;
     QVector<QToolButton *> m_buttons;
+    QVector<QWidget *> m_separators;
     QVector<Segment> m_segments;
     QVector<int> m_hiddenIndexes;
     QString m_placeholderText;

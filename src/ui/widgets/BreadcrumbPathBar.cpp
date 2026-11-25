@@ -4,6 +4,9 @@
 
 #include "ui/widgets/BreadcrumbPathBar.h"
 
+#include "ui/icons/IconUtils.h"
+#include "ui/theme/ThemeManager.h"
+
 #include <QAction>
 #include <QDir>
 #include <QEvent>
@@ -15,6 +18,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QPainter>
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QStackedLayout>
@@ -30,6 +34,72 @@ constexpr int kMinElidedWidth = 26;
 // reachable, even when the path would otherwise fill the whole bar.
 // 始终在右侧保留可单击的空白条，即使路径本身能占满整个框。
 constexpr int kReservedBlankWidth = 16;
+
+// Width of the theme chevron between two levels.
+// 两个层级之间的主题箭头分隔符宽度。
+constexpr int kSeparatorWidth = 14;
+
+// Small theme-aware chevron between breadcrumb levels.  It deliberately reuses
+// the glyphs shipped with each theme instead of adding new image assets:
+// modern -> themes/modern/*/chevron-right.png, classic -> themes/aero/*/
+// scroll-right.png.  Style changes reload the pixmap so dark/light switches
+// are picked up without rebuilding the widget.
+// 层级之间的小箭头。复用两套主题已有的字形而不是新增图片资源：
+// 现代 -> themes/modern/*/chevron-right.png，经典 -> themes/aero/*/
+// scroll-right.png。主题样式变化时重新加载，深浅色切换无需重建控件。
+class BreadcrumbSeparator : public QWidget {
+public:
+    explicit BreadcrumbSeparator(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("BreadcrumbSeparator"));
+        setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        setFixedSize(kSeparatorWidth, kSeparatorWidth);
+        setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        reloadPixmap();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        if (m_pixmap.isNull()) {
+            return;
+        }
+        QPainter painter(this);
+        const qreal ratio = m_pixmap.devicePixelRatio();
+        const int pixmapWidth = qRound(m_pixmap.width() / ratio);
+        const int pixmapHeight = qRound(m_pixmap.height() / ratio);
+        painter.drawPixmap((width() - pixmapWidth) / 2,
+                           (height() - pixmapHeight) / 2, m_pixmap);
+    }
+
+    void changeEvent(QEvent *event) override
+    {
+        QWidget::changeEvent(event);
+        if (event->type() == QEvent::StyleChange
+            || event->type() == QEvent::PaletteChange
+            || event->type() == QEvent::ApplicationPaletteChange) {
+            reloadPixmap();
+        }
+    }
+
+private:
+    void reloadPixmap()
+    {
+        const QString glyph = ThemeManager::isModernLayout()
+                                  ? QStringLiteral("chevron-right")
+                                  : QStringLiteral("scroll-right");
+        // The modern chevron is a 32px glyph, the Aero one is a native 9px
+        // arrow; render each at the size that keeps it crisp.
+        // 现代箭头是 32px 字形，Aero 是原生 9px 箭头，分别按清晰尺寸渲染。
+        const int iconSize = ThemeManager::isModernLayout() ? kSeparatorWidth : 9;
+        m_pixmap = Icons::themed(glyph).pixmap(
+            QSize(iconSize, iconSize), devicePixelRatioF());
+        update();
+    }
+
+    QPixmap m_pixmap;
+};
 
 QString normalizeSlashes(const QString &path)
 {
@@ -60,7 +130,7 @@ BreadcrumbPathBar::BreadcrumbPathBar(QWidget *parent)
     m_crumbPage->installEventFilter(this);
     m_crumbLayout = new QHBoxLayout(m_crumbPage);
     m_crumbLayout->setContentsMargins(4, 2, 4, 2);
-    m_crumbLayout->setSpacing(1);
+    m_crumbLayout->setSpacing(0);
     m_crumbLayout->addStretch(1);
     m_stack->addWidget(m_crumbPage);
 
@@ -218,6 +288,8 @@ void BreadcrumbPathBar::rebuildButtons()
     }
     qDeleteAll(m_buttons);
     m_buttons.clear();
+    qDeleteAll(m_separators);
+    m_separators.clear();
     if (m_placeholderLabel) {
         delete m_placeholderLabel;
         m_placeholderLabel = nullptr;
@@ -255,6 +327,9 @@ void BreadcrumbPathBar::rebuildButtons()
     m_crumbLayout->addWidget(m_buttons.first());
     m_crumbLayout->addWidget(m_overflowButton);
     for (int i = 1; i < m_buttons.size(); ++i) {
+        auto *separator = new BreadcrumbSeparator(m_crumbPage);
+        m_separators.append(separator);
+        m_crumbLayout->addWidget(separator, 0, Qt::AlignVCenter);
         m_crumbLayout->addWidget(m_buttons.at(i));
     }
     m_crumbLayout->addStretch(1);
@@ -271,7 +346,6 @@ void BreadcrumbPathBar::updateElision()
     const int available =
         qMax(0, width() - margins.left() - margins.right()
                     - kReservedBlankWidth);
-    const int spacing = m_crumbLayout->spacing();
     const int count = m_buttons.size();
 
     // Start from the full labels and reveal as much as the width allows.
@@ -279,6 +353,9 @@ void BreadcrumbPathBar::updateElision()
     for (int i = 0; i < count; ++i) {
         m_buttons.at(i)->setText(m_segments.at(i).label);
         m_buttons.at(i)->show();
+    }
+    for (QWidget *separator : m_separators) {
+        separator->show();
     }
     m_overflowButton->hide();
     m_hiddenIndexes.clear();
@@ -290,7 +367,7 @@ void BreadcrumbPathBar::updateElision()
         return m_overflowButton->sizeHint().width();
     };
 
-    int allWidth = spacing * (count - 1);
+    int allWidth = kSeparatorWidth * (count - 1);
     for (int i = 0; i < count; ++i) {
         allWidth += buttonWidth(i);
     }
@@ -316,19 +393,20 @@ void BreadcrumbPathBar::updateElision()
     const auto totalWidth = [&](const QVector<bool> &shown,
                                 bool withOverflow) {
         int total = 0;
-        int shownCount = 0;
+        int shownButtons = 0;
         for (int i = 0; i < count; ++i) {
             if (shown.at(i)) {
                 total += buttonWidth(i);
-                ++shownCount;
+                ++shownButtons;
             }
         }
         if (withOverflow) {
             total += overflowWidth();
-            ++shownCount;
         }
-        if (shownCount > 1) {
-            total += spacing * (shownCount - 1);
+        if (shownButtons > 1) {
+            // One separator before every visible level except the first.
+            // 除首级外，每个可见层级前都有一个分隔符。
+            total += kSeparatorWidth * (shownButtons - 1);
         }
         return total;
     };
@@ -348,6 +426,9 @@ void BreadcrumbPathBar::updateElision()
     for (int i = 0; i < count; ++i) {
         m_buttons.at(i)->setVisible(visible.at(i));
     }
+    for (int i = 1; i < count && i - 1 < m_separators.size(); ++i) {
+        m_separators.at(i - 1)->setVisible(visible.at(i));
+    }
     m_overflowButton->setVisible(hasOverflow);
 
     if (hasOverflow) {
@@ -366,10 +447,9 @@ void BreadcrumbPathBar::updateElision()
     // Still too narrow: elide the first level before the last one.
     // 仍然过窄：先省略开头，最后才省略末尾。
     const int overflow = hasOverflow ? overflowWidth() : 0;
-    const int gaps = hasOverflow ? 2 : 1;
     const int lastNatural = buttonWidth(count - 1);
     const int firstBudget =
-        available - lastNatural - overflow - spacing * gaps;
+        available - lastNatural - overflow - kSeparatorWidth;
 
     if (firstBudget >= kMinElidedWidth) {
         setElidedText(m_buttons.first(), m_segments.first().label,
@@ -379,7 +459,7 @@ void BreadcrumbPathBar::updateElision()
                       kMinElidedWidth);
         const int firstActual = buttonWidth(0);
         const int lastBudget =
-            available - firstActual - overflow - spacing * gaps;
+            available - firstActual - overflow - kSeparatorWidth;
         setElidedText(m_buttons.at(count - 1),
                       m_segments.at(count - 1).label,
                       qMax(kMinElidedWidth, lastBudget));
