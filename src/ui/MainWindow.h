@@ -129,6 +129,7 @@ private slots:
     void onBenchmark();
     void onCloseArchive();
     void onAbout();
+    void onCheckUpdates();
     void checkSevenZipFallback();
     void showSevenZipFallbackInfo(const SevenZipToolInfo &info);
 
@@ -303,6 +304,7 @@ private:
     QAction *m_deleteAct = nullptr;
     QAction *m_closeAct = nullptr;
     QAction *m_prefsAct = nullptr;
+    QAction *m_checkUpdatesAct = nullptr;
     QAction *m_aboutAct = nullptr;
     QAction *m_quitAct = nullptr;
 

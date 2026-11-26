@@ -8,6 +8,14 @@ yincolor.qarchiver (2.4.1-1) unstable; urgency=medium
 
  -- shenmo <shenmo@spark-app.store>  Thu, 26 Nov 2026 16:40:00 +0800
 
+qarchiver (2.4.2) unstable; urgency=medium
+
+  * Add Help → Check for Updates, powered by the public GitHub Releases
+    Atom feed (no API rate limit), with version/release notes and download link.
+  * Understand packaging revisions such as v2.4.2-1 when comparing versions.
+
+ -- shenmo <shenmo@spark-app.store>  Thu, 26 Nov 2026 21:40:00 +0800
+
 qarchiver (2.4.1) unstable; urgency=medium
 
   * Fix mojibake for archives whose member names are not UTF-8 (GBK/GB18030/
