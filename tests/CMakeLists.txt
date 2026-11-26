@@ -1,4 +1,4 @@
-﻿# Test suite: unit and integration tests for the core, backends and UI wiring.
+# Test suite: unit and integration tests for the core, backends and UI wiring.
 # 娴嬭瘯濂椾欢锛氳鐩栨牳蹇冨眰銆佸悗绔笌 UI 杩炴帴鏂瑰紡鐨勫崟鍏冨強闆嗘垚娴嬭瘯銆?
 #
 # Every test links one of the layer libraries built by src/ instead of listing
@@ -8,7 +8,7 @@
 
 # Qt Test is optional; the application itself does not require it.
 # Qt Test 鏄彲閫変緷璧栵紱搴旂敤鏈韩涓嶉渶瑕佸畠銆?
-find_package(Qt6 ${QARCHIVER_MIN_QT_VERSION} QUIET COMPONENTS Core Gui Widgets Concurrent Test)
+find_package(Qt6 ${QARCHIVER_MIN_QT_VERSION} QUIET COMPONENTS Core Gui Widgets Concurrent Test Network)
 if(NOT TARGET Qt6::Test)
     message(STATUS "Qt6::Test not found: skipping QArchiver tests")
     return()
