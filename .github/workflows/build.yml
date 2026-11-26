@@ -1,5 +1,5 @@
-# Reusable build workflow for Debian 13 (amd64/arm64) and Windows (x64/arm64).
-# 可复用的 Debian 13（amd64/arm64）与 Windows（x64/arm64）构建工作流。
+# Reusable build workflow for Debian 12 (amd64/arm64) and Windows (x64/arm64).
+# 可复用的 Debian 12（amd64/arm64）与 Windows（x64/arm64）构建工作流。
 
 name: Build
 
@@ -17,11 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Debian 13 x86_64 (deb)
+          - name: Debian 12 x86_64 (deb)
             os: ubuntu-24.04
             platform: linux
             arch: amd64
-          - name: Debian 13 ARM64 (deb)
+          - name: Debian 12 ARM64 (deb)
             os: ubuntu-24.04-arm
             platform: linux
             arch: arm64
@@ -45,19 +45,25 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------------------------------------------------------------------
-      # Debian 13 package
-      # Build inside Debian 13 so the generated Depends/ABI match Debian and
-      # Deepin instead of Ubuntu 24.04 (noble).
-      # 在 Debian 13 容器内构建，使依赖与 ABI 面向 Debian/Deepin，而不是 Ubuntu 24.04。
+      # Debian package
+      # Build on Debian 12 (bookworm): Qt 6.4 + glibc 2.36 + pre-t64 library
+      # names, i.e. the oldest baseline we support.  Packages built there also
+      # install on Debian 13 / Ubuntu 24.04 / Linux Mint 22 / Deepin 23+ because
+      # the t64-renamed libraries Provide their old names.  Building on Debian 13
+      # instead emits "libqt6core6t64", which nothing older can satisfy.
+      # 在 Debian 12（bookworm）内构建：Qt 6.4 + glibc 2.36 + t64 改名前的库名，
+      # 即我们支持的最老基线。这里产出的包也能装到 Debian 13 / Ubuntu 24.04 /
+      # Mint 22 / Deepin 23+，因为 t64 改名后的库提供了旧名；若在 Debian 13 上
+      # 构建则依赖会变成 libqt6core6t64，更老的系统无法满足。
       # ---------------------------------------------------------------------
-      - name: Build Debian 13 package and run tests
+      - name: Build Debian package and run tests
         if: matrix.platform == 'linux'
         run: |
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/work" \
             -w /work \
             -e DEBIAN_FRONTEND=noninteractive \
-            debian:13 bash -euxo pipefail -c '
+            debian:12 bash -euxo pipefail -c '
               apt-get update
               apt-get install -y --no-install-recommends \
                 build-essential ca-certificates devscripts equivs fakeroot
@@ -71,32 +77,43 @@ jobs:
               cp ../yincolor.qarchiver_*_${{ matrix.arch }}.deb dist/
             '
 
-      - name: Verify package installs on Debian 13
+      - name: Verify package installs on target distributions
         if: matrix.platform == 'linux'
         run: |
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE/dist:/dist:ro" \
-            -e DEBIAN_FRONTEND=noninteractive \
-            debian:13 bash -euxo pipefail -c '
-              apt-get update
-              apt-get install -y --no-install-recommends \
-                /dist/yincolor.qarchiver_*_${{ matrix.arch }}.deb
-              dpkg -s yincolor.qarchiver >/dev/null
-              # The package must not depend on anything missing from a clean
-              # Debian 13 install (the reason this job exists).
-              if ldd /usr/bin/QArchiver | grep -q "not found"; then
-                echo "QArchiver has unresolved shared libraries" >&2
-                exit 1
-              fi
-              # Verify the bundled helper and the desktop integration actually
-              # made it into the package.
-              dpkg -L yincolor.qarchiver > /tmp/qarchiver-files.txt
-              helper="$(grep -m1 '/libexec/qarchiver/7zip/7zzs$' /tmp/qarchiver-files.txt)"
-              test -n "$helper"
-              test -x "$helper"
-              test -f /usr/share/applications/yincolor.qarchiver.desktop
-              test -f /usr/share/icons/hicolor/256x256/apps/qarchiver.png
-            '
+          set -euo pipefail
+          # Debian 12 is the build baseline; Debian 13 and Ubuntu 24.04 verify
+          # that the t64-renamed libraries really satisfy the pre-t64 Depends.
+          # Debian 12 是构建基线；Debian 13 与 Ubuntu 24.04 用于验证 t64 改名后的
+          # 库确实能满足 t64 改名前的 Depends。
+          for image in debian:12 debian:13 ubuntu:24.04; do
+            echo "=== verify on $image ==="
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE/dist:/dist:ro" \
+              -e DEBIAN_FRONTEND=noninteractive \
+              "$image" bash -euxo pipefail -c '
+                apt-get update
+                # Dependency check first: on a wrong baseline the resolver
+                # error shows up immediately instead of after a large download.
+                # 先做依赖模拟：基线不对时会直接看到依赖错误，而不是下载几百 MB 后。
+                apt-get install -s --no-install-recommends /dist/*.deb
+                apt-get install -y --no-install-recommends /dist/*.deb
+                dpkg -s yincolor.qarchiver >/dev/null
+                # Nothing in the package may reference a library that is not
+                # installed (the reason this job exists).
+                if ldd /usr/bin/QArchiver | grep -q "not found"; then
+                  echo "QArchiver has unresolved shared libraries" >&2
+                  exit 1
+                fi
+                # Verify the bundled helper and the desktop integration actually
+                # made it into the package.
+                dpkg -L yincolor.qarchiver > /tmp/qarchiver-files.txt
+                helper="$(grep -m1 /libexec/qarchiver/7zip/7zzs /tmp/qarchiver-files.txt)"
+                test -n "$helper"
+                test -x "$helper"
+                test -f /usr/share/applications/yincolor.qarchiver.desktop
+                test -f /usr/share/icons/hicolor/256x256/apps/qarchiver.png
+              '
+          done
 
       - name: Upload Debian package
         if: matrix.platform == 'linux'

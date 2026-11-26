@@ -343,7 +343,8 @@ QArchiver --lang en                 # 指定界面语言
 GitHub Actions：
 
 - `.github/workflows/build.yml`：可复用构建矩阵，Linux amd64/arm64 在
-  Debian 13 容器中构建并生成 deb，并在干净的 Debian 13 容器中验证安装
+  Debian 12（bookworm，最老支持基线）容器中构建并生成 deb，再在干净的
+  Debian 12 / Debian 13 / Ubuntu 24.04 容器中验证依赖可满足性与安装
   （动态库依赖、内置 7-Zip 与桌面入口），Windows x64 原生构建 + 测试，
   Windows ARM64 交叉构建；
 - `.github/workflows/ci.yml`：push / pull request 自动构建测试；

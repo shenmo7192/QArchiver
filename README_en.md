@@ -354,10 +354,11 @@ QArchiver --lang en                 # specify the UI language
 GitHub Actions:
 
 - `.github/workflows/build.yml`: reusable matrix that builds Linux amd64/arm64
-  inside Debian 13 containers and produces .deb packages, verifies installation
-  in a clean Debian 13 container (shared-library dependencies, bundled 7-Zip
-  and desktop entry), builds and tests Windows x64 natively, and cross-builds
-  Windows ARM64;
+  inside Debian 12 (bookworm, the oldest supported baseline) containers and
+  produces .deb packages, then verifies dependency resolution and installation
+  in clean Debian 12 / Debian 13 / Ubuntu 24.04 containers (shared-library
+  dependencies, bundled 7-Zip and desktop entry), builds and tests Windows x64
+  natively, and cross-builds Windows ARM64;
 - `.github/workflows/ci.yml`: build and test on every push and pull request;
 - `.github/workflows/release.yml`: on a `v*` tag, build all four artifacts,
   generate `SHA256SUMS`, and create a GitHub Release.

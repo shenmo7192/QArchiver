@@ -32,6 +32,10 @@ All notable changes to QArchiver (小Q解压) are documented here.
   安装为 `yincolor.qarchiver.desktop`（规范要求 desktop 文件名与包名一致），
   版本号采用 `2.4.1-1`（source format 改为 `3.0 (quilt)`），并声明
   `Conflicts`/`Replaces: qarchiver` 以便旧安装平滑升级。
+- Linux deb 改为在 Debian 12（bookworm）基线构建（Qt 6.4 / glibc 2.36 /
+  t64 改名前的库名），产物可装到 Debian 12/13、Ubuntu 24.04、Linux Mint 22
+  与 Deepin 23+；CI 同时在 Debian 12 / Debian 13 / Ubuntu 24.04 中验证依赖
+  可满足性与安装。
 - 经典布局搜索框固定为 280px，与现代布局一致。
 - 路径显示由静态省略标签改为可点击的面包屑层级。
 

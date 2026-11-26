@@ -213,9 +213,10 @@ QT_WIN=/path/to/6.8.2/mingw_64 QT_HOST=debian \
 ### 2.6 CI 与发布
 
 - `.github/workflows/build.yml`：可复用矩阵。
-  - `ubuntu-24.04` / `ubuntu-24.04-arm` 上运行 Debian 13 容器，构建并生成
-    amd64/arm64 deb，再在干净的 Debian 13 容器中验证安装（动态库依赖、
-    内置 7-Zip 辅助程序与桌面入口）；
+  - `ubuntu-24.04` / `ubuntu-24.04-arm` 上运行 Debian 12（bookworm）容器，
+    构建并生成 amd64/arm64 deb（Qt 6.4 + glibc 2.36 + t64 改名前的库名，
+    是支持的最老基线），再在干净的 Debian 12 / Debian 13 / Ubuntu 24.04
+    容器中验证依赖可满足性与安装（动态库依赖、内置 7-Zip 辅助程序与桌面入口）；
   - `windows-latest` 用 MSVC 2022 构建 x64 并运行测试；
   - `windows-latest` 加 `-A ARM64` + Qt `win64_msvc2022_arm64_cross_compiled`
     交叉构建 arm64 ZIP（不运行测试）。
