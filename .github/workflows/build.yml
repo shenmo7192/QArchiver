@@ -63,6 +63,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/work" \
             -w /work \
             -e DEBIAN_FRONTEND=noninteractive \
+            -e LANG=C.UTF-8 \
             debian:12 bash -euxo pipefail -c '
               apt-get update
               apt-get install -y --no-install-recommends \
@@ -71,7 +72,12 @@ jobs:
                 --tool "apt-get -y --no-install-recommends" debian/control
               cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
               cmake --build build --parallel "$(nproc)"
-              ctest --test-dir build --output-on-failure
+              # Force the offscreen QPA for the whole suite: individual tests
+              # also set it, this is a safety net for future QTEST_MAIN tests.
+              # 整个测试套件使用 offscreen QPA：个别测试已各自设置，这里再加一层
+              # 兜底，避免以后新增的 QTEST_MAIN 测试在无显示器环境失败。
+              QT_QPA_PLATFORM=offscreen \
+                ctest --test-dir build --output-on-failure
               mkdir -p dist
               dpkg-buildpackage -us -uc -b -jauto
               cp ../yincolor.qarchiver_*_${{ matrix.arch }}.deb dist/

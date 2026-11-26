@@ -21,6 +21,13 @@ set(CMAKE_AUTOMOC ON)
 # Helper: declare a Qt test executable and register it with CTest.
 # 辅助函数：声明 Qt 测试可执行文件并注册到 CTest。
 #
+# Tests that use QTEST_MAIN (i.e. need a QApplication) must also set
+# ENVIRONMENT "QT_QPA_PLATFORM=offscreen", otherwise they fail on headless
+# CI runners because the xcb plugin cannot connect to a display.
+# 使用 QTEST_MAIN（即需要 QApplication）的测试必须同时设置
+# ENVIRONMENT "QT_QPA_PLATFORM=offscreen"，否则在无显示器的 CI 上会因
+# xcb 插件连不上 display 而失败。
+#
 #   qarchiver_add_test(tst_name
 #       SOURCES  tst_name.cpp
 #       LIBS     qarchiver_core          # optional
@@ -76,6 +83,9 @@ qarchiver_add_test(tst_backends
 qarchiver_add_test(tst_externaledit
     SOURCES tst_externaledit.cpp
     LIBS qarchiver_ui
+)
+set_tests_properties(tst_externaledit PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
 # Location bar state after a write-through reopen (external-edit write-back).
