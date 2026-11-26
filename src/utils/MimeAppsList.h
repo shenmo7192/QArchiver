@@ -13,7 +13,7 @@
 // keeps the standard desktop-entry syntax intact:
 //
 //   [Default Applications]
-//   application/zip=qarchiver.desktop;
+//   application/zip=yincolor.qarchiver.desktop;
 //
 // 不能使用 QSettings 的 INI 后端：它会转义组名并把键中的 '/' 当成层级分隔符。
 // 本辅助模块保留标准桌面入口语法。

@@ -1,3 +1,13 @@
+yincolor.qarchiver (2.4.1-1) unstable; urgency=medium
+
+  * Rename the source and binary package to yincolor.qarchiver to follow the
+    Spark/UOS package naming rules.  The desktop entry is now installed as
+    yincolor.qarchiver.desktop (the desktop file name must match the package
+    name) and the package declares Conflicts/Replaces against the former
+    qarchiver name so existing installs are upgraded cleanly.
+
+ -- shenmo <shenmo@spark-app.store>  Thu, 26 Nov 2026 16:40:00 +0800
+
 qarchiver (2.4.1) unstable; urgency=medium
 
   * Fix mojibake for archives whose member names are not UTF-8 (GBK/GB18030/

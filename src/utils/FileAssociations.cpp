@@ -277,14 +277,14 @@ bool queryXdgMime(const QString &mimeType)
     }
     return process.exitCode() == 0
         && QString::fromUtf8(process.readAllStandardOutput()).trimmed()
-               == QLatin1String("qarchiver.desktop");
+               == FileAssociations::desktopEntryFileName();
 }
 
 bool mimeAppsHasDefault(const QString &mimeType)
 {
     return MimeAppsList::hasDesktopId(
         mimeAppsPath(), QStringLiteral("Default Applications"), mimeType,
-        QStringLiteral("qarchiver.desktop"));
+        FileAssociations::desktopEntryFileName());
 }
 
 void editMimeAppsList(const QString &mimeType, bool add)
@@ -295,13 +295,24 @@ void editMimeAppsList(const QString &mimeType, bool add)
     // 不能使用 QSettings：它的 INI 后端会把组名写成 "[Default%20Applications]"
     // 并转义键中的 '/'，桌面环境无法解析；MimeAppsList 保留标准语法。
     MimeAppsList::setAssociation(mimeAppsPath(), mimeType,
-                                 QStringLiteral("qarchiver.desktop"), add);
+                                 FileAssociations::desktopEntryFileName(),
+                                 add);
 }
 #endif // Q_OS_LINUX
 
 } // namespace
 
 namespace FileAssociations {
+
+QString desktopEntryId()
+{
+    return QStringLiteral("yincolor.qarchiver");
+}
+
+QString desktopEntryFileName()
+{
+    return QStringLiteral("yincolor.qarchiver.desktop");
+}
 
 QStringList extensions()
 {
@@ -371,8 +382,8 @@ bool registerFormats(const QStringList &extensionsToRegister, QString *error)
             continue;
         }
         const bool ok = runXdgMime(
-            {QStringLiteral("default"), QStringLiteral("qarchiver.desktop"),
-             mimeType});
+            {QStringLiteral("default"),
+             FileAssociations::desktopEntryFileName(), mimeType});
         // Keep mimeapps.list authoritative even when xdg-mime is unavailable.
         // 即使没有 xdg-mime，也直接维护 mimeapps.list。
         editMimeAppsList(mimeType, true);

@@ -68,7 +68,7 @@ jobs:
               ctest --test-dir build --output-on-failure
               mkdir -p dist
               dpkg-buildpackage -us -uc -b -jauto
-              cp ../qarchiver_*_${{ matrix.arch }}.deb dist/
+              cp ../yincolor.qarchiver_*_${{ matrix.arch }}.deb dist/
             '
 
       - name: Verify package installs on Debian 13
@@ -80,8 +80,8 @@ jobs:
             debian:13 bash -euxo pipefail -c '
               apt-get update
               apt-get install -y --no-install-recommends \
-                /dist/qarchiver_*_${{ matrix.arch }}.deb
-              dpkg -s qarchiver >/dev/null
+                /dist/yincolor.qarchiver_*_${{ matrix.arch }}.deb
+              dpkg -s yincolor.qarchiver >/dev/null
               # The package must not depend on anything missing from a clean
               # Debian 13 install (the reason this job exists).
               if ldd /usr/bin/QArchiver | grep -q "not found"; then
@@ -90,11 +90,11 @@ jobs:
               fi
               # Verify the bundled helper and the desktop integration actually
               # made it into the package.
-              dpkg -L qarchiver > /tmp/qarchiver-files.txt
+              dpkg -L yincolor.qarchiver > /tmp/qarchiver-files.txt
               helper="$(grep -m1 '/libexec/qarchiver/7zip/7zzs$' /tmp/qarchiver-files.txt)"
               test -n "$helper"
               test -x "$helper"
-              test -f /usr/share/applications/qarchiver.desktop
+              test -f /usr/share/applications/yincolor.qarchiver.desktop
               test -f /usr/share/icons/hicolor/256x256/apps/qarchiver.png
             '
 

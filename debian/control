@@ -1,4 +1,4 @@
-Source: qarchiver
+Source: yincolor.qarchiver
 Section: utils
 Priority: optional
 Maintainer: shenmo <shenmo@spark-app.store>
@@ -11,15 +11,16 @@ Build-Depends: debhelper-compat (= 13),
                pkg-config
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
-Homepage: https://github.com/shenmo7192/QArchiver
+Homepage: https://github.com/yincolor/QArchiver
 
-Package: qarchiver
+Package: yincolor.qarchiver
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Recommends: libarchive13 | libarchive13t64,
-            qt6-translations-l10n,
+Recommends: qt6-translations-l10n,
             qt6-image-formats-plugins
 Suggests: rar
+Conflicts: qarchiver
+Replaces: qarchiver
 Description: Qt 6 archive manager with a modern HaoZip-style interface
  QArchiver (小Q解压) browses, extracts, creates, appends to, deletes from
  and tests 7z, zip, tar, gz, bz2, xz and rar archives.  Archives are read

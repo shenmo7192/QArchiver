@@ -107,6 +107,6 @@ function(qarchiver_install_7zip)
     endif()
 
     install(FILES "${QARCHIVER_7ZIP_ROOT}/License.txt"
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/qarchiver
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/${QARCHIVER_DOC_DIR}
         RENAME 7zip-License.txt)
 endfunction()

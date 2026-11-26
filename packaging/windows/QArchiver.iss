@@ -43,7 +43,7 @@
 #define AppExeName "QArchiver.exe"
 #define AppDisplayName "QArchiver (小Q解压)"
 #define AppPublisher "QArchiver"
-#define AppUrl "https://github.com/shenmo7192/QArchiver"
+#define AppUrl "https://github.com/yincolor/QArchiver"
 
 [Setup]
 AppId={{7D2C4A63-8B1E-4C9F-9A57-2E6B0D4F1C38}

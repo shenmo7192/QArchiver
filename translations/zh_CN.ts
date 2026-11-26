@@ -766,8 +766,8 @@ Overwrite it?</source>
         </message>
         <message>
             <location line="+4" />
-            <source>On Linux the desktop environment stores the default application. The 'qarchiver.desktop' entry must be installed for associations to work.</source>
-            <translation>Linux 由桌面环境保存默认应用；需要已安装 qarchiver.desktop 条目，关联才会生效。</translation>
+            <source>On Linux the desktop environment stores the default application. The 'yincolor.qarchiver.desktop' entry must be installed for associations to work.</source>
+            <translation>Linux 由桌面环境保存默认应用；需要已安装 yincolor.qarchiver.desktop 条目，关联才会生效。</translation>
         </message>
         <message>
             <location line="+5" />

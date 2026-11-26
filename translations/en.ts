@@ -742,7 +742,7 @@ Overwrite it?</translation>
     </message>
     <message>
         <location line="+4"/>
-        <source>On Linux the desktop environment stores the default application. The &apos;qarchiver.desktop&apos; entry must be installed for associations to work.</source>
+        <source>On Linux the desktop environment stores the default application. The &apos;yincolor.qarchiver.desktop&apos; entry must be installed for associations to work.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

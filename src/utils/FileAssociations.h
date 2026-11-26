@@ -15,6 +15,20 @@
 // 系统级默认值由操作系统管理。
 namespace FileAssociations {
 
+// Identity of the installed desktop entry.  The freedesktop desktop-entry ID is
+// the file name without the ".desktop" suffix; it is also what
+// QGuiApplication::setDesktopFileName() and xdg-mime defaults use, so it must
+// match the installed file name.  The packaging rules keep that name equal to
+// the Debian package name (yincolor.qarchiver).
+// 已安装桌面入口的标识。freedesktop 桌面入口 ID 是去掉 ".desktop" 后缀的文件名，
+// 同时也是 QGuiApplication::setDesktopFileName() 与 xdg-mime 默认关联使用的值，
+// 因此必须与安装的文件名一致；打包规则保证它与 Debian 包名相同。
+QString desktopEntryId();
+
+// Installed desktop entry file name, i.e. desktopEntryId() + ".desktop".
+// 安装的桌面入口文件名，即 desktopEntryId() + ".desktop"。
+QString desktopEntryFileName();
+
 // Archive extensions handled by QArchiver, with a leading dot.
 // QArchiver 支持的压缩包扩展名（含前导点）。
 QStringList extensions();

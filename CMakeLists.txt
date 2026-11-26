@@ -13,6 +13,16 @@ project(QArchiver
 # 供编译器与 Windows 资源使用。
 set(QARCHIVER_RELEASE_VERSION "2.4.1")
 
+# Directory below ${CMAKE_INSTALL_DATADIR} that receives README/CHANGELOG/LICENSE
+# and the bundled 7-Zip license.  Debian packaging overrides this with the
+# binary package name so the files land in /usr/share/doc/<package>, as Debian
+# policy requires.
+# 存放 README/CHANGELOG/LICENSE 与内置 7-Zip 许可证的目录（相对
+# ${CMAKE_INSTALL_DATADIR}）。Debian 打包会覆盖为二进制包名，使文档位于
+# /usr/share/doc/<package>，符合 Debian 政策要求。
+set(QARCHIVER_DOC_DIR "doc/qarchiver" CACHE STRING
+    "Documentation directory below CMAKE_INSTALL_DATADIR")
+
 # The shared core/backends/utils layers use C++20; Qt 6.4 supports it.
 # core/backends/utils 等公共层使用 C++20；Qt 6.4 支持该标准。
 set(CMAKE_CXX_STANDARD 20)

@@ -2,8 +2,8 @@
 
 English | [中文](./README.md)
 
-[![CI](https://github.com/shenmo7192/QArchiver/actions/workflows/ci.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/actions/workflows/ci.yml)
-[![Release](https://github.com/shenmo7192/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/releases)
+[![CI](https://github.com/yincolor/QArchiver/actions/workflows/ci.yml/badge.svg)](https://github.com/yincolor/QArchiver/actions/workflows/ci.yml)
+[![Release](https://github.com/yincolor/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/yincolor/QArchiver/releases)
 
 A Qt 6–based graphical archive manager: browse, extract, create, append, delete, and test
 7z / zip / tar / gz / bz2 / xz / zst / rar archives, and read ISO disc images. The default interface follows the modern
@@ -19,8 +19,8 @@ both the installers and the portable Windows ZIP:
 
 | Platform | Artifact |
 | --- | --- |
-| Linux x86_64 | `qarchiver_<version>_amd64.deb` |
-| Linux ARM64 | `qarchiver_<version>_arm64.deb` |
+| Linux x86_64 | `yincolor.qarchiver_<version>_amd64.deb` |
+| Linux ARM64 | `yincolor.qarchiver_<version>_arm64.deb` |
 | Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe` (installer) |
 | Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe` (installer) |
 | Windows x86_64 | `QArchiver-<version>-windows-x64.zip` (portable) |
@@ -414,7 +414,8 @@ which is more reliable than checking the return value of `QDrag::exec()`.
 
 AGPL-3.0, see `LICENSE`. At runtime the program invokes external tools and links with libarchive (BSD-2-Clause);
 the bundled 7-Zip is distributed under GNU LGPL (including the unRAR restriction), see
-`third_party/7zip/License.txt`, installed to `share/doc/qarchiver/`.
+`third_party/7zip/License.txt`, installed to `share/doc/qarchiver/`
+(`share/doc/yincolor.qarchiver/` inside the Debian package).
 The program no longer depends on non-free `unrar`; RAR reading is done by the bundled 7-Zip.
 RAR creation is optional and enabled only when the user's system already has the `rar` command installed; the program itself does not distribute that command.
 

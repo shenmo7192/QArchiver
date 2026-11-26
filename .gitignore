@@ -84,11 +84,11 @@ obj-*/
 debian/.debhelper/
 debian/debhelper-build-stamp
 debian/files
-debian/qarchiver/
-debian/qarchiver.debhelper.log
-debian/qarchiver.substvars
+debian/yincolor.qarchiver/
+debian/yincolor.qarchiver.debhelper.log
+debian/yincolor.qarchiver.substvars
 debian/*.debhelper
-qarchiver-build-deps_*
+yincolor.qarchiver-build-deps_*
 # dpkg-buildpackage writes these next to the source tree
 *.deb
 *.dsc
@@ -105,3 +105,5 @@ _CPack_Packages/
 # Local CPack/installer output
 QArchiver-*-windows-*.zip
 QArchiver-*-windows-*-setup.exe
+
+.pi/

@@ -315,22 +315,22 @@ void TestUtils::mimeAppsListPreservesStandardFormat()
     QString error;
     QVERIFY2(MimeAppsList::setAssociation(
                  path, QStringLiteral("application/zip"),
-                 QStringLiteral("qarchiver.desktop"), true, &error),
+                 QStringLiteral("yincolor.qarchiver.desktop"), true, &error),
              qPrintable(error));
 
     QCOMPARE(MimeAppsList::desktopIds(
                  path, QStringLiteral("Default Applications"),
                  QStringLiteral("application/zip")),
-             (QStringList{QStringLiteral("qarchiver.desktop"),
+             (QStringList{QStringLiteral("yincolor.qarchiver.desktop"),
                           QStringLiteral("file-roller.desktop")}));
     QCOMPARE(MimeAppsList::desktopIds(
                  path, QStringLiteral("Added Associations"),
                  QStringLiteral("application/zip")),
-             (QStringList{QStringLiteral("qarchiver.desktop"),
+             (QStringList{QStringLiteral("yincolor.qarchiver.desktop"),
                           QStringLiteral("file-roller.desktop")}));
     QVERIFY(MimeAppsList::hasDesktopId(
         path, QStringLiteral("Default Applications"),
-        QStringLiteral("application/zip"), QStringLiteral("qarchiver.desktop")));
+        QStringLiteral("application/zip"), QStringLiteral("yincolor.qarchiver.desktop")));
 
     QVERIFY(file.open(QIODevice::ReadOnly));
     const QString content = QString::fromUtf8(file.readAll());
@@ -340,13 +340,13 @@ void TestUtils::mimeAppsListPreservesStandardFormat()
     QVERIFY(content.contains(QStringLiteral("[Removed Associations]")));
     QVERIFY(content.contains(QStringLiteral("image/png=example.desktop;")));
     QVERIFY(content.contains(QStringLiteral(
-        "application/zip=qarchiver.desktop;file-roller.desktop;")));
+        "application/zip=yincolor.qarchiver.desktop;file-roller.desktop;")));
     QVERIFY(!content.contains(QStringLiteral("%20")));
     QVERIFY(!content.contains(QStringLiteral("application\\zip")));
 
     QVERIFY2(MimeAppsList::setAssociation(
                  path, QStringLiteral("application/zip"),
-                 QStringLiteral("qarchiver.desktop"), false, &error),
+                 QStringLiteral("yincolor.qarchiver.desktop"), false, &error),
              qPrintable(error));
     QCOMPARE(MimeAppsList::desktopIds(
                  path, QStringLiteral("Default Applications"),
@@ -365,7 +365,7 @@ void TestUtils::mimeAppsListCreatesMissingSections()
     QString error;
     QVERIFY2(MimeAppsList::setAssociation(
                  path, QStringLiteral("application/x-7z-compressed"),
-                 QStringLiteral("qarchiver.desktop"), true, &error),
+                 QStringLiteral("yincolor.qarchiver.desktop"), true, &error),
              qPrintable(error));
 
     QFile file(path);
@@ -374,7 +374,7 @@ void TestUtils::mimeAppsListCreatesMissingSections()
     QVERIFY(content.contains(QStringLiteral("[Default Applications]")));
     QVERIFY(content.contains(QStringLiteral("[Added Associations]")));
     QVERIFY(content.contains(QStringLiteral(
-        "application/x-7z-compressed=qarchiver.desktop;")));
+        "application/x-7z-compressed=yincolor.qarchiver.desktop;")));
 
     // Removing from a missing file must not create an empty mimeapps.list.
     // 从不存在的文件移除关联时，不应创建空的 mimeapps.list。
@@ -382,7 +382,7 @@ void TestUtils::mimeAppsListCreatesMissingSections()
         QDir(temp.path()).filePath(QStringLiteral("missing.list"));
     QVERIFY(MimeAppsList::setAssociation(
         missing, QStringLiteral("application/zip"),
-        QStringLiteral("qarchiver.desktop"), false, &error));
+        QStringLiteral("yincolor.qarchiver.desktop"), false, &error));
     QVERIFY(!QFileInfo::exists(missing));
 }
 

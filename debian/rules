@@ -9,6 +9,7 @@ override_dh_auto_configure:
 	dh_auto_configure -- \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DQARCHIVER_USE_LIBARCHIVE=ON \
+		-DQARCHIVER_DOC_DIR=doc/yincolor.qarchiver \
 		-DBUILD_TESTING=OFF
 
 override_dh_auto_test:
@@ -18,6 +19,4 @@ override_dh_auto_test:
 	# 不在软件包构建阶段执行。
 
 override_dh_auto_install:
-	dh_auto_install --destdir=debian/qarchiver
-	# Installation puts the bundled 7-Zip helper under libexec; keep the
-	# standard Debian lintian override for the extra executable.
+	dh_auto_install --destdir=debian/yincolor.qarchiver

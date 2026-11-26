@@ -26,10 +26,10 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    // Let the desktop associate the window with qarchiver.desktop: this is
-    // what launchers and docks use to pick the installed application icon.
-    // 让桌面把窗口关联到 qarchiver.desktop；启动器/任务栏据此显示安装的应用图标。
-    QGuiApplication::setDesktopFileName(QStringLiteral("qarchiver"));
+    // Let the desktop associate the window with the installed desktop entry:
+    // this is what launchers and docks use to pick the application icon.
+    // 让桌面把窗口关联到已安装的桌面入口；启动器/任务栏据此显示应用图标。
+    QGuiApplication::setDesktopFileName(FileAssociations::desktopEntryId());
 
     QCoreApplication::setOrganizationName(QStringLiteral("QArchiver"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("qarchiver.local"));

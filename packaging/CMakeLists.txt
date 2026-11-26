@@ -8,10 +8,13 @@ include(GNUInstallDirs)
 # Linux desktop integration.  Windows uses its embedded icon and the optional
 # Explorer scripts instead.
 # Linux 桌面集成；Windows 使用嵌入图标与可选的资源管理器脚本。
-if(NOT WIN32)
-    # Freedesktop desktop entry.
-    # Freedesktop 桌面入口文件。
-    install(FILES qarchiver.desktop
+if(UNIX AND NOT APPLE)
+    # Freedesktop desktop entry.  The file name is the desktop-entry ID used by
+    # setDesktopFileName() and by xdg-mime defaults, and package naming rules
+    # require it to match the Debian package name.
+    # Freedesktop 桌面入口。文件名即 setDesktopFileName() 与 xdg-mime 默认关联
+    # 使用的桌面入口 ID；打包规范要求它与 Debian 包名一致。
+    install(FILES yincolor.qarchiver.desktop
         DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
     )
 

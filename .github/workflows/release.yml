@@ -59,14 +59,14 @@ jobs:
             | Windows ARM64 | `QArchiver-*-windows-arm64-setup.exe`（安装版） |
             | Windows x86_64 | `QArchiver-*-windows-x64.zip`（便携版/绿色版） |
             | Windows ARM64 | `QArchiver-*-windows-arm64.zip`（便携版/绿色版） |
-            | Linux x86_64 | `qarchiver_*_amd64.deb` |
-            | Linux ARM64 | `qarchiver_*_arm64.deb` |
+            | Linux x86_64 | `yincolor.qarchiver_*_amd64.deb` |
+            | Linux ARM64 | `yincolor.qarchiver_*_arm64.deb` |
 
             Windows 安装器提供简体中文 / English 双语界面，会询问是否关联压缩包
             格式（默认选中），并注册资源管理器右键菜单（打开、一键解压、动态
             “添加到 xx.zip”、压缩到 7z/ZIP/tar 等）。绿色版解压后直接运行
             `QArchiver.exe`，无需安装。
 
-            Debian/Ubuntu：`sudo apt install ./qarchiver_*_<arch>.deb`。
+            Debian/Ubuntu：`sudo apt install ./yincolor.qarchiver_*_<arch>.deb`。
           files: |
             release/*

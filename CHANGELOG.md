@@ -28,6 +28,10 @@ All notable changes to QArchiver (小Q解压) are documented here.
 
 ### Changed / 变更
 
+- Debian 包名改为 `yincolor.qarchiver`（符合星火/UOS 包名规范），桌面入口随之
+  安装为 `yincolor.qarchiver.desktop`（规范要求 desktop 文件名与包名一致），
+  版本号采用 `2.4.1-1`（source format 改为 `3.0 (quilt)`），并声明
+  `Conflicts`/`Replaces: qarchiver` 以便旧安装平滑升级。
 - 经典布局搜索框固定为 280px，与现代布局一致。
 - 路径显示由静态省略标签改为可点击的面包屑层级。
 

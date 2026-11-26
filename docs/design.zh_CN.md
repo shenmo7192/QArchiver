@@ -1,7 +1,7 @@
 # QArchiver（小Q解压）设计文档
 
 > 适用版本：2.4.1
-> 文档位置：`docs/design.zh_CN.md`（根目录 `项目设计文档.md` 为指向本文件的索引）
+> 文档位置：`docs/design.zh_CN.md`
 > 技术栈：C++20 + Qt 6.4+ Widgets
 > 平台：Linux / Windows
 > 外部工具：内置 7-Zip（Linux `7zzs` / Windows x64/ARM64 `7z.exe + 7z.dll`，负责 7z/zip/tar 等读写、纯流解压、RAR/zstd 读取；zstd 仅只读）；系统 `rar` 可选，用于创建 RAR/RAR 分卷
@@ -1074,8 +1074,8 @@ Name, Size, Packed, Modified, Encrypted
 - 基础样式为 Fusion，由 `AeroProxyStyle` 覆盖 `SH_DialogButtonLayout`，统一使用 Windows 按钮顺序。
 - 文件选择使用系统原生文件对话框。压缩源需要文件/文件夹二选一：先显示选择类型
   的提示，再调用原生“多选文件”或“选择文件夹”对话框，不再强制 Qt 控件对话框。
-- `QGuiApplication::setDesktopFileName("qarchiver")` 让桌面把窗口与
-  `qarchiver.desktop` 关联，启动器/任务栏可显示安装的应用图标。
+- `QGuiApplication::setDesktopFileName("yincolor.qarchiver")` 让桌面把窗口与
+  `yincolor.qarchiver.desktop` 关联，启动器/任务栏可显示安装的应用图标。
 - `ThemeManager` 根据布局选择样式表，并按浅色 / 深色 token 表替换 `@token@` 后应用到 `QApplication`：
   - **现代**：`:/themes/modern/modern.qss`，扁平白底、蓝色强调色、圆角输入框与按钮、
     渐变头部、无边框表头；QSS 小图标（箭头、复选、分支、排序、滚动条等）位于

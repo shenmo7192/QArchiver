@@ -2,8 +2,8 @@
 
 [English](./README_en.md) | 中文
 
-[![CI](https://github.com/shenmo7192/QArchiver/actions/workflows/ci.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/actions/workflows/ci.yml)
-[![Release](https://github.com/shenmo7192/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/releases)
+[![CI](https://github.com/yincolor/QArchiver/actions/workflows/ci.yml/badge.svg)](https://github.com/yincolor/QArchiver/actions/workflows/ci.yml)
+[![Release](https://github.com/yincolor/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/yincolor/QArchiver/releases)
 
 基于 Qt 6 的图形化压缩包管理器：浏览、解压、创建、追加、删除、测试
 7z / zip / tar / gz / bz2 / xz / zst / rar 归档，并可读取 ISO 光盘镜像。默认界面采用现代好压（HaoZip）
@@ -18,8 +18,8 @@
 
 | 平台 | 产物 |
 | --- | --- |
-| Linux x86_64 | `qarchiver_<version>_amd64.deb` |
-| Linux ARM64 | `qarchiver_<version>_arm64.deb` |
+| Linux x86_64 | `yincolor.qarchiver_<version>_amd64.deb` |
+| Linux ARM64 | `yincolor.qarchiver_<version>_arm64.deb` |
 | Windows x86_64 | `QArchiver-<version>-windows-x64-setup.exe`（安装版） |
 | Windows ARM64 | `QArchiver-<version>-windows-arm64-setup.exe`（安装版） |
 | Windows x86_64 | `QArchiver-<version>-windows-x64.zip`（便携版） |
@@ -404,7 +404,8 @@ libarchive 后端（往返、AES 密码、损坏检测、选择性解压、硬�
 
 AGPL-3.0，见 `LICENSE`。程序运行期调用外部工具、并与 libarchive（BSD-2-Clause）
 链接；内置的 7-Zip 按 GNU LGPL（含 unRAR 限制）分发，许可证见
-`third_party/7zip/License.txt`，安装后位于 `share/doc/qarchiver/`。
+`third_party/7zip/License.txt`，安装后位于 `share/doc/qarchiver/`（Debian
+包内为 `share/doc/yincolor.qarchiver/`）。
 程序不再依赖非自由的 `unrar`；RAR 读取由内置 7-Zip 完成。
 RAR 创建是可选的，仅在用户系统已安装 `rar` 命令时启用，程序本身不分发该命令。
 

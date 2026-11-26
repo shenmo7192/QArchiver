@@ -54,8 +54,8 @@ FileAssociationDialog::FileAssociationDialog(QWidget *parent)
 #elif defined(Q_OS_LINUX)
     m_hint->setText(
         tr("On Linux the desktop environment stores the default application. "
-           "The 'qarchiver.desktop' entry must be installed for associations "
-           "to work."));
+           "The 'yincolor.qarchiver.desktop' entry must be installed for "
+           "associations to work."));
 #else
     m_hint->setText(
         tr("File associations are not supported on this platform."));

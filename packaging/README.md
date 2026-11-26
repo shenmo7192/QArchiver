@@ -1,7 +1,7 @@
 # 打包说明
 
 仓库提供完整的 `debian/` 打包目录（`control`、`rules`、`changelog`、
-`copyright`）以及 `qarchiver.desktop`。`cmake --install` 会安装桌面入口、
+`copyright`）以及 `yincolor.qarchiver.desktop`。`cmake --install` 会安装桌面入口、
 hicolor 图标、文档与内置 7-Zip。本文件列出打包者需要声明的依赖与平台说明。
 
 ## 构建期依赖
@@ -56,10 +56,13 @@ dpkg-buildpackage -us -uc -b
 ## Debian 控制文件片段
 
 ```text
-Package: qarchiver
+Package: yincolor.qarchiver
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Recommends: libarchive13 | libarchive13t64, qt6-translations-l10n
+Recommends: qt6-translations-l10n, qt6-image-formats-plugins
+Suggests: rar
+Conflicts: qarchiver
+Replaces: qarchiver
 Description: Qt based archive manager
  小Q解压 is a Qt 6 archive manager for browsing, extracting, creating,
  appending to, deleting from and testing 7z, zip, tar, gz, bz2, xz and rar
@@ -68,12 +71,22 @@ Description: Qt based archive manager
  RAR read) otherwise.
 ```
 
-`${shlibs:Depends}` 会把 `libarchive13` 一起带出来（链接时才需要，因此若
-上游构建关闭了 libarchive，就不会误报）。
+`${shlibs:Depends}` 会在链接了 libarchive 时自动带出 `libarchive13` /
+`libarchive13t64`，因此不必把它写进 `Recommends`（否则 lintian 会报
+`duplicate-in-relation-field`）；若以 `-DQARCHIVER_USE_LIBARCHIVE=OFF` 构建，
+依赖列表里也不会出现它。
+
+`Conflicts` / `Replaces: qarchiver` 用于包改名后的平滑升级：旧包与
+`yincolor.qarchiver` 安装同一批文件（`/usr/bin/QArchiver` 等），没有
+`Replaces` 时 dpkg 会因文件冲突拒绝安装。
+
+文档目录由 `-DQARCHIVER_DOC_DIR=doc/yincolor.qarchiver` 指定，使
+README/CHANGELOG/LICENSE 与 7-Zip 许可证落在 `/usr/share/doc/yincolor.qarchiver/`
+（Debian 政策要求文档目录与二进制包名一致）。
 
 ## 桌面文件
 
-`qarchiver.desktop` 已声明 `MimeType`，并提供一个
+`yincolor.qarchiver.desktop` 已声明 `MimeType`（文件名必须与包名一致），并提供一个
 `OneClickExtract` 桌面动作（`QArchiver --oneclick %F`）。安装后需要一次
 `update-desktop-database`（debhelper / `desktop-file-utils` 的触发器会处理）。
 图标安装为 `share/icons/hicolor/{32x32,48x48,64x64,128x128,256x256,512x512}/apps/qarchiver.png`，
