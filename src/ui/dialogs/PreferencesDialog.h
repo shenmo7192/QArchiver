@@ -37,6 +37,7 @@ private:
     QCheckBox *m_openAfterCheck = nullptr;
     QSpinBox *m_maxPreviewSpin = nullptr;
     QSpinBox *m_continuousPreviewSpin = nullptr;
+    QCheckBox *m_externalEditCheck = nullptr;
     QCheckBox *m_followSymlinksCheck = nullptr;
     QCheckBox *m_rememberPasswordsCheck = nullptr;
     QCheckBox *m_libArchiveCheck = nullptr;

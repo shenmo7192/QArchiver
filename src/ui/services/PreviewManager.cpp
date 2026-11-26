@@ -12,6 +12,7 @@
 #include "common/ArchiveError.h"
 #include "utils/FileUtils.h"
 #include "utils/Logger.h"
+#include "ui/services/ExternalEditManager.h"
 #include "ui/services/PreviewUtils.h"
 #include "ui/icons/MessageBoxUtils.h"
 
@@ -38,8 +39,11 @@
 namespace {
 
 // Open an extracted preview target, optionally through the system
-// "Open with" picker on Windows.
-void openExtractedPath(const QString &path, bool openWith)
+// "Open with" picker on Windows.  Returns false when no application could be
+// started, so the caller can skip the change tracking.
+// 打开解压出来的预览目标，Windows 上可选用系统“打开方式”选择器。
+// 无法启动任何程序时返回 false，以便调用方跳过修改监视。
+bool openExtractedPath(const QString &path, bool openWith)
 {
 #ifdef Q_OS_WIN
     if (openWith) {
@@ -48,8 +52,9 @@ void openExtractedPath(const QString &path, bool openWith)
                 {QStringLiteral("shell32.dll,OpenAs_RunDLL"),
                  QDir::toNativeSeparators(path)})) {
             MessageBoxUtils::showOpenFailure(nullptr, path);
+            return false;
         }
-        return;
+        return true;
     }
 #else
     Q_UNUSED(openWith);
@@ -60,14 +65,19 @@ void openExtractedPath(const QString &path, bool openWith)
     // 这里仅作为默认程序打开的兜底。
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
         MessageBoxUtils::showOpenFailure(nullptr, path);
+        return false;
     }
+    return true;
 }
 
 } // namespace
 
 struct PreviewJob {
+    QString archivePath;
     QString previewDir;
     QString destPath;
+    QString password;
+    ArchiveFormat format = ArchiveFormat::Unknown;
     QPointer<ProgressDialog> dialog;
     std::shared_ptr<std::atomic_bool> cancel =
         std::make_shared<std::atomic_bool>(false);
@@ -204,8 +214,11 @@ void PreviewManager::preview(const QString &archivePath, ArchiveFormat format,
     QDir().mkpath(QFileInfo(destPath).absolutePath());
 
     auto *job = new PreviewJob;
+    job->archivePath = archivePath;
     job->previewDir = previewDir;
     job->destPath = destPath;
+    job->password = password;
+    job->format = format;
     job->openWith = openWith;
     m_jobs.insert(previewDir, job);
 
@@ -368,6 +381,9 @@ void PreviewManager::finishPreview(const QString &previewDir,
     job->finished = true;
     job->cancelled = job->cancelled || cancelled;
     const bool openWith = job->openWith;
+    const QString archivePath = job->archivePath;
+    const QString password = job->password;
+    const ArchiveFormat format = job->format;
 
     QString targetPath = destPath;
     const QString pending = m_pendingTargets.take(previewDir);
@@ -392,7 +408,10 @@ void PreviewManager::finishPreview(const QString &previewDir,
                      "Preview extraction reported failure but target exists: %s",
                      targetPath.toUtf8().constData());
         }
-        openExtractedPath(targetPath, openWith);
+        if (openExtractedPath(targetPath, openWith)) {
+            trackExternalEdit(previewDir, targetPath, archivePath, format,
+                              password);
+        }
         return;
     }
 
@@ -407,6 +426,36 @@ void PreviewManager::finishPreview(const QString &previewDir,
         (success || errorMessage.isEmpty())
             ? tr("Unable to extract this file for preview.")
             : errorMessage);
+}
+
+void PreviewManager::trackExternalEdit(const QString &previewDir,
+                                       const QString &targetPath,
+                                       const QString &archivePath,
+                                       ArchiveFormat format,
+                                       const QString &password)
+{
+    // The write-back only makes sense while the archive itself is open and
+    // writable; for read-only formats (iso/rar/split volumes/compressed tar)
+    // the file is opened for viewing only.
+    // 只有压缩包本身已打开且可写时写回才有意义；只读格式
+    //（iso/rar/分卷/压缩 tar）仅用于查看。
+    ArchiveManager &manager = ArchiveManager::instance();
+    if (manager.currentPath() != archivePath
+        || !manager.canModifyCurrentArchive()) {
+        return;
+    }
+
+    // The preview cache mirrors the archive tree, so the path relative to the
+    // cache root is the member path inside the archive.
+    // 预览缓存镜像了压缩包目录结构，因此相对缓存根目录的路径就是压缩包内路径。
+    const QString entryPath = QDir(previewDir).relativeFilePath(targetPath);
+    if (entryPath.isEmpty() || entryPath.startsWith(QStringLiteral(".."))) {
+        return;
+    }
+
+    ExternalEditManager::instance().track(
+        targetPath, previewDir, entryPath, archivePath, format, password,
+        manager.nameEncoding());
 }
 
 void PreviewManager::cleanupStale()

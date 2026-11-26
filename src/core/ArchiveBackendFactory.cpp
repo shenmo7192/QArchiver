@@ -6,6 +6,7 @@
 #include "core/ArchiveBackendFactory.h"
 
 #include "backends/ArchiveBackend.h"
+#include "backends/iso/IsoBackend.h"
 #include "backends/libarchive/LibArchiveBackend.h"
 #include "backends/rar/RarBackend.h"
 #include "backends/sevenzip/SevenZipBackend.h"
@@ -23,9 +24,13 @@ namespace {
 
 // Formats the libarchive backend can read. RAR keeps using the bundled 7-Zip
 // helper through RarBackend, and volumes are always left to the CLI (libarchive
-// has no volume support at all).
+// has no volume support at all).  Disc images are read by libarchive when it
+// supports ISO9660 (Rock Ridge/Joliet); UDF images fail here and are retried on
+// the CLI backend by ArchiveManager.
 // libarchive 后端可读取的格式。RAR 继续通过 RarBackend 使用随程序分发的
 // 7-Zip 辅助程序，分卷始终交给命令行后端（libarchive 完全不支持分卷）。
+// 光盘镜像在 libarchive 支持 ISO9660（Rock Ridge/Joliet）时由它读取；
+// UDF 镜像在此失败，随后由 ArchiveManager 改用命令行后端重试。
 bool supportsLibArchiveRead(ArchiveFormat fmt)
 {
     switch (fmt) {
@@ -38,6 +43,7 @@ bool supportsLibArchiveRead(ArchiveFormat fmt)
     case ArchiveFormat::Gzip:
     case ArchiveFormat::Bzip2:
     case ArchiveFormat::Xz:
+    case ArchiveFormat::Iso:
         return true;
     case ArchiveFormat::TarZst:
     case ArchiveFormat::Zstd:
@@ -52,7 +58,6 @@ bool supportsLibArchiveRead(ArchiveFormat fmt)
     }
     return false;
 }
-
 } // namespace
 #endif // QARCHIVER_HAS_LIBARCHIVE
 
@@ -78,6 +83,8 @@ ArchiveBackend *ArchiveBackendFactory::create(ArchiveFormat fmt)
     case ArchiveFormat::Xz:
     case ArchiveFormat::Zstd:
         return new StreamBackend(fmt);
+    case ArchiveFormat::Iso:
+        return new IsoBackend();
     case ArchiveFormat::Unknown:
         return nullptr;
     }

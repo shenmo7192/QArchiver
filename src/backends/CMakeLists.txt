@@ -18,6 +18,9 @@ add_library(qarchiver_backends STATIC
     rar/RarBackend.cpp
     rar/RarBackend.h
 
+    iso/IsoBackend.cpp
+    iso/IsoBackend.h
+
     stream/StreamBackend.cpp
     stream/StreamBackend.h
 )

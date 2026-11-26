@@ -64,6 +64,22 @@ struct AddFilesOptions {
     int         compressionLevel = 6;   // Compression level for new files
     bool        followSymlinks = false;
     bool        storeFullPath = false;
+    // "Save an externally edited file back into the archive".
+    // When sourceRoot is not empty the backend runs the 7-Zip helper with that
+    // working directory and stores every source file under its relative path,
+    // so an edited member replaces the member with the same name instead of
+    // being added under a new name.  The caller stages legacy-codepage member
+    // names as raw bytes (see FileUtils::stageFileForArchiving).
+    // nameEncoding selects the listfile code page for those relative names;
+    // an empty value means UTF-8.
+    // “将外部编辑后的文件写回压缩包”。
+    // sourceRoot 非空时，后端以该目录为工作目录运行 7-Zip 辅助程序，并按相对
+    // 路径写入每个源文件，使被编辑的成员替换同名成员而不是以新名称追加。
+    // 旧代码页成员名由调用方按原始字节暂存
+    //（见 FileUtils::stageFileForArchiving）。
+    // nameEncoding 指定列表文件代码页；为空表示 UTF-8。
+    QString     sourceRoot;
+    QString     nameEncoding;
 };
 
 // Options for deleteFiles() / deleteFiles() 选项

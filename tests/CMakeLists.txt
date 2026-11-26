@@ -71,6 +71,23 @@ qarchiver_add_test(tst_backends
     DATA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files
 )
 
+# External-edit write-back: change detection, staging and member replacement.
+# 外部编辑写回：修改检测、暂存与成员替换。
+qarchiver_add_test(tst_externaledit
+    SOURCES tst_externaledit.cpp
+    LIBS qarchiver_ui
+)
+
+# Location bar state after a write-through reopen (external-edit write-back).
+# 只读后端写回退（外部编辑写回）后的路径框状态。
+qarchiver_add_test(tst_navstate
+    SOURCES tst_navstate.cpp
+    LIBS qarchiver_ui
+)
+set_tests_properties(tst_navstate PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # Continuous image preview: same-directory image selection and batch extraction.
 # 连续看图：同目录图片选取与批量解压。
 qarchiver_add_test(tst_preview

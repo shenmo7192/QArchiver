@@ -50,6 +50,7 @@ const QStringList &openableSuffixes()
         QStringLiteral(".bz2"),
         QStringLiteral(".xz"),
         QStringLiteral(".zst"),
+        QStringLiteral(".iso"),
         QStringLiteral(".001"),
         QStringLiteral(".part1")
     };
@@ -149,6 +150,9 @@ ArchiveFormat formatFromSuffix(const QString &filePath)
     if (ext == QLatin1String(".zst")) {
         return ArchiveFormat::Zstd;
     }
+    if (ext == QLatin1String(".iso")) {
+        return ArchiveFormat::Iso;
+    }
     return ArchiveFormat::Unknown;
 }
 
@@ -200,6 +204,9 @@ ArchiveFormat formatFromName(const QString &name)
     }
     if (token == QLatin1String("zst") || token == QLatin1String("zstd")) {
         return ArchiveFormat::Zstd;
+    }
+    if (token == QLatin1String("iso")) {
+        return ArchiveFormat::Iso;
     }
     return ArchiveFormat::Unknown;
 }

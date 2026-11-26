@@ -853,6 +853,10 @@ Overwrite it?</source>
             <source>File associations are not supported on this platform.</source>
             <translation>当前平台不支持文件关联。</translation>
         </message>
+        <message>
+            <source>Disc image</source>
+            <translation>光盘镜像</translation>
+        </message>
     </context>
     <context>
         <name>FileListModel</name>
@@ -1440,8 +1444,8 @@ This cannot be undone.</source>
         </message>
         <message>
             <location filename="../src/ui/MainWindowHelpers.cpp" line="+17" />
-            <source>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.001);;All Files (*)</source>
-            <translation>压缩包 (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.001);;所有文件 (*)</translation>
+            <source>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.iso *.001);;All Files (*)</source>
+            <translation>压缩包 (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.iso *.001);;所有文件 (*)</translation>
         </message>
         <message>
             <location filename="../src/ui/MainWindowActions.cpp" line="-437" />
@@ -2137,6 +2141,42 @@ Overwrite it?</source>
             <source>Open With...</source>
             <translation>打开方式...</translation>
         </message>
+        <message>
+            <source>Saving Changes to Archive...</source>
+            <translation>正在保存更改到压缩包...</translation>
+        </message>
+        <message>
+            <source>Save Changes to Archive</source>
+            <translation>保存更改到压缩包</translation>
+        </message>
+        <message>
+            <source>&quot;%1&quot; was changed in the external application.</source>
+            <translation>“%1”已在外部程序中被修改。</translation>
+        </message>
+        <message>
+            <source>Save the changes to the archive &quot;%1&quot;?
+
+The archive is updated in place. Choosing &quot;Don&apos;t Save&quot; leaves it unchanged.</source>
+            <translation>是否把更改保存到压缩包“%1”？
+
+压缩包将被就地更新。选择“不保存”则保持压缩包不变。</translation>
+        </message>
+        <message>
+            <source>Save to Archive</source>
+            <translation>保存到压缩包</translation>
+        </message>
+        <message>
+            <source>Don&apos;t Save</source>
+            <translation>不保存</translation>
+        </message>
+        <message>
+            <source>Changes saved to the archive</source>
+            <translation>更改已保存到压缩包</translation>
+        </message>
+        <message>
+            <source>The archive is busy. Open the file again and save it once the current operation has finished.</source>
+            <translation>压缩包正在处理其他操作。请等待当前操作结束后重新打开该文件再保存。</translation>
+        </message>
     </context>
     <context>
         <name>ModernNavBar</name>
@@ -2736,6 +2776,14 @@ Overwrite it?</source>
             <source>Manage File Associations...</source>
             <translation>管理文件关联...</translation>
         </message>
+        <message>
+            <source>Ask before saving externally edited files back into the archive</source>
+            <translation>外部编辑后保存回压缩包前先询问</translation>
+        </message>
+        <message>
+            <source>When you open a file from the archive in the system application and save it there, QArchiver asks whether the change should be stored in the archive. Supported for zip, 7z and uncompressed tar archives.</source>
+            <translation>当你在系统程序中打开压缩包内的文件并在那里保存时，QArchiver 会询问是否把更改存入压缩包。支持 zip、7z 与未压缩 tar 压缩包。</translation>
+        </message>
     </context>
     <context>
         <name>PreviewManager</name>
@@ -3115,6 +3163,10 @@ The file may be missing, or there may be no associated application, insufficient
             <source>Clear missing entries</source>
             <translation>清除失效条目</translation>
         </message>
+        <message>
+            <source>Changes saved to the archive</source>
+            <translation>更改已保存到压缩包</translation>
+        </message>
     </context>
     <context>
         <name>StreamBackend</name>
@@ -3440,6 +3492,14 @@ The file may be missing, or there may be no associated application, insufficient
             <source>Archive integrity verified</source>
             <translation>压缩包完整性校验通过</translation>
         </message>
+        <message>
+            <source>No source files selected</source>
+            <translation>未选择源文件</translation>
+        </message>
+        <message>
+            <source>Changes saved to the archive</source>
+            <translation>更改已保存到压缩包</translation>
+        </message>
     </context>
     <context>
         <name>WelcomePage</name>
@@ -3523,6 +3583,17 @@ The file may be missing, or there may be no associated application, insufficient
         <message>
             <source>Show hidden levels</source>
             <translation>显示隐藏的层级</translation>
+        </message>
+    </context>
+    <context>
+        <name>IsoBackend</name>
+        <message>
+            <source>Disc images cannot be created by QArchiver</source>
+            <translation>QArchiver 无法创建光盘镜像</translation>
+        </message>
+        <message>
+            <source>Disc images are read-only</source>
+            <translation>光盘镜像为只读格式</translation>
         </message>
     </context>
 </TS>

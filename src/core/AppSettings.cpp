@@ -111,6 +111,11 @@ int AppSettings::continuousImageDialogThreshold() const
         0, 9999);
 }
 
+bool AppSettings::externalEditWatch() const
+{
+    return value(QStringLiteral("preview/externalEditWatch"), true).toBool();
+}
+
 bool AppSettings::followSymlinks() const
 {
     return value(QStringLiteral("compress/followSymlinks"), false).toBool();
@@ -296,6 +301,11 @@ void AppSettings::setContinuousImageDialogThreshold(int count)
 {
     setValue(QStringLiteral("preview/continuousImageDialogThreshold"),
              std::clamp(count, 0, 9999));
+}
+
+void AppSettings::setExternalEditWatch(bool watch)
+{
+    setValue(QStringLiteral("preview/externalEditWatch"), watch);
 }
 
 void AppSettings::setFollowSymlinks(bool follow)

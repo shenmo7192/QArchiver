@@ -43,6 +43,20 @@ FileTypeHelper::Kind FileTypeHelper::kindFor(const QString &fileName, bool isDir
 
     const QString suffix = FormatRegistry::kindSuffix(fileName);
 
+    // Disc images are recognized archives now (FormatRegistry maps ".iso" to
+    // ArchiveFormat::Iso), but they keep their own icon family, so they are
+    // classified before the generic archive branch.
+    // 光盘镜像现在是可识别的压缩包（FormatRegistry 把 ".iso" 映射为
+    // ArchiveFormat::Iso），但仍使用专属图标族，因此在通用压缩包分支之前判断。
+    static const QSet<QString> discImage = {
+        QStringLiteral("iso"), QStringLiteral("img"), QStringLiteral("dmg"),
+        QStringLiteral("vhd"), QStringLiteral("vhdx"), QStringLiteral("wim"),
+        QStringLiteral("esd")
+    };
+    if (isOneOf(suffix, discImage)) {
+        return Kind::Iso;
+    }
+
     // Archive suffixes (including compound ones and split volumes) come from
     // FormatRegistry.  formatFromSuffix()/isSplitVolume() understand the
     // normalized forms (partNN.rar, r00, zip.001), while archiveLikeSuffixes()
@@ -165,15 +179,6 @@ FileTypeHelper::Kind FileTypeHelper::kindFor(const QString &fileName, bool isDir
     };
     if (isOneOf(suffix, font)) {
         return Kind::Font;
-    }
-
-    static const QSet<QString> iso = {
-        QStringLiteral("iso"), QStringLiteral("img"), QStringLiteral("dmg"),
-        QStringLiteral("vhd"), QStringLiteral("vhdx"), QStringLiteral("wim"),
-        QStringLiteral("esd")
-    };
-    if (isOneOf(suffix, iso)) {
-        return Kind::Iso;
     }
 
     static const QSet<QString> ebook = {
@@ -333,6 +338,7 @@ QString FileTypeHelper::formatLabel(ArchiveFormat format)
     case ArchiveFormat::Bzip2:    return QStringLiteral("BZ2");
     case ArchiveFormat::Xz:       return QStringLiteral("XZ");
     case ArchiveFormat::Zstd:     return QStringLiteral("ZST");
+    case ArchiveFormat::Iso:      return QStringLiteral("ISO");
     case ArchiveFormat::Unknown:  break;
     }
     return tr("Unknown");

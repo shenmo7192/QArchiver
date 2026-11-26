@@ -4,8 +4,8 @@ Name=QArchiver
 Name[zh_CN]=小Q解压
 GenericName=Archive Manager
 GenericName[zh_CN]=归档管理器
-Comment=Create and extract tar, zip, 7z, rar, gz, bz2 and xz archives
-Comment[zh_CN]=创建和解压 tar、zip、7z、rar、gz、bz2、xz 归档
+Comment=Create and extract tar, zip, 7z, rar, gz, bz2, xz archives and ISO images
+Comment[zh_CN]=创建和解压 tar、zip、7z、rar、gz、bz2、xz 归档，并读取 ISO 镜像
 Exec=QArchiver %F
 Icon=qarchiver
 Terminal=false
@@ -13,7 +13,7 @@ StartupNotify=true
 StartupWMClass=QArchiver
 Categories=Utility;Archiving;
 Keywords=archive;compress;extract;zip;7z;rar;tar;压缩;解压;
-MimeType=application/x-7z-compressed;application/zip;application/x-tar;application/gzip;application/vnd.rar;application/x-rar-compressed;application/x-xz;application/x-bzip2;
+MimeType=application/x-7z-compressed;application/zip;application/x-tar;application/gzip;application/vnd.rar;application/x-rar-compressed;application/x-xz;application/x-bzip2;application/x-iso9660-image;
 Actions=OneClickExtract;
 
 [Desktop Action OneClickExtract]

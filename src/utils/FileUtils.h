@@ -64,6 +64,15 @@ public:
     // 递归删除目录及其全部内容
     static bool removeDirectoryRecursively(const QString &path);
 
+    // Same as removeDirectoryRecursively(), but also handles file names that
+    // cannot be represented as QString (legacy-codepage staging trees created
+    // by stageFileForArchiving()).  Qt's directory iterator cannot delete such
+    // names on Linux, so a raw-byte traversal is used there.
+    // 与 removeDirectoryRecursively() 相同，但也能处理无法用 QString 表示的
+    // 文件名（stageFileForArchiving() 创建的旧代码页暂存目录树）。
+    // Linux 上 Qt 的目录迭代无法删除这类名称，因此按原始字节遍历。
+    static bool removeDirectoryRecursivelyRaw(const QString &path);
+
     // Atomically move (rename) a file; cross-filesystem fallback to copy+delete.
     // Symlinks are preserved as symlinks.
     // 原子移动（重命名）文件；跨文件系统时回退为复制 + 删除。
@@ -107,6 +116,27 @@ public:
     // Generate a non-existing sibling path: "name (1).ext", "name (2).ext", ...
     // 生成不存在的同级路径："name (1).ext"、"name (2).ext"……
     static QString uniqueDestinationPath(const QString &path);
+
+    // Stage @p sourceFile under @p stagingRoot so the bundled 7-Zip helper can
+    // regenerate the archive member @p entryPath from it (external-edit
+    // write-back).  On Linux the copy is created with the RAW BYTES of the
+    // member name encoded with @p encoding, because a legacy ZIP/tar stores
+    // GBK/Big5/Shift-JIS bytes and 7-Zip looks the name up byte-wise.  Windows
+    // and UTF-8 archives keep the normal Unicode name: 7z.exe converts the
+    // listfile name from the requested code page itself.
+    // Returns false and sets @p error when the name cannot be represented or
+    // the copy fails.
+    // 将 @p sourceFile 暂存到 @p stagingRoot，使内置 7-Zip 能用它重新生成
+    // 压缩包条目 @p entryPath（外部编辑写回）。Linux 上副本按 @p encoding
+    // 编码后的“原始字节”命名，因为旧式 ZIP/tar 保存的是 GBK/Big5/Shift-JIS
+    // 字节，7-Zip 也按字节查找名称。Windows 与 UTF-8 压缩包保留正常的
+    // Unicode 名称：7z.exe 会按指定代码页自行转换列表文件中的名称。
+    // 名称无法表示或复制失败时返回 false 并设置 @p error。
+    static bool stageFileForArchiving(const QString &sourceFile,
+                                      const QString &stagingRoot,
+                                      const QString &entryPath,
+                                      const QString &encoding,
+                                      QString *error = nullptr);
 };
 
 #endif // FILEUTILS_H

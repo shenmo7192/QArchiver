@@ -35,7 +35,7 @@ const QStringList &formatExtensions()
         QStringLiteral(".xz"),    QStringLiteral(".tgz"),
         QStringLiteral(".txz"),   QStringLiteral(".tbz2"),
         QStringLiteral(".tar.gz"), QStringLiteral(".tar.xz"),
-        QStringLiteral(".tar.bz2")
+        QStringLiteral(".tar.bz2"), QStringLiteral(".iso")
     };
     return exts;
 }
@@ -77,6 +77,9 @@ QString description(const QString &extension)
     if (extension == QLatin1String(".tbz2")
         || extension == QLatin1String(".tar.bz2")) {
         return translate("Bzip2 tar archive");
+    }
+    if (extension == QLatin1String(".iso")) {
+        return translate("Disc image");
     }
     return extension;
 }
@@ -239,6 +242,9 @@ QString mimeTypeFor(const QString &extension)
         || extension == QLatin1String(".txz")
         || extension == QLatin1String(".tar.xz")) {
         return QStringLiteral("application/x-xz");
+    }
+    if (extension == QLatin1String(".iso")) {
+        return QStringLiteral("application/x-iso9660-image");
     }
     return QString();
 }

@@ -9,6 +9,16 @@ All notable changes to QArchiver (小Q解压) are documented here.
 
 ### Added / 新增
 
+- 新增 `.iso` 光盘镜像读取（只读）：支持 ISO9660（Joliet、Rock Ridge）与 UDF；
+  优先使用进程内 libarchive，libarchive 无法处理的 UDF 镜像自动回退内置 7-Zip。
+  格式识别使用偏移 `0x8001` 的 `CD001`/`BEA01` 签名，改错后缀的镜像同样能打开；
+  打开对话框、文件关联、桌面条目与文件类型图标同步支持 `.iso`。
+- 新增“压缩包内编辑并写回”：双击条目仍用系统默认程序打开，用户保存后
+  QArchiver 弹出“保存到压缩包 / 不保存”确认框；确认后 7-Zip 就地替换同名成员
+  （`AddFilesOptions::sourceRoot` + 相对路径），取消则不改动压缩包。使用轮询
+  + 稳定延迟检测外部修改，内容未变时静默忽略；旧式 GBK/Big5/Shift-JIS 成员名
+  按原始字节暂存以保证替换而不是追加副本。仅对可写格式（zip / 7z / 未压缩
+  tar）生效，可在偏好设置的预览页关闭（`preview/externalEditWatch`）。
 - 经典与现代布局共用 Windows 7 风格面包屑路径框：压缩包根名与内部每一级目录、
   本地盘符/根与每一级文件夹均可点击跳转；层级之间显示跟随主题的箭头分隔符。
 - 路径过长时用“...”按钮收纳中间层级，并可在弹出菜单中直接跳转；继续缩小时
@@ -23,6 +33,10 @@ All notable changes to QArchiver (小Q解压) are documented here.
 
 ### Fixed / 修复
 
+- 修复在压缩包内保存外部修改后，路径框一直显示“正在打开 <压缩包>...”（首次保存
+  必现）的问题：为执行写操作而重开只读 libarchive 后端属于内部细节，既不再发出
+  `archiveOpening`，列表就绪后两种布局也都会刷新路径框（此前只刷新现代布局，经典
+  布局的面包屑会停在占位文本上）。新增 `tests/tst_navstate.cpp` 回归测试。
 - 修复无边框主窗口启动时被窗口管理器放到屏幕右下角等任意位置的问题：首次显示
   时在主屏可用区域内居中，之后保留用户手动移动的位置。
 

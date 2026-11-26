@@ -53,6 +53,12 @@ private:
     void finishPreview(const QString &previewDir, const QString &destPath,
                        bool success, bool cancelled,
                        const QString &errorMessage);
+    // Remember an opened file so an external edit can be written back into the
+    // archive (see ExternalEditManager).
+    // 记录被打开的文件，使外部修改可以写回压缩包（见 ExternalEditManager）。
+    void trackExternalEdit(const QString &previewDir, const QString &targetPath,
+                           const QString &archivePath, ArchiveFormat format,
+                           const QString &password);
     void cancelPreview(const QString &previewDir);
     void updatePreviewProgress(const QString &previewDir, int percent,
                                int total, int current, int etaSec);

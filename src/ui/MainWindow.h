@@ -155,6 +155,7 @@ private slots:
 
 private:
     friend class TestTitleBar;
+    friend class TestNavState;
 
     // UI construction / 界面构建
     void setupActions();
@@ -220,6 +221,16 @@ private:
     void openFile(const QString &path);
     void startExtract(const ExtractOptions &opts);
     void addFilesToCurrentArchive(const QStringList &files);
+
+    // External-edit write-back (see ExternalEditManager): confirm and save a
+    // file that was edited outside QArchiver back into its archive.
+    // 外部编辑写回（见 ExternalEditManager）：确认并把在 QArchiver 外编辑过的
+    // 文件存回其压缩包。
+    void setupExternalEditHandlers();
+    void startExternalEditSave(const AddFilesOptions &options,
+                               const QString &localPath);
+    void dispatchQueuedExternalSave();
+    void finishExternalSave(bool success);
 
     // One-click extraction / 一键解压
     void beginOneClickExtract();
@@ -340,6 +351,12 @@ private:
     // 立即压缩状态（右键菜单/命令行）
     bool m_compressCloseAfter = false;
     QString m_lastCompressTarget;
+
+    // External-edit write-back state / 外部编辑写回状态
+    QString m_externalSaveLocalPath;    // Write currently in flight / 进行中的写回
+    int m_externalSaveRetriesLeft = 60; // Busy-archive retry budget / 忙碌重试次数
+    AddFilesOptions m_queuedExternalSave;   // Waiting for the archive to open
+    QString m_queuedExternalSaveLocalPath;
 
     // Shell-integration dialog-only mode / 外壳集成“仅对话框”模式
     bool m_dialogOnly = false;

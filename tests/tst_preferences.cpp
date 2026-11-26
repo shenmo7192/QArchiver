@@ -50,6 +50,7 @@ private slots:
     void thumbnailDisplaySize();
     void splitVolumeIcons();
     void fileTypeKindPriority();
+    void externalEditWatchRoundTrip();
 
 private:
     static QCheckBox *passwordRememberCheck(PasswordDialog &dialog)
@@ -526,11 +527,52 @@ void TestPreferences::fileTypeKindPriority()
     QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("book.mobi"), false),
              FileTypeHelper::Kind::Ebook);
 
+    // Disc images are openable archives now, but keep their own icon family and
+    // label. / 光盘镜像现在是可打开的压缩包，但仍使用专属图标族与标签。
+    QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("installer.iso"), false),
+             FileTypeHelper::Kind::Iso);
+    QCOMPARE(FileTypeHelper::iconPath(QStringLiteral("installer.iso"), false, true),
+             QStringLiteral(":/icons/file-types/modern/file-iso.png"));
+    QCOMPARE(FileTypeHelper::formatLabel(ArchiveFormat::Iso),
+             QStringLiteral("ISO"));
+
     // Batch files are source code, not executables. / 批处理文件归类为源码。
     QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("build.bat"), false),
              FileTypeHelper::Kind::Code);
     QCOMPARE(FileTypeHelper::kindFor(QStringLiteral("build.cmd"), false),
              FileTypeHelper::Kind::Executable);
+}
+
+// The external-edit prompt can be switched off and stays persisted.
+// 外部编辑写回提示可关闭，并且设置会被持久化。
+void TestPreferences::externalEditWatchRoundTrip()
+{
+    AppSettings &settings = AppSettings::instance();
+    const bool saved = settings.externalEditWatch();
+
+    settings.setExternalEditWatch(false);
+    QVERIFY(!AppSettings::instance().externalEditWatch());
+    {
+        PreferencesDialog dialog;
+        QCheckBox *box = nullptr;
+        for (QCheckBox *candidate : dialog.findChildren<QCheckBox *>()) {
+            if (candidate->text().contains(QStringLiteral("externally edited"),
+                                           Qt::CaseInsensitive)) {
+                box = candidate;
+                break;
+            }
+        }
+        QVERIFY2(box, "the external-edit checkbox is missing");
+        QVERIFY(!box->isChecked());
+
+        // Turning it on through the dialog persists the choice.
+        // 在对话框中打开后会持久化该选择。
+        box->setChecked(true);
+        acceptDialog(dialog);
+    }
+    QVERIFY(AppSettings::instance().externalEditWatch());
+
+    settings.setExternalEditWatch(saved);
 }
 
 void TestPreferences::splitVolumeIcons()

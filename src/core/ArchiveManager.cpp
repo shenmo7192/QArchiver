@@ -105,7 +105,19 @@ void ArchiveManager::openArchive(const QString &filePath)
     m_retryCount = 0;
     m_preTestPending = false;
 
-    emit archiveOpening(filePath);
+    // A write-through reopen (add/delete on a read-only backend) does not
+    // change what the user is looking at: the archive stays open and its list
+    // stays valid.  Announcing an opening would leave the UI in a half-updated
+    // "opening" state, because the replayed write is reported through
+    // operationFinished() and the matching archiveOpened() is deliberately
+    // suppressed for this reopen.
+    // 为执行写操作而重开只读后端时，用户看到的内容并没有变化：压缩包仍处于打开
+    // 状态，列表也仍然有效。此时通告“正在打开”会让界面停在一个半更新的打开
+    // 状态——重放的写操作通过 operationFinished() 汇报，而这个重开刻意不发出
+    // 对应的 archiveOpened()。
+    if (std::holds_alternative<std::monostate>(m_writeAfterReopen)) {
+        emit archiveOpening(filePath);
+    }
 
     auto *watcher = new QFutureWatcher<ArchiveFormat>(this);
     connect(watcher, &QFutureWatcher<ArchiveFormat>::finished, this,

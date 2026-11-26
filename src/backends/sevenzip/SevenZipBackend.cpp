@@ -613,9 +613,42 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
         args << QStringLiteral("-spf");
     }
 
+    // External-edit write-back switches 7-Zip into "run inside the staged
+    // archive root" mode so the edited file replaces the member it came from.
+    // 外部编辑写回会让 7-Zip 在暂存的压缩包根目录中运行，
+    // 使被编辑的文件替换它原来的成员。
+    const bool writeBack = !options.sourceRoot.isEmpty();
+    QStringList sourceFiles;
+    QString workingDir;
+    QString sourceEncoding = QStringLiteral("UTF-8");
+    if (writeBack) {
+        sourceEncoding = options.nameEncoding.isEmpty()
+            ? QStringLiteral("UTF-8")
+            : options.nameEncoding;
+        workingDir = options.sourceRoot;
+        for (const QString &relative : options.sourceFiles) {
+            const QString normalized = FileUtils::normalizeEntryPath(relative);
+            if (normalized.isEmpty()
+                || normalized.split(QLatin1Char('/'), Qt::SkipEmptyParts)
+                       .contains(QStringLiteral(".."))) {
+                emit errorOccurred(ArchiveErrorCode::PathTraversalBlocked,
+                                   tr("Blocked unsafe path: %1").arg(relative));
+                return;
+            }
+            sourceFiles << relative;
+        }
+    } else {
+        sourceFiles = options.sourceFiles;
+    }
+    if (sourceFiles.isEmpty()) {
+        emit errorOccurred(ArchiveErrorCode::Unknown,
+                           tr("No source files selected"));
+        return;
+    }
+
     SevenZipUtils::ListFile sourceListFile(QStringLiteral("7z-sources"));
-    if (!SevenZipUtils::appendListFileArgs(sourceListFile, options.sourceFiles,
-                            QStringLiteral("UTF-8"), args)) {
+    if (!SevenZipUtils::appendListFileArgs(sourceListFile, sourceFiles,
+                            sourceEncoding, args)) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
                            tr("Could not prepare the source files for adding"));
         return;
@@ -625,7 +658,7 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
-        QString(), 300000, &m_cancelRequested);
+        workingDir, 300000, &m_cancelRequested);
 
     if (result.cancelled) {
         emit errorOccurred(ArchiveErrorCode::Cancelled, tr("Operation cancelled"));
@@ -641,7 +674,8 @@ void SevenZipBackend::addFiles(const AddFilesOptions &options)
                            tr("Add files failed: %1").arg(result.stdErr.trimmed()));
         return;
     }
-    emit operationFinished(true, tr("Files added to archive"));
+    emit operationFinished(true, writeBack ? tr("Changes saved to the archive")
+                                           : tr("Files added to archive"));
 }
 
 void SevenZipBackend::deleteFiles(const DeleteFilesOptions &options)

@@ -33,6 +33,8 @@ add_library(qarchiver_ui STATIC
     services/PreviewUtils.h
     services/DragOutManager.cpp
     services/DragOutManager.h
+    services/ExternalEditManager.cpp
+    services/ExternalEditManager.h
 
     # Theming and icon helpers.
     # 主题与图标辅助代码。

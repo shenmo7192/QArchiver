@@ -25,7 +25,8 @@ enum class ArchiveFormat {
     // New read-only formats are appended to keep persisted integer values stable.
     // 新增只读格式追加在末尾，保持已持久化的整数值不变。
     TarZst,     // .tar.zst / .tzst (read-only via 7-Zip)
-    Zstd        // Pure .zst stream (read-only via 7-Zip)
+    Zstd,       // Pure .zst stream (read-only via 7-Zip)
+    Iso         // .iso disc image (read-only: ISO9660 / UDF)
 };
 
 Q_DECLARE_METATYPE(ArchiveFormat)
@@ -49,6 +50,7 @@ inline QString formatToString(ArchiveFormat fmt)
     case ArchiveFormat::TarXz:   return QStringLiteral("tar.xz");
     case ArchiveFormat::TarBz2:  return QStringLiteral("tar.bz2");
     case ArchiveFormat::TarZst:  return QStringLiteral("tar.zst");
+    case ArchiveFormat::Iso:     return QStringLiteral("iso");
     case ArchiveFormat::Zip:     return QStringLiteral("zip");
     case ArchiveFormat::SevenZip:return QStringLiteral("7z");
     case ArchiveFormat::Rar4:    return QStringLiteral("rar (v4)");
@@ -104,6 +106,7 @@ inline QString defaultExtension(ArchiveFormat fmt)
     case ArchiveFormat::Bzip2:    return QStringLiteral(".bz2");
     case ArchiveFormat::Xz:       return QStringLiteral(".xz");
     case ArchiveFormat::Zstd:     return QStringLiteral(".zst");
+    case ArchiveFormat::Iso:      return QStringLiteral(".iso");
     case ArchiveFormat::Unknown:  return QString();
     }
     return QString();

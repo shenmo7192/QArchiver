@@ -40,6 +40,10 @@ public:
     // 同目录图片数量超过该值时，连续看图显示准备对话框。0 表示任意图片批次。
     // 范围 0..9999。
     int continuousImageDialogThreshold() const;
+    // Watch files opened from an archive in the system application and ask
+    // whether an external edit should be saved back into the archive.
+    // 监视用系统程序打开的压缩包内文件，并询问是否把外部修改写回压缩包。
+    bool externalEditWatch() const;
     bool followSymlinks() const;
     QStringList recentFiles() const;
     // Maximum entries kept in the recent-files list. Range 1..100.
@@ -100,6 +104,7 @@ public:
     void setOpenDestAfterFinish(bool open);
     void setMaxPreviewSize(qint64 size);
     void setContinuousImageDialogThreshold(int count);
+    void setExternalEditWatch(bool watch);
     void setFollowSymlinks(bool follow);
     void setRecentFiles(const QStringList &files);
     void setRecentFilesLimit(int limit);

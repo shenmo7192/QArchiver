@@ -16,8 +16,13 @@
 #include <limits>
 
 #include "common/ArchiveEntry.h"
+#include "utils/EncodingDetector.h"
 
 #ifndef Q_OS_WIN
+#include <cerrno>
+#include <fcntl.h>
+#include <ftw.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #else
 #ifndef NOMINMAX
@@ -243,6 +248,31 @@ bool FileUtils::removeDirectoryRecursively(const QString &path)
 {
     QDir dir(path);
     return dir.removeRecursively();
+}
+
+bool FileUtils::removeDirectoryRecursivelyRaw(const QString &path)
+{
+#ifndef Q_OS_WIN
+    const QByteArray nativePath = QFile::encodeName(path);
+    if (nativePath.isEmpty()) {
+        return true;
+    }
+    if (::access(nativePath.constData(), F_OK) != 0) {
+        return true;
+    }
+    // FTW_DEPTH removes children before their directory; FTW_PHYS keeps
+    // symlinks as links instead of following them out of the tree.
+    // FTW_DEPTH 保证先删除子项再删除目录；FTW_PHYS 让符号链接按链接本身
+    // 删除，而不是跟随到目录树之外。
+    const auto removeEntry = [](const char *entryPath, const struct stat *,
+                                int, struct FTW *) {
+        return ::remove(entryPath);
+    };
+    return ::nftw(nativePath.constData(), removeEntry, 16,
+                  FTW_DEPTH | FTW_PHYS) == 0;
+#else
+    return removeDirectoryRecursively(path);
+#endif
 }
 
 bool FileUtils::moveFileAtomically(const QString &src, const QString &dest)
@@ -551,4 +581,139 @@ QString FileUtils::uniqueDestinationPath(const QString &path)
         }
     }
     return path;
+}
+
+bool FileUtils::stageFileForArchiving(const QString &sourceFile,
+                                      const QString &stagingRoot,
+                                      const QString &entryPath,
+                                      const QString &encoding,
+                                      QString *error)
+{
+    const auto fail = [error](const QString &message) {
+        if (error) {
+            *error = message;
+        }
+        return false;
+    };
+
+    if (sourceFile.isEmpty() || stagingRoot.isEmpty()) {
+        return fail(QStringLiteral("missing source file or staging root"));
+    }
+    const QString normalized = normalizeEntryPath(entryPath);
+    if (normalized.isEmpty()
+        || normalized.split(QLatin1Char('/'), Qt::SkipEmptyParts)
+               .contains(QStringLiteral(".."))) {
+        return fail(QStringLiteral("unsafe archive member path: ") + entryPath);
+    }
+    if (!QFileInfo::exists(sourceFile)) {
+        return fail(QStringLiteral("edited file no longer exists: ") + sourceFile);
+    }
+
+    const bool utf8Name = encoding.isEmpty()
+        || encoding.compare(QStringLiteral("UTF-8"), Qt::CaseInsensitive) == 0;
+
+#ifdef Q_OS_WIN
+    // 7z.exe converts the listfile name from the requested code page to UTF-16
+    // and looks the file up by that Unicode name, so the staged copy keeps the
+    // ordinary (Unicode) path.
+    // 7z.exe 会把列表文件中的名称从指定代码页转换为 UTF-16，并按该 Unicode
+    // 名称查找文件，因此暂存副本使用普通的（Unicode）路径。
+    Q_UNUSED(utf8Name);
+    const QString destination = QDir(stagingRoot).filePath(normalized);
+    if (!QDir().mkpath(QFileInfo(destination).absolutePath())) {
+        return fail(QStringLiteral("cannot create staging directory"));
+    }
+    QFile::remove(destination);
+    if (!QFile::copy(sourceFile, destination)) {
+        return fail(QStringLiteral("cannot stage the edited file"));
+    }
+    return true;
+#else
+    if (utf8Name) {
+        const QString destination = QDir(stagingRoot).filePath(normalized);
+        if (!QDir().mkpath(QFileInfo(destination).absolutePath())) {
+            return fail(QStringLiteral("cannot create staging directory"));
+        }
+        QFile::remove(destination);
+        if (!QFile::copy(sourceFile, destination)) {
+            return fail(QStringLiteral("cannot stage the edited file"));
+        }
+        return true;
+    }
+
+    // Legacy code page: build the member name as raw bytes so 7-Zip finds a
+    // file whose name matches the bytes stored in the archive.
+    // 旧代码页：按原始字节构造成员名，使 7-Zip 找到名称与该压缩包内存储字节
+    // 一致的文件。
+    const QStringList parts = normalized.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    if (parts.isEmpty()) {
+        return fail(QStringLiteral("empty archive member path"));
+    }
+
+    QByteArray directory = QFile::encodeName(stagingRoot);
+    for (int index = 0; index + 1 < parts.size(); ++index) {
+        const QByteArray part = EncodingDetector::encode(parts.at(index), encoding);
+        if (part.isEmpty()) {
+            return fail(QStringLiteral("cannot encode path component: ")
+                        + parts.at(index));
+        }
+        directory += '/';
+        directory += part;
+        if (::mkdir(directory.constData(), 0700) != 0 && errno != EEXIST) {
+            return fail(QStringLiteral("cannot create staging directory"));
+        }
+    }
+
+    const QByteArray fileName = EncodingDetector::encode(parts.last(), encoding);
+    if (fileName.isEmpty()) {
+        return fail(QStringLiteral("cannot encode file name: ") + parts.last());
+    }
+    QByteArray destination = directory;
+    destination += '/';
+    destination += fileName;
+
+    const QByteArray nativeSource = QFile::encodeName(sourceFile);
+    ::unlink(destination.constData());
+    if (::link(nativeSource.constData(), destination.constData()) == 0) {
+        return true;
+    }
+
+    // Different file systems: fall back to a byte copy through a raw path.
+    QFile source(sourceFile);
+    if (!source.open(QIODevice::ReadOnly)) {
+        return fail(QStringLiteral("cannot read the edited file"));
+    }
+    const int fd = ::open(destination.constData(),
+                          O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0) {
+        return fail(QStringLiteral("cannot create the staged copy"));
+    }
+    bool copied = true;
+    while (!source.atEnd()) {
+        const QByteArray chunk = source.read(1 << 20);
+        if (chunk.isEmpty()) {
+            break;
+        }
+        const char *data = chunk.constData();
+        qint64 remaining = chunk.size();
+        while (remaining > 0) {
+            const ssize_t written = ::write(fd, data, static_cast<size_t>(remaining));
+            if (written <= 0) {
+                copied = false;
+                break;
+            }
+            data += written;
+            remaining -= written;
+        }
+        if (!copied) {
+            break;
+        }
+    }
+    ::close(fd);
+    if (!copied) {
+        ::unlink(destination.constData());
+        return fail(QStringLiteral("cannot copy the edited file"));
+    }
+    return true;
+#endif
 }

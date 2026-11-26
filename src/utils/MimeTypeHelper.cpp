@@ -39,6 +39,39 @@ constexpr std::array<std::uint8_t, 6> kSigXz      = {0xfd, 0x37, 0x7a, 0x58, 0x5
 constexpr std::array<std::uint8_t, 4> kSigZstd    = {0x28, 0xb5, 0x2f, 0xfd};
 constexpr std::array<std::uint8_t, 5> kSigTar     = {0x75, 0x73, 0x74, 0x61, 0x72}; // "ustar" at 257
 
+// Disc images keep their signature in sector 16 (offset 0x8000), far beyond
+// the 512 bytes sampled for the other formats.
+//   "CD001" at 0x8001 -> ISO9660 primary volume descriptor
+//   "BEA01" at 0x8001 -> UDF volume recognition sequence
+// 7-Zip uses the same two signatures (formats Iso and Udf).
+// 光盘镜像的签名位于第 16 个扇区（偏移 0x8000），远超其它格式采样的
+// 512 字节。
+//   0x8001 处的 "CD001" -> ISO9660 主卷描述符
+//   0x8001 处的 "BEA01" -> UDF 卷识别序列
+// 7-Zip 的 Iso 与 Udf 格式使用同样两个签名。
+constexpr int kDiscSignatureOffset = 0x8001;
+
+// ISO9660 / UDF probe.  Only called after the 512-byte signatures and the
+// tar probe failed, so ordinary archives never pay for it.
+// ISO9660 / UDF 探测。仅在 512 字节签名与 tar 探测均未命中时调用，
+// 普通压缩包不会为此付出开销。
+bool looksLikeDiscImage(const QString &filePath)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    if (file.size() < kDiscSignatureOffset + 5) {
+        return false;
+    }
+    if (!file.seek(kDiscSignatureOffset)) {
+        return false;
+    }
+    const QByteArray signature = file.read(5);
+    return signature == QByteArrayLiteral("CD001")
+        || signature == QByteArrayLiteral("BEA01");
+}
+
 // List files in @p dir whose name matches @p regex, preserving the on-disk
 // spelling (never lower-cases paths).
 // 列出 @p dir 中名称匹配 @p regex 的文件，保留磁盘上的大小写，
@@ -291,6 +324,9 @@ ArchiveFormat MimeTypeHelper::detect(const QString &filePath)
     }
     if (matchMagic(head, kSigTar, 257)) {
         return ArchiveFormat::Tar;
+    }
+    if (looksLikeDiscImage(filePath)) {
+        return ArchiveFormat::Iso;
     }
 
     // Stage 2: suffix fallback / 阶段 2：扩展名兜底

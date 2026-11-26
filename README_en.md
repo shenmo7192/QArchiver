@@ -6,7 +6,7 @@ English | [中文](./README.md)
 [![Release](https://github.com/shenmo7192/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/releases)
 
 A Qt 6–based graphical archive manager: browse, extract, create, append, delete, and test
-7z / zip / tar / gz / bz2 / xz / zst / rar archives. The default interface follows the modern
+7z / zip / tar / gz / bz2 / xz / zst / rar archives, and read ISO disc images. The default interface follows the modern
 HaoZip style and can be switched instantly back to the classic layout in
 "Preferences → Interface"; Linux x86_64/ARM64 and Windows x86_64/ARM64 are supported.
 
@@ -76,7 +76,14 @@ git push origin 2.4.1
   non-UTF-8 member names (GBK/GB18030/Big5/Shift-JIS) are detected automatically
 - Compression: 7z / zip / tar / tar.gz / tar.bz2 / tar.xz / gz / bz2 / xz; if `rar` is installed on the system, RAR and RAR volumes can also be created
 - Read `.tar.zst` / `.tzst` / `.zst` (read-only, using the bundled 7-Zip)
+- Read `.iso` disc images (ISO9660/Joliet/Rock Ridge and UDF, read-only): the in-process
+  libarchive reader is preferred and UDF images fall back to the bundled 7-Zip
+  automatically; file associations and the open dialog accept `.iso` too
 - Append and delete entries (7z / zip / tar families)
+- Edit a member and save it back: double-click opens the file with the system default
+  application, and once you save there QArchiver asks whether the change should be stored
+  in the archive. Confirming replaces the member in place (legacy GBK/Big5/Shift-JIS member
+  names included); declining leaves the archive untouched
 - Integrity testing, with optional automatic test before extraction
 - In-archive single-file preview (text/images); images are pre-extracted together with other images in the same directory, supporting continuous viewing in the system viewer.
   When the number of images in the same directory exceeds a configurable threshold (default 200, 0 means any batch), a cancellable preparation dialog is shown;
@@ -101,6 +108,10 @@ git push origin 2.4.1
 - Atomic archive replacement: old archives/volumes are backed up first, and only after all new files are in place are they replaced; failures roll back automatically
 - Archive list output is parsed as a stream, avoiding retention of the full command-line text just for listing; size accumulation includes overflow checks
 - Warnings are shown when opening the system viewer or extraction target directory fails, rather than failing silently
+- External-edit write-back only applies to writable formats (zip / 7z / uncompressed tar);
+  iso, rar, split volumes and compressed tar streams never prompt. A failed write-back is
+  reported clearly and is not retried in a loop (toggle it in Preferences, "Ask before saving
+  externally edited files back into the archive")
 
 ## Interface
 

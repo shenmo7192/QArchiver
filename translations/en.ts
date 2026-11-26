@@ -829,6 +829,10 @@ Overwrite it?</translation>
         <source>Could not open the Windows default apps page.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Disc image</source>
+        <translation>Disc image</translation>
+    </message>
 </context>
 <context>
     <name>FileListModel</name>
@@ -1580,7 +1584,7 @@ This cannot be undone.</translation>
     </message>
     <message>
         <location filename="../src/ui/MainWindowHelpers.cpp" line="+17"/>
-        <source>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.001);;All Files (*)</source>
+        <source>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.iso *.001);;All Files (*)</source>
         <translation>Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 *.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.001);;All Files (*)</translation>
     </message>
     <message>
@@ -2112,6 +2116,42 @@ For a self-contained installation, download the official 7-Zip command-line tool
         <location line="+48"/>
         <source>No 7-Zip Fallback</source>
         <translation>No 7-Zip Fallback</translation>
+    </message>
+    <message>
+        <source>Saving Changes to Archive...</source>
+        <translation>Saving Changes to Archive...</translation>
+    </message>
+    <message>
+        <source>Save Changes to Archive</source>
+        <translation>Save Changes to Archive</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; was changed in the external application.</source>
+        <translation>&quot;%1&quot; was changed in the external application.</translation>
+    </message>
+    <message>
+        <source>Save the changes to the archive &quot;%1&quot;?
+
+The archive is updated in place. Choosing &quot;Don't Save&quot; leaves it unchanged.</source>
+        <translation>Save the changes to the archive &quot;%1&quot;?
+
+The archive is updated in place. Choosing &quot;Don't Save&quot; leaves it unchanged.</translation>
+    </message>
+    <message>
+        <source>Save to Archive</source>
+        <translation>Save to Archive</translation>
+    </message>
+    <message>
+        <source>Don't Save</source>
+        <translation>Don't Save</translation>
+    </message>
+    <message>
+        <source>Changes saved to the archive</source>
+        <translation>Changes saved to the archive</translation>
+    </message>
+    <message>
+        <source>The archive is busy. Open the file again and save it once the current operation has finished.</source>
+        <translation>The archive is busy. Open the file again and save it once the current operation has finished.</translation>
     </message>
 </context>
 <context>
@@ -2712,6 +2752,14 @@ For a self-contained installation, download the official 7-Zip command-line tool
         <source>Applies to the next archive you open; the currently open archive keeps the backend it started with.</source>
         <translation>Applies to the next archive you open; the currently open archive keeps the backend it started with.</translation>
     </message>
+    <message>
+        <source>Ask before saving externally edited files back into the archive</source>
+        <translation>Ask before saving externally edited files back into the archive</translation>
+    </message>
+    <message>
+        <source>When you open a file from the archive in the system application and save it there, QArchiver asks whether the change should be stored in the archive. Supported for zip, 7z and uncompressed tar archives.</source>
+        <translation>When you open a file from the archive in the system application and save it there, QArchiver asks whether the change should be stored in the archive. Supported for zip, 7z and uncompressed tar archives.</translation>
+    </message>
 </context>
 <context>
     <name>PreviewManager</name>
@@ -3064,6 +3112,10 @@ The file may be missing, or there may be no associated application, insufficient
         <source>Archive integrity verified</source>
         <translation>Archive integrity verified</translation>
     </message>
+    <message>
+        <source>Changes saved to the archive</source>
+        <translation>Changes saved to the archive</translation>
+    </message>
 </context>
 <context>
     <name>SidebarWidget</name>
@@ -3412,6 +3464,14 @@ The file may be missing, or there may be no associated application, insufficient
         <source>Archive integrity verified</source>
         <translation>Archive integrity verified</translation>
     </message>
+    <message>
+        <source>No source files selected</source>
+        <translation>No source files selected</translation>
+    </message>
+    <message>
+        <source>Changes saved to the archive</source>
+        <translation>Changes saved to the archive</translation>
+    </message>
 </context>
 <context>
     <name>WelcomePage</name>
@@ -3497,4 +3557,15 @@ The file may be missing, or there may be no associated application, insufficient
             <translation>Show hidden levels</translation>
         </message>
     </context>
+<context>
+    <name>IsoBackend</name>
+    <message>
+        <source>Disc images cannot be created by QArchiver</source>
+        <translation>Disc images cannot be created by QArchiver</translation>
+    </message>
+    <message>
+        <source>Disc images are read-only</source>
+        <translation>Disc images are read-only</translation>
+    </message>
+</context>
 </TS>

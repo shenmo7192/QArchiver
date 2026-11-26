@@ -199,6 +199,16 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
                "contains more than this many images. 0 shows it for every "
                "batch."));
 
+        m_externalEditCheck = new QCheckBox(
+            tr("Ask before saving externally edited files back into the "
+               "archive"), extractPage);
+        m_externalEditCheck->setChecked(settings.externalEditWatch());
+        m_externalEditCheck->setToolTip(
+            tr("When you open a file from the archive in the system "
+               "application and save it there, QArchiver asks whether the "
+               "change should be stored in the archive. Supported for zip, 7z "
+               "and uncompressed tar archives."));
+
         m_oneClickDestModeCombo = new QComboBox(extractPage);
         m_oneClickDestModeCombo->addItem(
             tr("Next to the archive (recommended)"),
@@ -250,6 +260,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
         previewForm->addRow(tr("Maximum preview &size:"), m_maxPreviewSpin);
         previewForm->addRow(tr("Continuous preview threshold:"),
                             m_continuousPreviewSpin);
+        previewForm->addRow(QString(), m_externalEditCheck);
 
         connect(m_oneClickDestModeCombo, &QComboBox::currentIndexChanged,
                 this, [this]() { updateOneClickControls(); });
@@ -615,6 +626,7 @@ void PreferencesDialog::saveSettings()
     s.setOpenDestAfterFinish(m_openAfterCheck->isChecked());
     s.setMaxPreviewSize(qint64(m_maxPreviewSpin->value()) * 1024 * 1024);
     s.setContinuousImageDialogThreshold(m_continuousPreviewSpin->value());
+    s.setExternalEditWatch(m_externalEditCheck->isChecked());
     s.setFollowSymlinks(m_followSymlinksCheck->isChecked());
     s.setRememberPasswords(m_rememberPasswordsCheck->isChecked());
     if (m_libArchiveCheck->isEnabled()) {

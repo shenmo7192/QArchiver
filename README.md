@@ -6,7 +6,7 @@
 [![Release](https://github.com/shenmo7192/QArchiver/actions/workflows/release.yml/badge.svg)](https://github.com/shenmo7192/QArchiver/releases)
 
 基于 Qt 6 的图形化压缩包管理器：浏览、解压、创建、追加、删除、测试
-7z / zip / tar / gz / bz2 / xz / zst / rar 归档。默认界面采用现代好压（HaoZip）
+7z / zip / tar / gz / bz2 / xz / zst / rar 归档，并可读取 ISO 光盘镜像。默认界面采用现代好压（HaoZip）
 风格，可在“偏好设置 → 界面”中即时切回经典布局；支持 Linux x86_64/ARM64
 与 Windows x86_64/ARM64。
 
@@ -72,7 +72,12 @@ git push origin 2.4.1
   GBK/GB18030/Big5/Shift-JIS 等非 UTF-8 文件名编码，无需手动指定
 - 压缩：7z / zip / tar / tar.gz / tar.bz2 / tar.xz / gz / bz2 / xz；系统安装 `rar` 时还可创建 RAR 及 RAR 分卷
 - 读取 `.tar.zst` / `.tzst` / `.zst`（只读，使用内置 7-Zip）
+- 读取 `.iso` 光盘镜像（ISO9660/Joliet/Rock Ridge 与 UDF，只读）：优先使用
+  进程内 libarchive，UDF 镜像自动回退内置 7-Zip；文件关联与打开过滤器同步支持
 - 追加与删除条目（7z / zip / tar 系）
+- 压缩包内编辑并写回：双击用系统默认程序打开压缩包内文件，编辑保存后
+  QArchiver 询问是否把更改存回压缩包；确认后就地替换原条目（支持旧式
+  GBK/Big5/Shift-JIS 文件名），取消则压缩包保持不变
 - 完整性测试，解压前可选自动测试
 - 归档内单文件预览（文本/图片）；图片会连同同目录图片一起预解压，支持系统查看器连续看图。
   同目录图片超过可配置阈值（默认 200 张，0 表示任意批次）时显示可取消的准备对话框；
@@ -96,6 +101,9 @@ git push origin 2.4.1
 - 压缩替换原子化：旧压缩包/分卷先备份，新文件全部就位后才替换，失败自动回滚
 - 压缩包列表输出流式解析，避免为列表额外保留完整命令行文本；大小累计带溢出检查
 - 打开系统查看器或解压目标目录失败时会给出警告，不静默失败
+- 外部编辑写回只对可写格式（zip / 7z / 未压缩 tar）生效，iso、rar、分卷与压缩
+  tar 流不会出现保存提示；写回失败会明确报错且不会反复追问（见偏好设置中的
+  “外部编辑后保存回压缩包前先询问”）
 
 ## 界面
 

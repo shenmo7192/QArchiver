@@ -19,6 +19,7 @@
 #include "ui/services/ThumbnailManager.h"
 #include "ui/services/PreviewUtils.h"
 #include "ui/services/DragOutManager.h"
+#include "ui/services/ExternalEditManager.h"
 #include "ui/widgets/ArchiveTreeView.h"
 #include "ui/widgets/ArchiveGridView.h"
 #include "ui/widgets/BackgroundWidget.h"
@@ -215,6 +216,8 @@ MainWindow::MainWindow(QWidget *parent)
             }
             return ArchiveManager::SymlinkDecision::Abort;
         });
+
+    setupExternalEditHandlers();
 
     // Ctrl+F focuses the search field of whichever layout is active.
     auto *findAction = new QAction(this);
@@ -562,12 +565,19 @@ void MainWindow::onFileListReady(const QList<ArchiveEntry> &entries)
     }
     if (m_modernUi) {
         updateFolderPaneState();
-        if (m_navHistory.isEmpty()) {
-            resetNavigationHistory(m_navCurrentDir);
-        } else {
-            updateNavLocation();
-            updateNavigationState();
-        }
+    }
+    // Both layouts render the same location state (modern nav bar vs. classic
+    // breadcrumb), so refresh it whenever a list arrives.  Only refreshing it
+    // for the modern layout left the classic breadcrumb on whatever placeholder
+    // an internal reopen had set ("Opening <archive>...").
+    // 两种布局呈现同一份路径状态（现代导航栏与经典面包屑），因此收到列表时都
+    // 需要刷新。此前只刷新现代布局，重开压缩包留下的占位文本
+    //（“正在打开 <压缩包>...”）就会一直留在经典面包屑上。
+    if (m_navHistory.isEmpty()) {
+        resetNavigationHistory(m_navCurrentDir);
+    } else {
+        updateNavLocation();
+        updateNavigationState();
     }
     setBusyIndicatorVisible(false);
     statusBar()->showMessage(tr("%1 entries").arg(entries.size()), 3000);
@@ -577,6 +587,17 @@ void MainWindow::onFileListReady(const QList<ArchiveEntry> &entries)
 
     if (m_oneClickPending) {
         beginOneClickExtract();
+    }
+
+    // A write-back that had to reopen its archive continues here.  Deferred to
+    // the event loop because ArchiveManager still owns the just-finished
+    // listing when this slot runs.
+    // 需要重新打开压缩包的写回在这里继续。推迟到事件循环，因为本槽执行时
+    // ArchiveManager 仍持有刚结束的列表操作。
+    if (!m_queuedExternalSave.archivePath.isEmpty()
+        && ArchiveManager::instance().currentPath()
+            == m_queuedExternalSave.archivePath) {
+        QTimer::singleShot(0, this, &MainWindow::dispatchQueuedExternalSave);
     }
 }
 
@@ -619,6 +640,27 @@ void MainWindow::onPasswordRequested()
 
 void MainWindow::onErrorOccurred(ArchiveErrorCode code, const QString &msg)
 {
+    // A failed write-back (or its archive reopen) must release the file again.
+    // 写回失败（或其重新打开压缩包失败）时需要释放该文件。
+    finishExternalSave(false);
+    if (!m_queuedExternalSave.archivePath.isEmpty()) {
+        if (ArchiveManager::instance().currentPath()
+            == m_queuedExternalSave.archivePath) {
+            // The reopen itself worked (e.g. only the listing was cancelled):
+            // continue with the write-back instead of dropping the answer.
+            // 重新打开本身已成功（例如只取消了列表）：继续写回而不是丢弃回答。
+            QTimer::singleShot(0, this, &MainWindow::dispatchQueuedExternalSave);
+        } else {
+            // The reopen failed (the previous archive stays open) or another
+            // archive was opened instead: release the file again.
+            // 重新打开失败（旧压缩包仍然打开）或改开了别的压缩包：释放该文件。
+            const QString localPath = m_queuedExternalSaveLocalPath;
+            m_queuedExternalSave = AddFilesOptions{};
+            m_queuedExternalSaveLocalPath.clear();
+            ExternalEditManager::instance().reportSaveFailed(localPath);
+        }
+    }
+
     if (m_progressDialog) {
         m_progressDialog->close();
         m_progressDialog = nullptr;
@@ -720,6 +762,11 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
     m_currentOp = UiOp::None;
 
     if (!success) {
+        // An external-edit write-back that failed keeps watching the file but
+        // refreshes its baseline, so the user is not asked again immediately.
+        // 失败的外部编辑写回仍然继续监视该文件，但会刷新基线，
+        // 避免立刻重复询问用户。
+        finishExternalSave(false);
         m_oneClickExtractActive = false;
         m_oneClickCloseAfter = false;
         m_compressCloseAfter = false;
@@ -814,6 +861,10 @@ void MainWindow::onOperationFinished(bool success, const QString &msg)
             this, tr("Test Archive"),
             tr("The archive test completed successfully. No errors were found."));
     }
+
+    // The write-back of an externally edited file succeeded.
+    // 外部编辑文件的写回成功。
+    finishExternalSave(true);
 
     if (finishedOp == UiOp::Add || finishedOp == UiOp::Delete) {
         ListOptions opts;

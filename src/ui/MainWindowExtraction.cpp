@@ -16,6 +16,7 @@
 #include "ui/services/PreviewManager.h"
 #include "ui/services/PreviewUtils.h"
 #include "ui/services/DragOutManager.h"
+#include "ui/services/ExternalEditManager.h"
 #include "ui/widgets/ArchiveTreeView.h"
 #include "ui/widgets/ArchiveGridView.h"
 #include "ui/widgets/BackgroundWidget.h"
@@ -210,6 +211,113 @@ void MainWindow::addFilesToCurrentArchive(const QStringList &files)
     m_currentOp = UiOp::Add;
     showProgressDialog(tr("Adding Files..."));
     ArchiveManager::instance().addFiles(options);
+}
+
+void MainWindow::setupExternalEditHandlers()
+{
+    ExternalEditManager &edits = ExternalEditManager::instance();
+
+    edits.setPromptHandler([this](const ExternalEditManager::Job &job) {
+        // The editor may be full screen; flash the task bar so the question is
+        // noticed even when QArchiver is in the background.
+        // 编辑器可能全屏；让任务栏闪烁，即使 QArchiver 在后台也能注意到提问。
+        QApplication::alert(this);
+
+        QMessageBox box(this);
+        box.setWindowTitle(tr("Save Changes to Archive"));
+        box.setIconPixmap(
+            Icons::aero(QStringLiteral("warning.ico")).pixmap(32, 32));
+        box.setText(tr("\"%1\" was changed in the external application.")
+                        .arg(QFileInfo(job.entryPath).fileName()));
+        box.setInformativeText(
+            tr("Save the changes to the archive \"%1\"?\n\n"
+               "The archive is updated in place. Choosing \"Don't Save\" "
+               "leaves it unchanged.")
+                .arg(QFileInfo(job.archivePath).fileName()));
+        QPushButton *saveButton =
+            box.addButton(tr("Save to Archive"), QMessageBox::AcceptRole);
+        box.addButton(tr("Don't Save"), QMessageBox::RejectRole);
+        box.setDefaultButton(saveButton);
+        box.exec();
+        return box.clickedButton() == saveButton
+            ? ExternalEditManager::Decision::Save
+            : ExternalEditManager::Decision::Discard;
+    });
+
+    edits.setSaveHandler(
+        [this](const ExternalEditManager::Job &job,
+               const AddFilesOptions &options) {
+            m_externalSaveRetriesLeft = 60;
+            startExternalEditSave(options, job.localPath);
+        });
+}
+
+void MainWindow::startExternalEditSave(const AddFilesOptions &options,
+                                       const QString &localPath)
+{
+    ArchiveManager &manager = ArchiveManager::instance();
+
+    if (manager.isBusy()) {
+        // Another archive operation is still running: retry shortly instead of
+        // doing nothing, so the user's confirmation is not lost.
+        // 另一个压缩包操作仍在运行：稍后重试，避免丢失用户的确认。
+        if (m_externalSaveRetriesLeft-- <= 0) {
+            ExternalEditManager::instance().reportSaveFailed(localPath);
+            MessageBoxUtils::showWarning(
+                this, tr("Save Changes to Archive"),
+                tr("The archive is busy. Open the file again and save it once "
+                   "the current operation has finished."));
+            return;
+        }
+        QTimer::singleShot(500, this, [this, options, localPath]() {
+            startExternalEditSave(options, localPath);
+        });
+        return;
+    }
+
+    if (!manager.backend() || manager.currentPath() != options.archivePath) {
+        // The archive was closed or replaced: reopen it and continue from
+        // onFileListReady().
+        // 压缩包已关闭或被替换：重新打开，并在 onFileListReady() 中继续。
+        m_queuedExternalSave = options;
+        m_queuedExternalSaveLocalPath = localPath;
+        openArchivePath(options.archivePath);
+        return;
+    }
+
+    m_externalSaveLocalPath = localPath;
+    m_currentOp = UiOp::Add;
+    showProgressDialog(tr("Saving Changes to Archive..."));
+    manager.addFiles(options);
+    updateActionsState();
+}
+
+void MainWindow::dispatchQueuedExternalSave()
+{
+    if (m_queuedExternalSave.archivePath.isEmpty()) {
+        return;
+    }
+    const AddFilesOptions options = m_queuedExternalSave;
+    const QString localPath = m_queuedExternalSaveLocalPath;
+    m_queuedExternalSave = AddFilesOptions{};
+    m_queuedExternalSaveLocalPath.clear();
+    startExternalEditSave(options, localPath);
+}
+
+void MainWindow::finishExternalSave(bool success)
+{
+    if (m_externalSaveLocalPath.isEmpty()) {
+        return;
+    }
+    const QString localPath = m_externalSaveLocalPath;
+    m_externalSaveLocalPath.clear();
+
+    if (success) {
+        ExternalEditManager::instance().confirmSaved(localPath);
+        statusBar()->showMessage(tr("Changes saved to the archive"), 5000);
+        return;
+    }
+    ExternalEditManager::instance().reportSaveFailed(localPath);
 }
 
 void MainWindow::onExtractAll()

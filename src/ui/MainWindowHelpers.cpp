@@ -17,7 +17,7 @@ QString archiveDialogFilter()
     return QCoreApplication::translate(
         "MainWindow",
         "Archives (*.tar *.tar.gz *.tgz *.tar.xz *.txz *.tar.bz2 *.tbz2 "
-        "*.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.001);;All Files (*)");
+        "*.zip *.7z *.rar *.r?? *.gz *.bz2 *.xz *.iso *.001);;All Files (*)");
 }
 
 QString formatFileSize(qint64 bytes)

@@ -61,6 +61,8 @@ private slots:
     void unsafeSymlinkRequiresDecision();
     void backendSelectionHonoursPreference();
     void addDeleteReopensReadOnlyBackend();
+    void externalEditWriteBackThroughReopen();
+    void isoImageIsReadOnly();
 };
 
 // Prepare the manager test environment.
@@ -130,6 +132,58 @@ void TestManager::openListExtract()
     QFile extracted(dest + QStringLiteral("/payload.txt"));
     QVERIFY(extracted.open(QIODevice::ReadOnly));
     QCOMPARE(extracted.readAll(), QByteArrayLiteral("manager-data"));
+
+    manager.closeArchive();
+}
+
+// A disc image is opened through the normal read path and stays read-only.
+// 光盘镜像通过普通读取路径打开，并保持只读。
+void TestManager::isoImageIsReadOnly()
+{
+    const QString fixture =
+        QStringLiteral(QARCHIVER_TEST_DATA_DIR "/test.iso");
+    QVERIFY2(QFileInfo::exists(fixture), qPrintable(fixture));
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString isoPath = temp.filePath(QStringLiteral("disc.iso"));
+    QVERIFY(QFile::copy(fixture, isoPath));
+
+    ArchiveManager &manager = ArchiveManager::instance();
+    QSignalSpy openedSpy(&manager, &ArchiveManager::archiveOpened);
+    QSignalSpy listSpy(&manager, &ArchiveManager::fileListReady);
+
+    manager.openArchive(isoPath);
+    QTRY_COMPARE_WITH_TIMEOUT(openedSpy.count(), 1, 10000);
+    QCOMPARE(manager.currentFormat(), ArchiveFormat::Iso);
+
+    manager.listContents();
+    QTRY_COMPARE_WITH_TIMEOUT(listSpy.count(), 1, 10000);
+    QStringList paths;
+    for (const ArchiveEntry &entry : manager.entries()) {
+        paths << entry.path;
+    }
+    QVERIFY2(paths.contains(QStringLiteral("hello.txt")),
+             qPrintable(paths.join(QLatin1Char(','))));
+    QVERIFY2(paths.contains(QStringLiteral("sub/nested.txt")),
+             qPrintable(paths.join(QLatin1Char(','))));
+
+    // No add/delete for disc images, so the UI keeps those actions disabled.
+    // 光盘镜像不能添加/删除，界面因此保持这些动作不可用。
+    QVERIFY(!manager.canModifyCurrentArchive());
+
+    const QString dest = temp.filePath(QStringLiteral("out"));
+    QSignalSpy finishSpy(&manager, &ArchiveManager::operationFinished);
+    ExtractOptions extractOptions;
+    extractOptions.destDir = dest;
+    extractOptions.overwrite = OverwritePolicy::Always;
+    manager.extract(extractOptions);
+    QTRY_COMPARE_WITH_TIMEOUT(finishSpy.count(), 1, 10000);
+    QVERIFY(finishSpy.first().at(0).toBool());
+
+    QFile extracted(dest + QStringLiteral("/sub/nested.txt"));
+    QVERIFY(extracted.open(QIODevice::ReadOnly));
+    QCOMPARE(extracted.readAll(), QByteArrayLiteral("nested\n"));
 
     manager.closeArchive();
 }
@@ -629,6 +683,124 @@ void TestManager::addDeleteReopensReadOnlyBackend()
         QVERIFY2(!entry.path.endsWith(QStringLiteral("added.txt")),
                  "the deleted file must be gone");
     }
+
+    manager.closeArchive();
+    settings.setUseLibArchiveBackend(savedPreference);
+#endif
+}
+
+// An external-edit write-back on a libarchive-served archive is replayed on the
+// CLI backend after the transparent reopen, so the edited member is replaced.
+// 由 libarchive 后端服务的压缩包在外部编辑写回时会先透明重开为 CLI 后端，
+// 随后重放写回，从而替换被编辑的成员。
+void TestManager::externalEditWriteBackThroughReopen()
+{
+#ifndef QARCHIVER_HAS_LIBARCHIVE
+    QSKIP("built without the libarchive read backend");
+#else
+    if (!ArchiveBackendFactory::isLibArchiveAvailable()
+        || ArchiveBackendFactory::isLibArchiveDisabledByEnvironment()) {
+        QSKIP("libarchive read backend is unavailable");
+    }
+
+    AppSettings &settings = AppSettings::instance();
+    const bool savedPreference = settings.useLibArchiveBackend();
+    settings.setUseLibArchiveBackend(true);
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+
+    // Plain tar: writable, but served read-only by libarchive until reopened.
+    // 未压缩 tar：可写，但在重开前由 libarchive 以只读方式提供服务。
+    const QString sourceRoot = temp.filePath(QStringLiteral("src"));
+    const QString memberPath = QStringLiteral("src/sub/a.txt");
+    const QString sourceFile = temp.filePath(memberPath);
+    QVERIFY(QDir().mkpath(QFileInfo(sourceFile).absolutePath()));
+    {
+        QFile file(sourceFile);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("original") == 8);
+    }
+    const QString archive = temp.filePath(QStringLiteral("edit.tar"));
+    {
+        TarBackend backend(ArchiveFormat::Tar);
+        CompressOptions options;
+        options.archivePath = archive;
+        options.sourceFiles = {sourceRoot};
+        bool finished = false;
+        bool success = false;
+        connect(&backend, &ArchiveBackend::operationFinished, &backend,
+                [&finished, &success](bool ok, const QString &) {
+                    finished = true;
+                    success = ok;
+                });
+        backend.compress(options);
+        QVERIFY(finished);
+        QVERIFY(success);
+    }
+
+    ArchiveManager &manager = ArchiveManager::instance();
+    QSignalSpy openedSpy(&manager, &ArchiveManager::archiveOpened);
+    manager.openArchive(archive);
+    QTRY_COMPARE_WITH_TIMEOUT(openedSpy.count(), 1, 10000);
+    QVERIFY(qobject_cast<LibArchiveBackend *>(manager.backend()) != nullptr);
+    QVERIFY(manager.canModifyCurrentArchive());
+
+    // Extract the archive to a preview-like root and edit the member there.
+    // 把压缩包解压到类似预览根目录的位置，并在那里编辑成员。
+    const QString previewRoot = temp.filePath(QStringLiteral("preview"));
+    QSignalSpy extractFinished(&manager, &ArchiveManager::operationFinished);
+    ExtractOptions extractOptions;
+    extractOptions.destDir = previewRoot;
+    extractOptions.overwrite = OverwritePolicy::Always;
+    manager.extract(extractOptions);
+    QTRY_COMPARE_WITH_TIMEOUT(extractFinished.count(), 1, 15000);
+    QVERIFY(extractFinished.first().at(0).toBool());
+
+    const QString localPath = previewRoot + QLatin1Char('/') + memberPath;
+    QVERIFY2(QFileInfo::exists(localPath), qPrintable(localPath));
+    {
+        QFile file(localPath);
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QVERIFY(file.write("edited") == 6);
+    }
+
+    QSignalSpy saveFinished(&manager, &ArchiveManager::operationFinished);
+    AddFilesOptions saveOptions;
+    saveOptions.archivePath = archive;
+    saveOptions.sourceFiles = QStringList{memberPath};
+    saveOptions.sourceRoot = previewRoot;
+    saveOptions.nameEncoding = QStringLiteral("UTF-8");
+    manager.addFiles(saveOptions);
+    QTRY_COMPARE_WITH_TIMEOUT(saveFinished.count(), 1, 20000);
+    QVERIFY2(saveFinished.first().at(0).toBool(),
+             "the write-back must succeed after reopening with the CLI backend");
+    QVERIFY(qobject_cast<LibArchiveBackend *>(manager.backend()) == nullptr);
+
+    // The member was replaced, not duplicated. / 成员被替换，而不是重复添加。
+    QSignalSpy listSpy(&manager, &ArchiveManager::fileListReady);
+    manager.listContents();
+    QTRY_COMPARE_WITH_TIMEOUT(listSpy.count(), 1, 10000);
+    int fileCount = 0;
+    for (const ArchiveEntry &entry : manager.entries()) {
+        if (!entry.isDir) {
+            ++fileCount;
+        }
+    }
+    QCOMPARE(fileCount, 1);
+
+    const QString verifyRoot = temp.filePath(QStringLiteral("verify"));
+    QSignalSpy verifyFinished(&manager, &ArchiveManager::operationFinished);
+    ExtractOptions verifyOptions;
+    verifyOptions.destDir = verifyRoot;
+    verifyOptions.overwrite = OverwritePolicy::Always;
+    manager.extract(verifyOptions);
+    QTRY_COMPARE_WITH_TIMEOUT(verifyFinished.count(), 1, 15000);
+    QVERIFY(verifyFinished.first().at(0).toBool());
+
+    QFile replaced(verifyRoot + QLatin1Char('/') + memberPath);
+    QVERIFY(replaced.open(QIODevice::ReadOnly));
+    QCOMPARE(replaced.readAll(), QByteArrayLiteral("edited"));
 
     manager.closeArchive();
     settings.setUseLibArchiveBackend(savedPreference);

@@ -739,10 +739,35 @@ void TarBackend::addFiles(const AddFilesOptions &options)
         return;
     }
 
+    // External-edit write-back runs 7-Zip inside the staged archive root and
+    // reproduces the member's relative path; ordinary adds keep absolute paths.
+    // 外部编辑写回会在暂存的压缩包根目录中运行 7-Zip 并复现成员相对路径；
+    // 普通追加仍使用绝对路径。
+    const bool writeBack = !options.sourceRoot.isEmpty();
     QStringList sourceFiles;
-    sourceFiles.reserve(options.sourceFiles.size());
-    for (const QString &file : options.sourceFiles) {
-        sourceFiles << QFileInfo(file).absoluteFilePath();
+    QString workingDir;
+    QString sourceEncoding = QStringLiteral("UTF-8");
+    if (writeBack) {
+        sourceEncoding = options.nameEncoding.isEmpty()
+            ? QStringLiteral("UTF-8")
+            : options.nameEncoding;
+        workingDir = options.sourceRoot;
+        for (const QString &relative : options.sourceFiles) {
+            const QString normalized = FileUtils::normalizeEntryPath(relative);
+            if (normalized.isEmpty()
+                || normalized.split(QLatin1Char('/'), Qt::SkipEmptyParts)
+                       .contains(QStringLiteral(".."))) {
+                emit errorOccurred(ArchiveErrorCode::PathTraversalBlocked,
+                                   tr("Blocked unsafe path: %1").arg(relative));
+                return;
+            }
+            sourceFiles << relative;
+        }
+    } else {
+        sourceFiles.reserve(options.sourceFiles.size());
+        for (const QString &file : options.sourceFiles) {
+            sourceFiles << QFileInfo(file).absoluteFilePath();
+        }
     }
     if (sourceFiles.isEmpty()) {
         emit errorOccurred(ArchiveErrorCode::Unknown, tr("No source files selected"));
@@ -762,7 +787,7 @@ void TarBackend::addFiles(const AddFilesOptions &options)
 
     SevenZipUtils::ListFile sourceListFile(QStringLiteral("tar-add"));
     if (!SevenZipUtils::appendListFileArgs(
-            sourceListFile, sourceFiles, QStringLiteral("UTF-8"), args)) {
+            sourceListFile, sourceFiles, sourceEncoding, args)) {
         emit errorOccurred(ArchiveErrorCode::Unknown,
                            tr("Could not prepare the source files for adding"));
         return;
@@ -772,7 +797,7 @@ void TarBackend::addFiles(const AddFilesOptions &options)
 
     const ProcessResult result = ProcessRunner::run(
         sevenZip, args, QString(), QProcessEnvironment(),
-        QString(), 300000, &m_cancelRequested);
+        workingDir, 300000, &m_cancelRequested);
 
     if (result.cancelled) {
         emit errorOccurred(ArchiveErrorCode::Cancelled, tr("Operation cancelled"));
@@ -787,7 +812,8 @@ void TarBackend::addFiles(const AddFilesOptions &options)
                            tr("Add files failed: %1").arg(result.stdErr.trimmed()));
         return;
     }
-    emit operationFinished(true, tr("Files added to archive"));
+    emit operationFinished(true, writeBack ? tr("Changes saved to the archive")
+                                           : tr("Files added to archive"));
 }
 
 void TarBackend::deleteFiles(const DeleteFilesOptions &options)

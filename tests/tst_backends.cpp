@@ -11,6 +11,11 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
+
+#include "backends/iso/IsoBackend.h"
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+#include "backends/libarchive/LibArchiveBackend.h"
+#endif
 #include "backends/sevenzip/SevenZipBackend.h"
 #include "backends/rar/RarBackend.h"
 #include "backends/stream/StreamBackend.h"
@@ -18,94 +23,15 @@
 #include "backends/sevenzip/ZipBackend.h"
 #include "backends/sevenzip/SevenZipUtils.h"
 #include "common/ArchiveOptions.h"
+#include "common/FormatRegistry.h"
 #include "utils/EncodingDetector.h"
 #include "utils/MimeTypeHelper.h"
 
+#include "TestArchiveBuilder.h"
+
 namespace {
 
-#ifdef Q_OS_LINUX
-void appendLe16(QByteArray &out, quint16 value)
-{
-    out.append(static_cast<char>(value & 0xff));
-    out.append(static_cast<char>((value >> 8) & 0xff));
-}
-
-void appendLe32(QByteArray &out, quint32 value)
-{
-    out.append(static_cast<char>(value & 0xff));
-    out.append(static_cast<char>((value >> 8) & 0xff));
-    out.append(static_cast<char>((value >> 16) & 0xff));
-    out.append(static_cast<char>((value >> 24) & 0xff));
-}
-
-quint32 crc32(const QByteArray &data)
-{
-    quint32 crc = 0xffffffffu;
-    for (const char ch : data) {
-        crc ^= static_cast<unsigned char>(ch);
-        for (int bit = 0; bit < 8; ++bit) {
-            crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
-        }
-    }
-    return ~crc;
-}
-
-// Minimal stored ZIP with the filename bytes stored verbatim (no UTF-8 flag).
-// Used to exercise legacy GBK member names on Linux.
-QByteArray makeStoredZip(const QByteArray &nameBytes, const QByteArray &data)
-{
-    const quint32 crc = crc32(data);
-    const quint16 nameLength = static_cast<quint16>(nameBytes.size());
-    const quint32 size = static_cast<quint32>(data.size());
-
-    QByteArray local;
-    appendLe32(local, 0x04034b50u);
-    appendLe16(local, 20);
-    appendLe16(local, 0);
-    appendLe16(local, 0);
-    appendLe16(local, 0);
-    appendLe16(local, 0);
-    appendLe32(local, crc);
-    appendLe32(local, size);
-    appendLe32(local, size);
-    appendLe16(local, nameLength);
-    appendLe16(local, 0);
-    local.append(nameBytes);
-    local.append(data);
-
-    QByteArray central;
-    appendLe32(central, 0x02014b50u);
-    appendLe16(central, 20);
-    appendLe16(central, 20);
-    appendLe16(central, 0);
-    appendLe16(central, 0);
-    appendLe16(central, 0);
-    appendLe16(central, 0);
-    appendLe32(central, crc);
-    appendLe32(central, size);
-    appendLe32(central, size);
-    appendLe16(central, nameLength);
-    appendLe16(central, 0);
-    appendLe16(central, 0);
-    appendLe16(central, 0);
-    appendLe16(central, 0);
-    appendLe32(central, 0);
-    appendLe32(central, 0);
-    central.append(nameBytes);
-
-    QByteArray eocd;
-    appendLe32(eocd, 0x06054b50u);
-    appendLe16(eocd, 0);
-    appendLe16(eocd, 0);
-    appendLe16(eocd, 1);
-    appendLe16(eocd, 1);
-    appendLe32(eocd, static_cast<quint32>(central.size()));
-    appendLe32(eocd, static_cast<quint32>(local.size()));
-    appendLe16(eocd, 0);
-
-    return local + central + eocd;
-}
-#endif // Q_OS_LINUX
+using TestArchiveBuilder::makeStoredZip;
 
 } // namespace
 
@@ -138,6 +64,8 @@ private slots:
     void gzipStream();
     void streamCompressRoundTrip();
     void zstdStreams();
+    void isoImage();
+    void isoWriteRejected();
 
 private:
     struct OperationResult {
@@ -1336,6 +1264,140 @@ void TestBackends::zstdStreams()
              qPrintable(tarExtracted.message));
     QCOMPARE(readFile(QDir(tarDest).filePath("zstd-source.txt")),
              QString::fromUtf8(payload));
+}
+
+// Detect, list and extract an ISO9660/Joliet disc image (test_files/test.iso).
+// 识别、列出并解压 ISO9660/Joliet 光盘镜像（test_files/test.iso）。
+void TestBackends::isoImage()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QDir dataDir(QStringLiteral(QARCHIVER_TEST_DATA_DIR));
+    const QString fixture = dataDir.filePath(QStringLiteral("test.iso"));
+    QVERIFY2(QFileInfo::exists(fixture), qPrintable(fixture));
+    const QString isoPath = temp.filePath(QStringLiteral("disc.iso"));
+    QVERIFY(QFile::copy(fixture, isoPath));
+
+    QCOMPARE(MimeTypeHelper::detect(isoPath), ArchiveFormat::Iso);
+    QCOMPARE(FormatRegistry::formatFromSuffix(isoPath), ArchiveFormat::Iso);
+    QCOMPARE(FormatRegistry::formatFromName(QStringLiteral("iso")),
+             ArchiveFormat::Iso);
+    QCOMPARE(defaultExtension(ArchiveFormat::Iso),
+             QStringLiteral(".iso"));
+    QVERIFY(FormatRegistry::isArchivePath(isoPath));
+    QVERIFY(!FormatRegistry::isSplitVolume(isoPath));
+
+    // The magic bytes drive detection, not the file name.
+    // 格式识别依赖魔数而不是文件名。
+    const QString renamed = temp.filePath(QStringLiteral("disc.bin"));
+    QVERIFY(QFile::rename(isoPath, renamed));
+    QCOMPARE(MimeTypeHelper::detect(renamed), ArchiveFormat::Iso);
+
+    IsoBackend reader;
+    reader.openArchive(renamed);
+    bool listed = false;
+    const QList<ArchiveEntry> entries = list(reader, &listed);
+    QVERIFY2(listed, "iso list failed");
+    QCOMPARE(entries.size(), 3);
+    QCOMPARE(entries.at(0).path, QStringLiteral("hello.txt"));
+    QCOMPARE(entries.at(1).path, QStringLiteral("sub"));
+    QVERIFY(entries.at(1).isDir);
+    QCOMPARE(entries.at(2).path, QStringLiteral("sub/nested.txt"));
+
+    const QString dest = temp.filePath(QStringLiteral("iso-out"));
+    ExtractOptions extractOptions;
+    extractOptions.destDir = dest;
+    extractOptions.overwrite = OverwritePolicy::Always;
+    const OperationResult extracted = extract(reader, extractOptions);
+    QVERIFY2(extracted.finished && extracted.success,
+             qPrintable(extracted.message));
+    QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("hello.txt"))),
+             QStringLiteral("hello iso\n"));
+    QCOMPARE(readFile(QDir(dest).filePath(QStringLiteral("sub/nested.txt"))),
+             QStringLiteral("nested\n"));
+    reader.closeArchive();
+
+#ifdef QARCHIVER_HAS_LIBARCHIVE
+    // The default read path uses the in-process backend; UDF images that it
+    // cannot open are retried on the CLI backend by ArchiveManager.
+    // 默认读取路径使用进程内后端；它无法打开的 UDF 镜像会由 ArchiveManager
+    // 改用命令行后端重试。
+    LibArchiveBackend inProcess(ArchiveFormat::Iso);
+    inProcess.openArchive(renamed);
+    bool inProcessListed = false;
+    const QList<ArchiveEntry> inProcessEntries = list(inProcess, &inProcessListed);
+    QVERIFY2(inProcessListed, "libarchive iso list failed");
+    QCOMPARE(inProcessEntries.size(), 3);
+    // libarchive returns the members in image order and marks directories with
+    // a trailing slash, so compare as a set.
+    // libarchive 按镜像中的顺序返回成员，目录路径带尾斜杠，因此按集合比较。
+    QStringList inProcessPaths;
+    for (const ArchiveEntry &entry : inProcessEntries) {
+        inProcessPaths << entry.path;
+    }
+    QVERIFY2(inProcessPaths.contains(QStringLiteral("hello.txt")),
+             qPrintable(inProcessPaths.join(QLatin1Char(','))));
+    QVERIFY2(inProcessPaths.contains(QStringLiteral("sub/")),
+             qPrintable(inProcessPaths.join(QLatin1Char(','))));
+    QVERIFY2(inProcessPaths.contains(QStringLiteral("sub/nested.txt")),
+             qPrintable(inProcessPaths.join(QLatin1Char(','))));
+
+    const QString inProcessDest = temp.filePath(QStringLiteral("iso-out-lib"));
+    ExtractOptions inProcessOptions;
+    inProcessOptions.destDir = inProcessDest;
+    inProcessOptions.overwrite = OverwritePolicy::Always;
+    const OperationResult inProcessExtracted =
+        extract(inProcess, inProcessOptions);
+    QVERIFY2(inProcessExtracted.finished && inProcessExtracted.success,
+             qPrintable(inProcessExtracted.message));
+    QCOMPARE(readFile(QDir(inProcessDest).filePath(QStringLiteral("sub/nested.txt"))),
+             QStringLiteral("nested\n"));
+    inProcess.closeArchive();
+#endif
+}
+
+// Disc images are read-only: every write path is rejected.
+// 光盘镜像只读：所有写入路径都被拒绝。
+void TestBackends::isoWriteRejected()
+{
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QDir dataDir(QStringLiteral(QARCHIVER_TEST_DATA_DIR));
+    const QString fixture = dataDir.filePath(QStringLiteral("test.iso"));
+    QVERIFY2(QFileInfo::exists(fixture), qPrintable(fixture));
+    const QString isoPath = temp.filePath(QStringLiteral("disc.iso"));
+    QVERIFY(QFile::copy(fixture, isoPath));
+
+    IsoBackend backend;
+    backend.openArchive(isoPath);
+    QVERIFY(backend.isReadOnly());
+    QVERIFY(!backend.supportsAppend());
+    QVERIFY(!backend.supportsVolume());
+    QVERIFY(!backend.supportsEncryption());
+    QCOMPARE(backend.format(), ArchiveFormat::Iso);
+
+    AddFilesOptions addOptions;
+    addOptions.archivePath = isoPath;
+    addOptions.sourceFiles = {isoPath};
+    const OperationResult added = addFiles(backend, addOptions);
+    QVERIFY(added.finished);
+    QVERIFY(!added.success);
+
+    DeleteFilesOptions deleteOptions;
+    deleteOptions.archivePath = isoPath;
+    deleteOptions.targetEntries = {QStringLiteral("hello.txt")};
+    const OperationResult deleted = removeEntries(backend, deleteOptions);
+    QVERIFY(deleted.finished);
+    QVERIFY(!deleted.success);
+
+    CompressOptions compressOptions;
+    compressOptions.archivePath = temp.filePath(QStringLiteral("new.iso"));
+    compressOptions.sourceFiles = {isoPath};
+    const OperationResult created = compress(backend, compressOptions);
+    QVERIFY(created.finished);
+    QVERIFY(!created.success);
+    QVERIFY(!QFileInfo::exists(compressOptions.archivePath));
+    backend.closeArchive();
 }
 
 // Read a pure gzip stream as a single entry.

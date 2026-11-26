@@ -485,6 +485,9 @@ operationFinished(success, msg)
    - xz：`FD 37 7A 58 5A 00`
    - zstd：`28 B5 2F FD`
    - tar：偏移 257 处的 `ustar`
+   - iso：偏移 0x8001（第 16 扇区）的 `CD001`（ISO9660 主卷描述符）或
+     `BEA01`（UDF 卷识别序列）。该偏移远超其它格式的 512 字节采样窗口，
+     因此仅在前两级都未命中时做一次定长探测，普通压缩包不为此付出开销。
 
 2. **流格式进一步探测**
    - gzip/bzip2/xz/zstd 可能是 tar 压缩流，也可能是纯压缩流。
@@ -637,6 +640,8 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 | tar / tar.gz / tar.bz2 / tar.xz | ✓ | 替代 `TarBackend`（7-Zip 子进程） |
 | tar.zst / zst | — | 固定走内置 7-Zip（`TarBackend` / `StreamBackend`，只读） |
 | gz / bz2 / xz 纯流 | ✓ | 用 raw 格式读，条目名由文件名推断 |
+| iso（ISO9660 + Rock Ridge / Joliet） | ✓ | 光盘镜像读取见 7.6 |
+| iso（UDF） | ✗ | libarchive 没有 UDF 支持，打开失败后自动回退内置 7-Zip |
 | zip 分卷 / 7z 分卷 | ✗ | 直接由 `FormatRegistry::isSplitVolume()` 分流到命令行 |
 | rar | — | 回退命令行（`RarBackend`，读取用内置 7-Zip；创建用系统 `rar`） |
 
@@ -658,7 +663,16 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 - 拖拽预解压（`DragOutManager`）走同一个读路径工厂 `ArchiveManager::createReadBackend()`，并在私有 backend 内对 `UnsupportedFormat`/`EncodingError`/`CorruptedArchive` 自行做一次命令行回退；解压前先 `listContents()` 以填充进度总量。
 - 写操作不使用 libarchive：追加/删除遇到只读后端时，按 8.4 的写回退流程用 CLI 后端重开；分卷、RAR、压缩 tar 流仍不支持追加/删除。
 
-### 7.6 能力矩阵
+### 7.6 光盘镜像（iso）
+
+`IsoBackend`（`src/backends/iso/`）是 `SevenZipBackend` 的只读特化：`l -slt` / `x` / `t` 与 7z/zip 完全共用（7-Zip 自动识别 `Iso`/`Udf`），`compress()` / `addFiles()` / `deleteFiles()` 直接返回 `OperationNotSupported`。
+
+- 读取路径遵循 7.5 的分派规则：libarchive 可用时由进程内后端的 iso9660 读取器处理（支持 Rock Ridge 与 Joliet）；UDF 镜像在 libarchive 中打开失败，由 `tryLibArchiveFallback()` 自动改用内置 7-Zip 重试，无需额外代码。
+- 格式识别见第 6 节：ISO9660 的 `CD001` 与 UDF 的 `BEA01` 位于第 16 个扇区（偏移 0x8001），超出常规 512 字节魔数窗口，因此 `MimeTypeHelper` 在前两级都未命中时做一次定长探测；改错后缀的镜像同样能识别。
+- 只读语义由后端能力查询体现：`isReadOnly()` / `supportsAppend()` / `supportsVolume()` 均为否，`ArchiveManager::canModifyCurrentArchive()` 因此返回 false，界面的“添加/删除”自动禁用，`canReopenForWrite()` 也不会把 ISO 重开到 CLI 后端。
+- 7-Zip 没有 ISO9660/UDF 写入器，格式不出现在压缩对话框；`FileTypeHelper` 在通用压缩包判定之前返回 `Kind::Iso`，保持磁盘映像专用图标。
+
+### 7.7 能力矩阵
 
 | 格式 | 读 | 写/压缩 | 追加/删除 | 加密 | 分卷 |
 |---|---|---|---|---|---|
@@ -670,6 +684,7 @@ Rar4/Rar5，列表/解压/测试复用 7z 后端。
 | rar | ✓ | ✓（系统有 `rar` 时） | ✗ | ✓ | ✓ |
 | gz / bz2 / xz | ✓ | ✗ | ✗ | ✗ | ✗ |
 | zst | ✓ | ✗ | ✗ | ✗ | ✗ |
+| iso（ISO9660 / UDF） | ✓ | ✗ | ✗ | ✗ | ✗ |
 
 ## 8. 关键流程
 
@@ -736,6 +751,9 @@ UI 选择文件
 - 当前是只读 libarchive 后端且格式支持写回退时，`ArchiveManager` 通过
   `ArchiveBackendFactory::create()` 重新打开同一归档（`m_forceCliForOpen`），在
   `archiveOpened` 后直接派发原写操作；成功后 UI 重新 `listContents`。
+  这个重开属于内部实现细节：它**不发出** `archiveOpening`，也不发出
+  `archiveOpened`（写操作通过 `operationFinished` 汇报），否则界面会停在
+  “正在打开 …”这类只由 `archiveOpened` 收尾的状态上。
 - 操作前对目标条目做路径安全检查。
 - 成功后 UI 重新 `listContents`，保留当前目录（列表模式）。
 
@@ -831,6 +849,31 @@ GUI 不会被阻塞；进度对话框保持到操作真正结束。
 - 完成后从输出中提取 `Tot:`、`MB/s`、`Freq:` 行作为摘要；
 - Windows 上通过 `qarchiverHideConsoleWindow()` 隐藏控制台窗口；
 - 测试不读取或修改任何压缩包。
+
+### 8.10 外部编辑与写回
+
+双击条目使用系统默认程序打开后，用户在外部的修改可以存回压缩包：
+
+```text
+双击条目 → PreviewManager 解压到 <Cache>/preview/<pid>/<hash>/<内部路径>
+        → openExtractedPath() 成功
+        → ExternalEditManager::track(localPath, 缓存根, 条目路径, 归档路径, 密码, 名称编码)
+外部程序保存 → 轮询发现 size/mtime 变化
+        → 稳定延迟（默认 1.5 s，两轮一致）后询问“保存到压缩包 / 不保存”
+        → 保存：AddFilesOptions{sourceRoot=缓存根, sourceFiles={条目路径}, nameEncoding}
+                → ArchiveManager::addFiles()（7z a 就地替换同名成员）
+                → 写回成功后重新列出内容并刷新基线
+```
+
+关键点：
+
+- 预览缓存目录本身**镜像压缩包目录结构**，被打开文件相对缓存根目录的路径就是压缩包内成员路径，因此写回不需要重新解压整包。
+- 使用轮询（默认 1.5 s）而不是 `QFileSystemWatcher`：编辑器通常以“临时文件 + 重命名”方式原子保存，会替换 inode 并静默失效旧文件的监视器。连续两轮观察到相同的 size/mtime 且已过稳定延迟才认为写入结束，避免把分块写入当成保存完成。
+- 误报抑制：记录跟踪时的内容哈希（不超过 16 MiB 的文件），若编辑器只是重写相同内容则静默刷新基线、不弹窗。
+- 旧代码页成员名（GBK/Big5/Shift-JIS）：`FileUtils::stageFileForArchiving()` 把编辑后的文件以**原始字节名称**复制到临时暂存目录，`AddFilesOptions::nameEncoding` 让 7-Zip 用同一代码页的列表文件查找该文件，从而替换原成员而不是追加一个 UTF-8 名称的副本。暂存目录用 `FileUtils::removeDirectoryRecursivelyRaw()` 清理（Qt 无法删除无法解码的文件名）。
+- 只读场景不跟踪：`PreviewManager` 仅在归档已打开且 `canModifyCurrentArchive()` 为真时登记；iso/rar/分卷/压缩 tar 流/纯流因此不会弹出保存提示（`preview/externalEditWatch` 可整体关闭）。
+- 写回经 `ArchiveManager` 的普通 add 通道，因此密码重试（`retryWithPassword`）、libarchive → CLI 重开、`UiOp::Add` 完成后的重新列目录都自动复用。归档在写回前被关闭时，主窗口会先重新打开它，再在 `fileListReady` 之后延后一拍派发写回（避免在管理器仍在清理上一次操作时重入）。
+- 失败（只读文件系统、磁盘满、密码错误、归档重开失败）会提示错误并刷新基线，避免每 1.5 s 反复询问；用户可再次编辑重试。
 
 ## 9. 安全与可靠性
 
@@ -1136,6 +1179,7 @@ Name, Size, Packed, Modified, Encrypted
 | `extract/openDestAfterFinish` | 解压后打开目标目录 |
 | `preview/maxSize` | 单文件预览大小上限（字节，默认 50 MiB） |
 | `preview/continuousImageDialogThreshold` | 连续看图准备对话框阈值，默认 200，范围 0–9999，0 表示任意批次 |
+| `preview/externalEditWatch` | 是否监视外部编辑并在写回压缩包前询问，默认 `true`（见 8.10） |
 | `backends/useLibArchive` | 是否用 libarchive 读取压缩包（默认 `true`；构建无 libarchive 时忽略） |
 | `security/rememberPasswords` | 是否在会话内记住密码 |
 | `history/recentFiles` | 最近文件列表 |
@@ -1321,7 +1365,9 @@ Windows 扩展点：
 
 新增选项时：
 
-1. 修改对应 Options 结构。
+1. 修改对应 Options 结构（`AddFilesOptions::sourceRoot` / `nameEncoding` 是
+   “外部编辑写回”专用的相对路径模式，见 8.10；为其他用途扩展 Options 时
+   注意不要破坏这两个字段的语义）。
 2. 在对话框读取/保存。
 3. 在相关后端映射为命令行参数。
 4. 更新偏好设置和翻译。
