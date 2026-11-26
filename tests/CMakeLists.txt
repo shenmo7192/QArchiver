@@ -196,8 +196,8 @@ if(QARCHIVER_BUNDLE_7ZIP)
     set(_qarchiver_test_7z_env "QARCHIVER_7Z_PATH=${QARCHIVER_7ZIP_EXE}")
     foreach(_qarchiver_test IN ITEMS
             tst_utils tst_toolchain tst_background tst_backends tst_preview
-            tst_manager tst_libarchive tst_dragout tst_preferences
-            tst_titlebar tst_folderpane)
+            tst_manager tst_libarchive tst_dragout tst_externaledit
+            tst_preferences tst_titlebar tst_folderpane)
         if(TEST ${_qarchiver_test})
             set_tests_properties(${_qarchiver_test} PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;${_qarchiver_test_7z_env}")
